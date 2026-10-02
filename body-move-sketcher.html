@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Body Move Sketcher</title>
+<style>
+:root{--ink:#2d2a26;--paper:#f6f1e4;--paper2:#ece3cc;--accent:#c4462f;--yel:#e8b923}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;margin:0;overflow:hidden;background:var(--paper);color:var(--ink);font-family:-apple-system,system-ui,sans-serif}
+#app{height:100%;display:flex;flex-direction:column}
+#top{flex:0 0 auto;padding:8px 16px 6px}
+#view{position:relative;height:42vh;border:2px solid var(--ink);border-radius:12px;overflow:hidden;background:#fbf8ef;touch-action:none}
+#cv{width:100%;height:100%;display:block}
+#hint{position:absolute;left:8px;bottom:6px;font-size:12px;opacity:.55;pointer-events:none}
+#bot{flex:1 1 auto;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;padding:0 16px 40px}
+.row{display:flex;gap:8px;align-items:center;margin:8px 0}
+button{font:inherit;font-size:16px;min-height:44px;min-width:44px;padding:0 12px;border:2px solid var(--ink);border-radius:10px;background:var(--paper2);color:var(--ink)}
+button.on{background:var(--ink);color:var(--paper)}
+button.warn{border-color:var(--accent);color:var(--accent)}
+#tl{width:100%;height:56px;display:block;touch-action:none}
+.sl{display:grid;grid-template-columns:1fr 64px;align-items:center;column-gap:8px}
+.sl label{grid-column:1/3;font-size:15px;margin-top:6px}
+.sl label b{font-weight:600}
+input[type=range]{width:100%;height:44px;margin:0;accent-color:var(--accent);touch-action:pan-y}
+input[type=number]{font-size:16px;width:64px;height:40px;border:2px solid var(--ink);border-radius:8px;background:#fff;color:var(--ink);text-align:center;padding:0}
+fieldset{border:2px solid var(--ink);border-radius:12px;margin:10px 0;padding:6px 12px 10px;background:#fffdf6}
+legend{font-weight:700;padding:0 6px}
+textarea{width:100%;font-size:16px;font-family:Menlo,monospace;height:130px;border:2px solid var(--ink);border-radius:10px;padding:8px}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:6px}.grid3 button{font-size:14px;padding:0 4px}.grid3 button.on{background:var(--ink);color:var(--paper)}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.sub{font-size:13px;opacity:.7;margin:4px 0}
+#msg{min-height:20px;font-size:14px;color:var(--accent)}
+.val{font-variant-numeric:tabular-nums;font-size:14px;text-align:right}
+</style>
+</head>
+<body>
+<div id="app">
+<div id="top">
+ <div id="view"><canvas id="cv"></canvas><div id="hint">1 finger: orbit - 2 fingers: pan &amp; zoom - double-tap: reset view</div></div>
+ <div class="row"><button id="play">Play</button><button id="prev" aria-label="Previous key">&#9664;&#9664;</button><button id="next" aria-label="Next key">&#9654;&#9654;</button><span class="val" id="tV" style="flex:1">0.00 s</span></div>
+ <canvas id="tl"></canvas>
+</div>
+<div id="bot">
+ <div class="row"><button id="addKey">Add key here</button><button id="delKey" class="warn">Delete key</button><button id="ghost">Ghosts</button></div>
+ <p class="sub" id="keyInfo"></p>
+ <fieldset><legend>Start from an example</legend>
+  <div class="grid2"><button data-p="six2front">All six &rarr; front end</button><button data-p="six2back">All six &rarr; back end</button><button data-p="walkover">Walkover (twos &rarr; six &rarr; other end)</button><button data-p="stand">Standing still</button></div>
+  <p class="sub">On all six, his body lies flat with End B (red) at the front. "Front end" rises forward over the red end so he finishes standing on it, upside down from before.</p>
+ </fieldset>
+ <fieldset><legend>Body at this moment</legend>
+  <div id="chan"></div>
+  <p class="sub">Moving a slider when you're not on a key adds one automatically.</p>
+ </fieldset>
+ <fieldset><legend>Legs</legend>
+  <div class="grid3" id="legPick"></div>
+  <div id="legChan"></div>
+  <p class="sub">Leg angles are keyed like the body. Opacity below is just for viewing (not saved in keys).</p>
+  <div class="sl"><label>This leg: opacity</label><input type="range" id="opLeg" min="0" max="1" step="0.05" value="1"><span class="val" id="opLegV">1</span></div>
+  <div class="sl"><label>Thigh opacity</label><input type="range" id="op0" min="0" max="1" step="0.05" value="1"><span class="val" id="op0V">1</span></div>
+  <div class="sl"><label>Shin opacity</label><input type="range" id="op1" min="0" max="1" step="0.05" value="1"><span class="val" id="op1V">1</span></div>
+  <div class="sl"><label>Foot opacity</label><input type="range" id="op2" min="0" max="1" step="0.05" value="1"><span class="val" id="op2V">1</span></div>
+  <div class="row"><button id="opAll">All legs visible</button><button id="opOnly">Only this leg</button></div>
+ </fieldset>
+ <fieldset><legend>Clip</legend>
+  <div class="sl"><label>Length (seconds)</label><input type="range" id="dur" min="0.3" max="6" step="0.05" value="1.5"><input type="number" id="durN" step="0.05" value="1.5"></div>
+  <div class="row"><span>Easing between keys:</span><button id="eSmooth" class="on">Smooth</button><button id="eLin">Linear</button></div>
+  <div class="row"><button id="loop" class="on">Loop</button><button id="trail" class="on">Path trail</button></div>
+ </fieldset>
+ <fieldset><legend>Body shape</legend>
+  <div class="sl"><label>Length</label><input type="range" id="bl" min="16" max="160" step="1" value="100"><input type="number" id="blN" value="100"></div>
+  <div class="sl"><label>Thickness</label><input type="range" id="br" min="6" max="30" step="0.5" value="13"><input type="number" id="brN" value="13"></div>
+  <p class="sub">End A (dark) is the bottom when standing; End B (red) is the top. The small yellow arrow on the side marks his front.</p>
+ </fieldset>
+ <fieldset><legend>Send it to Claude</legend>
+  <textarea id="json" spellcheck="false"></textarea>
+  <div class="row"><button id="copy">Copy</button><button id="apply">Apply pasted text</button><button id="reset" class="warn">Start over</button></div>
+  <p id="msg"></p>
+ </fieldset>
+</div>
+</div>
+<script>
+const $=id=>document.getElementById(id),R=Math.PI/180;
+// keyframes: t (s), x,y,z (units; y up, z = his forward), pitch/yaw/roll (deg). Body origin = middle of the body.
+const CH=[["y","Height of body centre",-60,260,1],["z","Forward / back",-300,300,1],["x","Left / right",-300,300,1],
+ ["pitch","Pitch: tip forward (+) / back (-)",-540,540,1],["yaw","Yaw: turn left (+) / right (-)",-540,540,1],["roll","Roll: cartwheel sideways",-540,540,1]];
+const START=()=>JSON.parse(JSON.stringify(PRESETS.six2front));
+const PRESETS={
+ // body lying flat on six legs (pitch 90 = End B forward), then rising forward over End B until it is underneath
+ six2front:{dur:1.2,len:100,rad:13,ease:"smooth",keys:[{t:0,x:0,y:74,z:0,pitch:90,yaw:0,roll:0},{t:0.45,x:0,y:84,z:28,pitch:128,yaw:0,roll:0},{t:0.85,x:0,y:112,z:46,pitch:168,yaw:0,roll:0},{t:1.2,x:0,y:122,z:50,pitch:180,yaw:0,roll:0}]},
+ six2back:{dur:1,len:100,rad:13,ease:"smooth",keys:[{t:0,x:0,y:74,z:0,pitch:90,yaw:0,roll:0},{t:0.5,x:0,y:100,z:-18,pitch:35,yaw:0,roll:0},{t:1,x:0,y:122,z:-30,pitch:0,yaw:0,roll:0}]},
+ // standing on End A -> forward down onto all six -> rise over the front (End B) -> standing on End B
+ walkover:{dur:2.4,len:100,rad:13,ease:"smooth",keys:[{t:0,x:0,y:122,z:0,pitch:0,yaw:0,roll:0},{t:0.7,x:0,y:74,z:45,pitch:90,yaw:0,roll:0},{t:1.2,x:0,y:74,z:90,pitch:90,yaw:0,roll:0},{t:1.8,x:0,y:100,z:125,pitch:150,yaw:0,roll:0},{t:2.4,x:0,y:122,z:140,pitch:180,yaw:0,roll:0}]},
+ stand:{dur:1.5,len:100,rad:13,ease:"smooth",keys:[{t:0,x:0,y:122,z:0,pitch:0,yaw:0,roll:0}]}};
+let S=START(),T=0,playing=false,loop=true,ghosts=false,trail=true,sel=-1;
+let yaw=0.8,pitch=0.35,zoom=1,panX=0,panY=0;
+
+// ---------- maths ----------
+const rx=(v,a)=>{const c=Math.cos(a),s=Math.sin(a);return[v[0],v[1]*c-v[2]*s,v[1]*s+v[2]*c]};
+const ry=(v,a)=>{const c=Math.cos(a),s=Math.sin(a);return[v[0]*c+v[2]*s,v[1],-v[0]*s+v[2]*c]};
+const rz=(v,a)=>{const c=Math.cos(a),s=Math.sin(a);return[v[0]*c-v[1]*s,v[0]*s+v[1]*c,v[2]]};
+const add=(a,b)=>[a[0]+b[0],a[1]+b[1],a[2]+b[2]];
+const sm=u=>u*u*(3-2*u);
+// six legs, three per end, laid out like the walk editor's robot. Each leg has 4 keyable angles.
+const LEGS=[
+ {n:"A middle",end:-1,v:[0,0,-8],rot:180,col:"#2d2a26"},{n:"A left",end:-1,v:[10,0,3],rot:0,col:"#2d2a26"},{n:"A right",end:-1,v:[-10,0,3],rot:0,col:"#2d2a26"},
+ {n:"B middle",end:1,v:[0,0,-8],rot:0,col:"#c4462f"},{n:"B left",end:1,v:[10,0,3],rot:180,col:"#c4462f"},{n:"B right",end:1,v:[-10,0,3],rot:180,col:"#c4462f"}];
+const LCH=[["sw","Hip swing (forward +)",-180,180,1,20],["sp","Splay outward",-60,90,1,10],["kn","Knee bend",-30,170,1,55],["hk","Hock bend",-30,170,1,45]];
+const LDEF={};LEGS.forEach((L,i)=>LCH.forEach(([k,,,,,d])=>LDEF["l"+i+k]=d));
+// give the example clips real leg poses: standing legs point out of their ends; on all six (body flat,
+// pitch 90) every leg swings round to hang down under the body. In-between keys blend by how flat the body is.
+const SIXSW=[-70,70,70,70,-70,-70];
+function legsFor(pitch){const w=Math.max(0,1-Math.abs(((pitch%360)+360)%360-90)/90),o={};
+ LEGS.forEach((L,i)=>{o["l"+i+"sw"]=Math.round(20+(SIXSW[i]-20)*w);o["l"+i+"kn"]=Math.round(55+20*w);o["l"+i+"hk"]=Math.round(45+10*w);o["l"+i+"sp"]=10});return o}
+for(const k in PRESETS)PRESETS[k].keys=PRESETS[k].keys.map(K=>({...legsFor(K.pitch),...K}));
+S=START();
+const ALLK=()=>[...CH.map(c=>c[0]),...Object.keys(LDEF)];
+const val=(o,k)=>o[k]!==undefined?o[k]:LDEF[k];
+const OPAC=LEGS.map(()=>({leg:1,seg:[1,1,1]}));let legSel=0;
+function sample(t){const K=S.keys;if(!K.length)return{x:0,y:0,z:0,pitch:0,yaw:0,roll:0,...LDEF};
+ if(t<=K[0].t)return{...LDEF,...K[0]};if(t>=K[K.length-1].t)return{...LDEF,...K[K.length-1]};
+ let i=0;while(K[i+1].t<t)i++;const a=K[i],b=K[i+1],u0=(t-a.t)/(b.t-a.t||1),u=S.ease==="smooth"?sm(u0):u0,o={t};
+ for(const k of ALLK()){const x=val(a,k),y=val(b,k);o[k]=x+(y-x)*u}return o}
+// body pose -> world point (local: y along the body from end A (-) to end B (+), z = his front)
+function xform(p,v){let q=rz(v,p.roll*R);q=rx(q,p.pitch*R);q=ry(q,p.yaw*R);return add(q,[p.x,p.y,p.z])}
+
+// ---------- view ----------
+const cv=$("cv"),ctx=cv.getContext("2d");let W,H,DPR;
+function resize(){DPR=devicePixelRatio||1;W=cv.clientWidth;H=cv.clientHeight;cv.width=W*DPR;cv.height=H*DPR;
+ const tl=$("tl");tl.width=tl.clientWidth*DPR;tl.height=tl.clientHeight*DPR}
+addEventListener("resize",resize);
+function proj(v){let q=rx(ry([v[0],v[1]-110,v[2]],yaw),pitch);const s=zoom*Math.min(W,H*1.2)/420*(900/(900-q[2]));
+ return{x:W/2+panX+q[0]*s,y:H*0.55+panY-q[1]*s,z:q[2]}}
+function faces(p,alpha){const h=S.len/2,r=S.rad,F=[];
+ const c=[[-r,-h,-r],[r,-h,-r],[r,-h,r],[-r,-h,r],[-r,h,-r],[r,h,-r],[r,h,r],[-r,h,r]].map(v=>xform(p,v));
+ const quad=(i,col,n)=>F.push({pts:i.map(k=>c[k]),col,n:sub(xform(p,n),xform(p,[0,0,0])),alpha});
+ quad([0,1,2,3],"#2d2a26",[0,-1,0]);     // end A
+ quad([4,7,6,5],"#c4462f",[0,1,0]);      // end B
+ quad([3,2,6,7],"#e8b923",[0,0,1]);      // front
+ quad([1,0,4,5],"#c99b12",[0,0,-1]);
+ quad([2,1,5,6],"#d9a514",[1,0,0]);quad([0,3,7,4],"#d9a514",[-1,0,0]);
+ return F}
+const sub=(a,b)=>[a[0]-b[0],a[1]-b[1],a[2]-b[2]];
+function shade(hex,f){const n=parseInt(hex.slice(1),16),r=n>>16,g=n>>8&255,b=n&255;return`rgb(${Math.min(255,r*f)|0},${Math.min(255,g*f)|0},${Math.min(255,b*f)|0})`}
+// rotate v about unit axis k by angle a (Rodrigues)
+function rotAx(v,k,a){const c=Math.cos(a),s2=Math.sin(a),d=v[0]*k[0]+v[1]*k[1]+v[2]*k[2],cr=[k[1]*v[2]-k[2]*v[1],k[2]*v[0]-k[0]*v[2],k[0]*v[1]-k[1]*v[0]];
+ return[v[0]*c+cr[0]*s2+k[0]*d*(1-c),v[1]*c+cr[1]*s2+k[1]*d*(1-c),v[2]*c+cr[2]*s2+k[2]*d*(1-c)]}
+// leg joints in the body's own frame: dog-style chain in the leg's plane, pointing away from its end
+function legPts(p,i){const L=LEGS[i],h=S.len/2,e=L.end,hip=[L.v[0],e*h,L.v[2]];
+ const sw=val(p,"l"+i+"sw")*R,kn=val(p,"l"+i+"kn")*R,hk=val(p,"l"+i+"hk")*R,sp=val(p,"l"+i+"sp")*R;
+ const fz=L.rot?-1:1,dir=a=>[0,e*Math.cos(a),fz*Math.sin(a)];   // a=0 points straight out of its end, + swings toward the leg's front
+ const tA=sw,sA=tA-kn,mA=sA+hk;
+ let k=mul(dir(tA),30),hq=add(k,mul(dir(sA),30)),f=add(hq,mul(dir(mA),22)),t=add(f,[0,0,9*fz]);
+ // splay: swing the whole leg outward from the body
+ const o=Math.hypot(L.v[0],L.v[2])>0.1?[L.v[0],0,L.v[2]]:[0,0,-1],ol=Math.hypot(...o),out=[o[0]/ol,0,o[2]/ol];
+ const ax=norm([-e*out[2],0,e*out[0]]);   // axis chosen so + splay moves the paw outward
+ [k,hq,f,t]=[k,hq,f,t].map(v=>rotAx(v,ax,sp));
+ return[hip,...[k,hq,f,t].map(v=>add(hip,v))]}
+const mul=(a,s)=>[a[0]*s,a[1]*s,a[2]*s];
+const norm=v=>{const l=Math.hypot(...v)||1;return[v[0]/l,v[1]/l,v[2]/l]};
+function drawBody(p,alpha){
+ const LT=[0.35,0.8,0.5],items=[];
+ for(const f of faces(p,alpha)){const a=proj(f.pts[0]),q=proj(add(f.pts[0],f.n));if(q.z-a.z<=0)continue;
+  const c=f.pts.reduce((s,v)=>add(s,v),[0,0,0]).map(x=>x/4);
+  items.push({z:proj(c).z,draw:()=>{ctx.globalAlpha=alpha;ctx.beginPath();f.pts.forEach((v,i)=>{const q=proj(v);i?ctx.lineTo(q.x,q.y):ctx.moveTo(q.x,q.y)});ctx.closePath();
+   const d=Math.max(0,(f.n[0]*LT[0]+f.n[1]*LT[1]+f.n[2]*LT[2]));ctx.fillStyle=shade(f.col,0.65+0.45*d);ctx.fill();ctx.lineWidth=1.5;ctx.strokeStyle="#2d2a26";ctx.stroke()}})}
+ // legs: thigh, shin, foot (+ toe), each with its own opacity
+ const W0=[9,7.5,6.5];
+ LEGS.forEach((L,i)=>{const P=legPts(p,i).map(v=>xform(p,v)),op=OPAC[i];if(op.leg<=0.001)return;
+  for(let sg=0;sg<3;sg++){const a=P[sg],b=P[sg+1],o=op.leg*op.seg[sg];if(o<=0.001)continue;
+   const isFoot=sg===2,pts=isFoot?[a,b,P[4]]:[a,b];
+   items.push({z:proj(mul(add(a,b),0.5)).z,draw:()=>{const pp=pts.map(proj);ctx.globalAlpha=alpha*o;ctx.lineCap="round";ctx.lineJoin="round";
+    ctx.strokeStyle="#2d2a26";ctx.lineWidth=(W0[sg]+3)*zoom*(isFoot?0.9:1);ctx.beginPath();pp.forEach((q,k)=>k?ctx.lineTo(q.x,q.y):ctx.moveTo(q.x,q.y));ctx.stroke();
+    ctx.strokeStyle=isFoot?L.col:(i===legSel&&alpha>0.5?"#f2cf4a":"#d9a514");ctx.lineWidth=W0[sg]*zoom*(isFoot?0.9:1);ctx.stroke();
+    const j=pp[1];ctx.fillStyle="#2d2a26";ctx.beginPath();ctx.arc(j.x,j.y,3.2*zoom,0,7);ctx.fill()}})}});
+ items.sort((a,b)=>a.z-b.z).forEach(it=>it.draw());
+ // front stripe so his facing is obvious
+ ctx.globalAlpha=alpha;const h=S.len/2,r=S.rad;
+ const arrow=[[0,h*0.4,r+0.1],[0,-h*0.4,r+0.1]].map(v=>proj(xform(p,v)));
+ const fr=proj(xform(p,[0,0,r])),fz=proj(xform(p,[0,0,r+1]));
+ if(fz.z>fr.z){ctx.strokeStyle="#7a5a00";ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(arrow[1].x,arrow[1].y);ctx.lineTo(arrow[0].x,arrow[0].y);ctx.stroke()}
+ ctx.globalAlpha=1}
+function draw(){
+ ctx.setTransform(DPR,0,0,DPR,0,0);ctx.clearRect(0,0,W,H);
+ ctx.strokeStyle="rgba(45,42,38,.15)";ctx.lineWidth=1;
+ for(let i=-6;i<=6;i++){for(const [a,b] of [[[i*40,0,-240],[i*40,0,240]],[[-240,0,i*40],[240,0,i*40]]]){const A=proj(a),B=proj(b);ctx.beginPath();ctx.moveTo(A.x,A.y);ctx.lineTo(B.x,B.y);ctx.stroke()}}
+ const o=proj([0,0,0]),zz=proj([0,0,60]);ctx.strokeStyle="rgba(196,70,47,.5)";ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(o.x,o.y);ctx.lineTo(zz.x,zz.y);ctx.stroke();
+ ctx.fillStyle="rgba(196,70,47,.7)";ctx.font="12px system-ui";ctx.fillText("forward",zz.x+4,zz.y);
+ if(trail){ctx.strokeStyle="rgba(45,42,38,.35)";ctx.setLineDash([4,4]);ctx.beginPath();
+  for(let i=0;i<=60;i++){const p=sample(S.dur*i/60),q=proj([p.x,p.y,p.z]);i?ctx.lineTo(q.x,q.y):ctx.moveTo(q.x,q.y)}ctx.stroke();ctx.setLineDash([])}
+ const p=sample(T);
+ const sh=proj([p.x,0,p.z]);ctx.fillStyle="rgba(45,42,38,.15)";ctx.beginPath();ctx.ellipse(sh.x,sh.y,26*zoom,9*zoom,0,0,7);ctx.fill();
+ if(ghosts)S.keys.forEach(k=>{if(Math.abs(k.t-T)>0.01)drawBody(k,0.18)});
+ drawBody(p,1)}
+
+// ---------- timeline ----------
+const tl=$("tl"),tc=tl.getContext("2d");
+function drawTL(){const w=tl.clientWidth,h=tl.clientHeight;tc.setTransform(DPR,0,0,DPR,0,0);tc.clearRect(0,0,w,h);
+ const x=t=>12+(w-24)*t/S.dur;tc.fillStyle="#ece3cc";tc.fillRect(12,h/2-4,w-24,8);
+ tc.fillStyle="#2d2a26";tc.font="11px system-ui";for(let s=0;s<=S.dur+1e-6;s+=0.5){tc.fillRect(x(s),h/2+6,1,6);tc.fillText(s.toFixed(1),x(s)-8,h-2)}
+ S.keys.forEach((k,i)=>{tc.save();tc.translate(x(k.t),h/2);tc.rotate(Math.PI/4);tc.fillStyle=i===sel?"#c4462f":"#2d2a26";tc.fillRect(-7,-7,14,14);tc.restore()});
+ tc.strokeStyle="#c4462f";tc.lineWidth=2;tc.beginPath();tc.moveTo(x(T),2);tc.lineTo(x(T),h-14);tc.stroke()}
+let tlDrag=false;
+const tlTime=e=>{const r=tl.getBoundingClientRect();return Math.max(0,Math.min(S.dur,(e.clientX-r.left-12)/(r.width-24)*S.dur))};
+tl.addEventListener("pointerdown",e=>{tlDrag=true;tl.setPointerCapture(e.pointerId);stop();const t=tlTime(e);
+ const r=tl.getBoundingClientRect(),hit=S.keys.findIndex(k=>Math.abs((k.t/S.dur)*(r.width-24)+12-(e.clientX-r.left))<14);
+ T=hit>=0?S.keys[hit].t:t;refresh()});
+tl.addEventListener("pointermove",e=>{if(tlDrag){T=tlTime(e);refresh()}});
+const tlUp=()=>tlDrag=false;tl.addEventListener("pointerup",tlUp);tl.addEventListener("pointercancel",tlUp);
+
+// ---------- channel sliders ----------
+const chanEls={};
+(function(){const host=$("chan");for(const [k,l,mn,mx,st] of CH){const d=document.createElement("div");d.className="sl";
+ d.innerHTML=`<label>${l}</label><input type="range" min="${mn}" max="${mx}" step="${st}"><input type="number" step="${st}">`;
+ const [r,n]=d.querySelectorAll("input");const set=v=>{setChan(k,+v)};r.oninput=()=>set(r.value);n.onchange=()=>set(n.value);
+ chanEls[k]=[r,n];host.appendChild(d)}})();
+const legEls={};
+function buildLegUI(){const pick=$("legPick");pick.innerHTML="";
+ LEGS.forEach((L,i)=>{const b=document.createElement("button");b.textContent=L.n;b.style.borderBottom="6px solid "+L.col;b.classList.toggle("on",i===legSel);
+  b.onclick=()=>{legSel=i;buildLegUI();refresh()};pick.appendChild(b)});
+ const host=$("legChan");host.innerHTML="";
+ for(const [k0,l,mn,mx,st] of LCH){const k="l"+legSel+k0,d=document.createElement("div");d.className="sl";
+  d.innerHTML=`<label>${LEGS[legSel].n}: ${l}</label><input type="range" min="${mn}" max="${mx}" step="${st}"><input type="number" step="${st}">`;
+  const [r,n]=d.querySelectorAll("input");r.oninput=()=>setChan(k,+r.value);n.onchange=()=>setChan(k,+n.value);legEls[k0]=[r,n,k];host.appendChild(d)}
+ const op=OPAC[legSel];$("opLeg").value=op.leg;$("opLegV").textContent=op.leg;[0,1,2].forEach(s2=>{$("op"+s2).value=op.seg[s2];$("op"+s2+"V").textContent=op.seg[s2]})}
+$("opLeg").oninput=()=>{OPAC[legSel].leg=+$("opLeg").value;$("opLegV").textContent=$("opLeg").value;draw()};
+[0,1,2].forEach(s2=>$("op"+s2).oninput=()=>{OPAC[legSel].seg[s2]=+$("op"+s2).value;$("op"+s2+"V").textContent=$("op"+s2).value;draw()});
+$("opAll").onclick=()=>{OPAC.forEach(o=>{o.leg=1;o.seg=[1,1,1]});buildLegUI();draw()};
+$("opOnly").onclick=()=>{OPAC.forEach((o,i)=>o.leg=i===legSel?1:0.12);buildLegUI();draw()};
+function keyAtT(){return S.keys.findIndex(k=>Math.abs(k.t-T)<0.005)}
+function setChan(k,v){let i=keyAtT();if(i<0){S.keys.push({...sample(T),t:+T.toFixed(3)});S.keys.sort((a,b)=>a.t-b.t);i=keyAtT()}
+ S.keys[i][k]=v;refresh()}
+function refresh(){sel=keyAtT();const p=sample(T);
+ for(const [k] of CH){const [r,n]=chanEls[k];if(document.activeElement!==n)n.value=Math.round(p[k]);r.value=p[k]}
+ for(const k0 in legEls){const [r,n,k]=legEls[k0];if(document.activeElement!==n)n.value=Math.round(p[k]);r.value=p[k]}
+ $("tV").textContent=T.toFixed(2)+" s";
+ $("keyInfo").textContent=sel>=0?`On key ${sel+1} of ${S.keys.length} at ${S.keys[sel].t.toFixed(2)} s.`:`Between keys (${S.keys.length} keys). Move a slider or tap "Add key here".`;
+ $("json").value=JSON.stringify(S);drawTL();draw()}
+
+// ---------- buttons ----------
+let last=0;
+function stop(){playing=false;$("play").textContent="Play";$("play").classList.remove("on")}
+$("play").onclick=()=>{if(playing){stop();return}playing=true;$("play").textContent="Pause";$("play").classList.add("on");if(T>=S.dur-1e-3)T=0;last=performance.now();requestAnimationFrame(tick)};
+function tick(n){if(!playing)return;T+=(n-last)/1000;last=n;if(T>=S.dur){if(loop)T%=S.dur;else{T=S.dur;stop()}}refresh();requestAnimationFrame(tick)}
+$("prev").onclick=()=>{stop();const k=[...S.keys].reverse().find(k=>k.t<T-0.005);T=k?k.t:0;refresh()};
+$("next").onclick=()=>{stop();const k=S.keys.find(k=>k.t>T+0.005);T=k?k.t:S.dur;refresh()};
+$("addKey").onclick=()=>{if(keyAtT()<0){S.keys.push({...sample(T),t:+T.toFixed(3)});S.keys.sort((a,b)=>a.t-b.t)}refresh()};
+let delArm=0;$("delKey").onclick=()=>{const i=keyAtT();if(i<0){say("Move onto a key first (tap its diamond).");return}
+ if(S.keys.length<=1){say("Keep at least one key.");return}
+ if(!delArm){delArm=1;$("delKey").textContent="Tap again to delete";setTimeout(()=>{delArm=0;$("delKey").textContent="Delete key"},2500);return}
+ delArm=0;$("delKey").textContent="Delete key";S.keys.splice(i,1);refresh()};
+$("ghost").onclick=()=>{ghosts=!ghosts;$("ghost").classList.toggle("on",ghosts);draw()};
+$("loop").onclick=()=>{loop=!loop;$("loop").classList.toggle("on",loop)};
+$("trail").onclick=()=>{trail=!trail;$("trail").classList.toggle("on",trail);draw()};
+$("eSmooth").onclick=()=>{S.ease="smooth";$("eSmooth").classList.add("on");$("eLin").classList.remove("on");refresh()};
+$("eLin").onclick=()=>{S.ease="linear";$("eLin").classList.add("on");$("eSmooth").classList.remove("on");refresh()};
+const pair=(a,b,f)=>{$(a).oninput=()=>{$(b).value=$(a).value;f(+$(a).value)};$(b).onchange=()=>{$(a).value=$(b).value;f(+$(b).value)}};
+pair("dur","durN",v=>{const k=v/S.dur;S.keys.forEach(x=>x.t=+(x.t*k).toFixed(3));T*=k;S.dur=v;refresh()});
+pair("bl","blN",v=>{S.len=v;refresh()});pair("br","brN",v=>{S.rad=v;refresh()});
+function say(t){$("msg").textContent=t;clearTimeout(say.t);say.t=setTimeout(()=>$("msg").textContent="",3000)}
+$("copy").onclick=()=>{const t=$("json");t.select();(navigator.clipboard?navigator.clipboard.writeText(t.value):Promise.reject()).then(()=>say("Copied. Paste it to Claude."),()=>{try{document.execCommand("copy");say("Copied.")}catch(e){say("Select the text and copy it.")}})};
+$("apply").onclick=()=>{try{const o=JSON.parse($("json").value);if(!Array.isArray(o.keys))throw 0;S=o;syncShape();T=0;refresh();say("Loaded.")}catch(e){say("That text isn't a saved clip.")}};
+let rsArm=0;$("reset").onclick=()=>{if(!rsArm){rsArm=1;$("reset").textContent="Tap again to start over";setTimeout(()=>{rsArm=0;$("reset").textContent="Start over"},2500);return}
+ rsArm=0;$("reset").textContent="Start over";S=START();syncShape();T=0;refresh()};
+document.querySelectorAll("[data-p]").forEach(b=>b.onclick=()=>{S=JSON.parse(JSON.stringify(PRESETS[b.dataset.p]));syncShape();T=0;refresh();say("Loaded: "+b.textContent)});
+function syncShape(){$("dur").value=$("durN").value=S.dur;$("bl").value=$("blN").value=S.len;$("br").value=$("brN").value=S.rad;
+ $("eSmooth").classList.toggle("on",S.ease!=="linear");$("eLin").classList.toggle("on",S.ease==="linear")}
+
+// ---------- slider: tap/drag anywhere on the track (iOS only drags the thumb) ----------
+(function(){let st=null;const setFrom=(r,x)=>{const b=r.getBoundingClientRect(),pad=14,f=Math.max(0,Math.min(1,(x-b.left-pad)/(b.width-pad*2))),mn=+r.min,mx=+r.max,s=+r.step||1;
+ r.value=Math.round((mn+f*(mx-mn))/s)*s;r.dispatchEvent(new Event("input",{bubbles:true}))};
+ document.addEventListener("pointerdown",e=>{const r=e.target;if(r.tagName==="INPUT"&&r.type==="range")st={r,x:e.clientX,y:e.clientY,a:false}},true);
+ document.addEventListener("pointermove",e=>{if(!st)return;const dx=e.clientX-st.x,dy=e.clientY-st.y;if(!st.a&&Math.abs(dx)>6&&Math.abs(dx)>Math.abs(dy))st.a=true;if(st.a)setFrom(st.r,e.clientX)},true);
+ document.addEventListener("pointerup",e=>{if(!st)return;if(!st.a&&Math.hypot(e.clientX-st.x,e.clientY-st.y)<8)setFrom(st.r,e.clientX);st=null},true);
+ document.addEventListener("pointercancel",()=>st=null,true)})();
+
+// ---------- orbit / pinch / pan (stray third finger ignored) ----------
+const view=$("view"),ptr=new Map();let g=null;
+view.addEventListener("pointerdown",e=>{if(ptr.size>=2)return;view.setPointerCapture(e.pointerId);ptr.set(e.pointerId,{x:e.clientX,y:e.clientY});
+ if(ptr.size===1&&!g)g="orbit";else if(ptr.size===2){const [a,b]=[...ptr.values()];g={d:Math.hypot(a.x-b.x,a.y-b.y),z:zoom,mx:(a.x+b.x)/2,my:(a.y+b.y)/2,px:panX,py:panY}}});
+view.addEventListener("pointermove",e=>{const p=ptr.get(e.pointerId);if(!p)return;
+ if(g==="orbit"){yaw+=(e.clientX-p.x)*0.01;pitch=Math.max(-0.3,Math.min(1.4,pitch+(e.clientY-p.y)*0.008))}
+ p.x=e.clientX;p.y=e.clientY;
+ if(g&&g.d){const [a,b]=[...ptr.values()];zoom=Math.max(.3,Math.min(4,g.z*Math.hypot(a.x-b.x,a.y-b.y)/g.d));panX=g.px+(a.x+b.x)/2-g.mx;panY=g.py+(a.y+b.y)/2-g.my}
+ draw()});
+const up=e=>{if(!ptr.delete(e.pointerId))return;if(!ptr.size)g=null;else if(g&&g.d)g="done"};
+view.addEventListener("pointerup",up);view.addEventListener("pointercancel",up);
+view.addEventListener("dblclick",()=>{yaw=0.8;pitch=0.35;zoom=1;panX=panY=0;draw()});
+
+resize();syncShape();buildLegUI();refresh();
+</script>
+</body>
+</html>
