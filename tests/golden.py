@@ -17,7 +17,7 @@ JS=r"""()=>{const out={};const r=v=>Math.round(v*1000)/1000;
       (ch==="robot"?buildRobot:buildRig)(p,ph);
       out[`${ch}|${ter}|${li}|${m}|${ph}`]=snap()}}}}}
  return out}"""
-mode=sys.argv[1]; url=sys.argv[2] if len(sys.argv)>2 else 'http://localhost:8765/tripod-walk-editor.html'
+mode=sys.argv[1]; url=sys.argv[2] if len(sys.argv)>2 else 'http://localhost:8765/Mixmo.html'
 with sync_playwright() as p:
     b=p.chromium.launch();pg=b.new_page(viewport={'width':390,'height':844})
     errs=[];pg.on('pageerror',lambda e:errs.append(str(e)))

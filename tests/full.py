@@ -30,6 +30,16 @@ JS=r"""async()=>{
   for(const m of modes){const sel=$("modeSel");sel.value=m;sel.onchange();blendU=1;BLENDFROM=null;FLIP=null;
    for(const k of ["L","R","U"]){HEAD=HEAD_T=0;OMEGA=0;TURN={st:null,t:0};TRAVK=1;SKIDLEAN=0;BOOST=0;TURNM=null;
     const want={L:90,R:-90,U:180,S:360}[k],L=`${ch} ${m} turn ${k}`;
+    if(ch==="robot"&&LYING.has(m)&&k==="U"){LYTURN="swap";   // on all six a 180 swaps which end leads instead of spinning round
+     DIR=1;startTurn("U");if(!morphNow()||morphNow().name!=="turn")fails.push(L+": swap-ends turn is not a morph");
+     for(let i=0;i<5;i++)step(1);const d1=DIR;for(let i=0;i<2;i++)step(-1);if(!(DIR>d1))fails.push(L+": stepping back did not undo");
+     for(let i=0;i<200&&TURNM;i++)step(-1);if(TURNM||DIR!==1)fails.push(L+": stepping back past start did not cancel");
+     startTurn("U");for(let i=0;i<900&&TURNM;i++)step(1);
+     if(DIR!==-1||Math.abs(HEAD)>1e-6)fails.push(L+": ended DIR "+DIR+" head "+HEAD);
+     tick();if($("stTag").textContent!=="LOOP")fails.push(L+": status not LOOP at end");chk(L);DIR=1;
+     LYTURN="turn";HEAD=HEAD_T=0;startTurn("U");for(let i=0;i<1500&&TURNM;i++)step(1);   // the other choice: swing the body round
+     if(Math.round(HEAD*180/Math.PI)!==180)fails.push(L+" (turn round): ended at "+Math.round(HEAD*180/Math.PI));
+     LYTURN="swap";HEAD=HEAD_T=0;continue}
     startTurn(k);if(!morphNow()||morphNow().name!=="turn")fails.push(L+": turn is not a morph");
     if($("stTag").textContent!=="MORPH"){tick();if($("stTag").textContent!=="MORPH")fails.push(L+": status not MORPH")}
     for(let i=0;i<3;i++)step(1);const h1=Math.abs(HEAD);for(let i=0;i<2;i++)step(-1);
@@ -81,11 +91,38 @@ JS=r"""async()=>{
    if(bottomEnd()!==want)fails.push(`robot leave-six ${se}: bottom ${bottomEnd()} want ${want}`)}
   STANDEND="keep";}
  return {fails,count:fails.length}}"""
+
+# ---- merged checks: bone lengths (was bones.py) and planted-paw slide (was slide.py) ----
+BONES=r"""()=>{if(playing)$("play").onclick();STEPBLEND=true;$("charSel").value="robot";$("charSel").onchange();const o={};const tol0=BONETOL;BONETOL=1;
+ const fb=()=>{const tg=P[mode],u=ease(blendU);for(const k in tg)cur[k]=from[k]+(tg[k]-from[k])*u;cur.bobWave=Math.sin(2*Math.PI*phase);springStep(1/60);flipStep();if(typeof walkoverStep==="function")walkoverStep()};
+ const chk=lbl=>{for(let k=0;k<SEGDBG.length;k++)for(let j=0;j<SEGDBG[k].length;j++){const e=Math.abs(SEGDBG[k][j]-1);if(!(lbl in o)||e>o[lbl].e)o[lbl]={e:+e.toFixed(3),limb:RLIMBS[k].k,seg:j}}};
+ const run=(lbl,n)=>{for(let i=0;i<n;i++){stepFrame(1);fb();buildRobot(cur,phase);chk(lbl)}};
+ const modes=MODES.map(m=>m[0]),sel=$("modeSel");
+ for(const a of modes)for(const bb of modes){if(a===bb)continue;sel.value=a;sel.onchange();blendU=1;BLENDFROM=null;FLIP=null;GECKO=false;SWAP=false;run(a,3);sel.value=bb;sel.onchange();run(a+">"+bb,150)}
+ for(const m of modes){sel.value=m;sel.onchange();blendU=1;BLENDFROM=null;FLIP=null;GECKO=false;SWAP=false;run(m,5);startFlip("up");run(m+" ceil",60);startFlip("down");run(m+" drop",60);$("tF").onclick();run(m+" over",300);startTurn("S");run(m+" spin",100);startTurn("S")}
+ BONETOL=tol0;const worst=Math.max(0,...Object.values(o).map(v=>v.e));
+ return {worst,bad:Object.entries(o).filter(([k,v])=>v.e>0.03).map(([k,v])=>"bones "+k+" "+JSON.stringify(v))}}"""
+SLIDE=r"""(spin)=>{const out=[];if(playing)$("play").onclick();STEPBLEND=true;$("charSel").value="robot";$("charSel").onchange();
+ const fb=()=>{const tg=P[mode],u=ease(blendU);for(const k in tg)cur[k]=from[k]+(tg[k]-from[k])*u;const th0=2*Math.PI*phase,f0=Math.sin(th0*Math.round(from.bobMul||1));cur.bobWave=f0+(Math.sin(th0*Math.round(tg.bobMul||1))-f0)*u;springStep(1/60);flipStep()};
+ let all=0;
+ for(const m of MODES.map(x=>x[0])){const sel=$("modeSel");sel.value=m;sel.onchange();blendU=1;BLENDFROM=null;FLIP=null;GECKO=false;
+  HEAD=HEAD_T=0;OMEGA=0;TURNM=null;SPIN=null;TRAVK=1;BOOST=0;fb();buildRobot(cur,phase);if(spin)startTurn("S");
+  let prev=null,worst=0,wk="";
+  for(let i=0;i<240;i++){stepFrame(1);fb();buildRobot(cur,phase);
+   // planted = full weight and at rest height; a paw that has started to rise is lifting off, not sliding
+   const sh=ROBFEET.map(f=>({g:f.w>0.5&&f.p[1]<3.25,x:f.p[0]+POS[0],z:f.p[2]+POS[1]}));
+   if(prev&&i>30)sh.forEach((s,k)=>{const q=prev[k];if(s.g&&q.g){const d=Math.hypot(s.x-q.x,s.z-q.z);if(d>worst){worst=d;wk=k+"@"+i}}});prev=sh}
+  all=Math.max(all,worst);if(worst>0.05)out.push((spin?"spin ":"straight ")+m+" slide "+worst.toFixed(3)+" paw "+wk);SPIN=null}
+ return {worst:all,bad:out}}"""
 with sync_playwright() as p:
     b=p.chromium.launch();pg=b.new_page(viewport={'width':390,'height':844})
     errs=[];pg.on('pageerror',lambda e:errs.append(str(e)))
-    pg.goto('http://localhost:8765/tripod-walk-editor.html');pg.wait_for_timeout(400)
+    pg.goto('http://localhost:8765/Mixmo.html');pg.wait_for_timeout(400)
     r=pg.evaluate(JS)
+    bo=pg.evaluate(BONES);r['fails']+=bo['bad']
+    sl=[pg.evaluate(SLIDE,False),pg.evaluate(SLIDE,True)];[r['fails'].extend(x['bad']) for x in sl]
+    r['count']=len(r['fails'])
     print('failures:',r['count'])
+    print(f"worst bone change {bo['worst']*100:.2f}% (limit 3%); worst planted-paw slide {max(x['worst'] for x in sl):.3f} (limit 0.05)")
     for f in r['fails'][:60]:print(' -',f)
     print('PAGE ERRORS',errs[:5]);b.close()

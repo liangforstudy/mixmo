@@ -14,7 +14,7 @@ JS=r"""(spin)=>{const out=[];if(playing)$("play").onclick();STEPBLEND=true;
  return out}"""
 with sync_playwright() as p:
     b=p.chromium.launch();pg=b.new_page(viewport={'width':390,'height':844})
-    pg.goto('http://localhost:8765/'+(sys.argv[1] if len(sys.argv)>1 else 'tripod-walk-editor.html'));pg.wait_for_timeout(400)
+    pg.goto('http://localhost:8765/'+(sys.argv[1] if len(sys.argv)>1 else 'Mixmo.html'));pg.wait_for_timeout(400)
     for s in [False,True]:
         print('SPIN' if s else 'STRAIGHT');[print(' ',x) for x in pg.evaluate(JS,s)]
     b.close()

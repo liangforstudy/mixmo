@@ -3,7 +3,7 @@ from playwright.sync_api import sync_playwright
 import sys
 with sync_playwright() as p:
     b=p.chromium.launch();pg=b.new_page()
-    pg.goto('http://localhost:8765/tripod-walk-editor.html');pg.wait_for_timeout(500)
+    pg.goto('http://localhost:8765/Mixmo.html');pg.wait_for_timeout(500)
     print(pg.evaluate('''()=>{if(playing)$("play").onclick();STEPBLEND=true;$("charSel").value="robot";$("charSel").onchange();const o={};BONETOL=1;
      const fb=()=>{const tg=P[mode],u=ease(blendU);for(const k in tg)cur[k]=from[k]+(tg[k]-from[k])*u;cur.bobWave=Math.sin(2*Math.PI*phase);springStep(1/60);flipStep();if(typeof walkoverStep==="function")walkoverStep()};
      const run=(lbl,n)=>{for(let i=0;i<n;i++){stepFrame(1);fb();buildRobot(cur,phase);chains_check(lbl)}};

@@ -21,7 +21,7 @@ JS=r"""()=>{const out={};const r=v=>Math.round(v*1000)/1000;
   for(const [kind,t] of [["up",0.3],["up",0.8],["rise",0.5],["down",0.4]]){mode="walk";Object.assign(cur,P.walk);POS=[0,0];HEAD=HEAD_T=0;SPR.init=false;GECKO=kind==="down";SWAP=false;
    for(const L of RLIMBS)L.ik=null;phase=0.2;FLIP={kind,p0:0.2-t*1,len:1};const p={...cur};p.bobWave=0;buildRobot(p,phase);out[`move|${kind}|${t}`]=snap()}FLIP=null;GECKO=false}
  return out}"""
-mode=sys.argv[1]; url=sys.argv[2] if len(sys.argv)>2 else 'http://localhost:8765/tripod-walk-editor.html'
+mode=sys.argv[1]; url=sys.argv[2] if len(sys.argv)>2 else 'http://localhost:8765/Mixmo.html'
 with sync_playwright() as p:
     b=p.chromium.launch();pg=b.new_page(viewport={'width':390,'height':844})
     errs=[];pg.on('pageerror',lambda e:errs.append(str(e)))
