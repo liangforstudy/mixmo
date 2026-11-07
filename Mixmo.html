@@ -86,13 +86,15 @@ html.side #bot{flex:1 1 auto;min-width:300px;height:100%}
 .sl .rs{grid-column:2;grid-row:1;justify-self:end;align-self:end;min-height:32px;min-width:40px;padding:0 8px;font-size:17px;line-height:1;color:rgba(138,59,42,.35);border-color:rgba(58,42,28,.35);margin:2px 0}
 .sl.changed .rs{color:var(--accent);border-color:var(--ink)}
 html.desk .sl .rs{min-height:22px;min-width:30px;padding:0 6px;font-size:14px}
+#cv3{position:absolute;inset:0;width:100%;height:100%;display:none;pointer-events:none}
+#r3msg{position:absolute;left:8px;right:8px;top:8px;display:none;padding:8px 10px;border-radius:8px;background:rgba(251,246,234,.92);border:1px solid var(--ink);font-size:13px;pointer-events:none}
 </style>
 </head>
 <body>
 <div id="app"><div id="top">
 <div class="row" style="margin:8px 16px;flex-wrap:nowrap;gap:6px"><select id="charSel" aria-label="Character" class="pick" style="flex:0.8"></select><select id="modeSel" aria-label="Animation" class="pick"></select><button id="play" class="on">Pause</button></div>
 <div class="row" style="margin:0 16px 8px;flex-wrap:nowrap;gap:6px"><button class="tb" id="tL" aria-label="Turn left 90 degrees">&#8630; 90&deg;</button><button class="tb" id="tR" aria-label="Turn right 90 degrees">90&deg; &#8631;</button><button class="tb" id="tU" aria-label="Turn around">&#10226; 180&deg;</button><button class="tb" id="tS" aria-label="Spin on the spot">Spin</button><button class="tb" id="tF" aria-label="Walk over onto the other end" hidden>Over</button><button class="tb" id="tC" aria-label="Flip up onto the ceiling" hidden>Ceiling</button></div>
-<div id="view"><canvas id="cv"></canvas><div id="hint">1 finger / drag: orbit - 2 fingers / wheel: zoom - 2 fingers / right-drag: pan - double-tap: reset</div></div>
+<div id="view"><canvas id="cv"></canvas><canvas id="cv3"></canvas><div id="r3msg"></div><div id="hint">1 finger / drag: orbit - 2 fingers / wheel: zoom - 2 fingers / right-drag: pan - double-tap: reset</div></div>
 <div class="row" style="margin:6px 16px 0;flex-wrap:nowrap;align-items:center"><button id="prevF" aria-label="Previous frame">&#9664;</button><span id="scrubWrap"><input type="range" id="scrub" min="0" max="1" step="0.005" value="0"><span id="scrubMarks"></span></span><button id="nextF" aria-label="Next frame">&#9654;</button><span class="val" id="scrubV" hidden>0</span><button id="stepBlend" aria-label="How mode switches play while paused" style="padding:0 6px;font-size:13px;line-height:1.1" class="on">Switch:<br>by frame</button></div>
 <div id="status" aria-live="polite"><span id="stTag">LOOP</span><span id="stText">Walk</span></div>
 <div class="row" id="moodRow" style="margin:2px 16px 0;flex-wrap:nowrap;align-items:center"><span class="lbl">Tired</span><input type="range" id="mood" min="0" max="1" step="0.01" value="1" style="flex:1"><span class="lbl">Happy</span></div>
@@ -159,6 +161,7 @@ html.desk .sl .rs{min-height:22px;min-width:30px;padding:0 6px;font-size:14px}
 </div>
 </fieldset>
 <p id="msg"></p>
+<div class="row" style="align-items:center;flex-wrap:nowrap"><span class="lbl">Renderer:</span><div class="seg" id="rendSw"><button data-r="three">3D (three.js)</button><button data-r="canvas">Built-in</button></div></div>
 <div class="row" style="align-items:center;flex-wrap:nowrap"><span class="lbl">Interface:</span><div class="seg" id="uiSw"><button data-ui="auto">Auto</button><button data-ui="touch">Touch</button><button data-ui="desk">Desktop</button></div></div>
 <div style="height:40px"></div>
 </div></div>
@@ -377,7 +380,7 @@ function applyCollapsed(){document.querySelectorAll("fieldset").forEach(fs=>{con
  const setPct=p=>{if(side()){top.style.width=p+"%"}else{top.style.height=top.style.maxHeight=p+"%"}resize()};
  let drag=false,pct=55;
  window.applySplit=()=>{top.style.width=top.style.height=top.style.maxHeight="";let s=NaN;try{s=parseFloat(localStorage.getItem(key()))}catch(e){}
-  pct=s>=15&&s<=85?s:(side()?62:55);setPct(pct)};
+  pct=s>=15&&s<=85?s:(side()?62:72);setPct(pct)};
  sp.addEventListener("pointerdown",e=>{drag=true;sp.classList.add("dragging");sp.setPointerCapture(e.pointerId)});
  sp.addEventListener("pointermove",e=>{if(!drag)return;const r=app.getBoundingClientRect();
   pct=Math.max(15,Math.min(85,side()?(e.clientX-r.left)/r.width*100:(e.clientY-r.top)/r.height*100));setPct(pct)});
@@ -1129,6 +1132,7 @@ const rankG={},rankP={};
 function render(){
  ctx.setTransform(DPR,0,0,DPR,0,0);ctx.clearRect(0,0,W,Hh);
  drawGround();
+ if(r3on()){ctx.clearRect(0,0,W,Hh);r3render();return}
  for(const s of prims.filter(q=>q.t===2)){const c=proj(s.a);ctx.fillStyle="rgba(58,42,28,.15)";ctx.beginPath();ctx.ellipse(c.x,c.y,s.r*c.s,s.r*c.s*0.4,0,0,7);ctx.fill()}
  const list=[];prims.forEach((q,i)=>{if(q.t===2)return;
   if(q.t===5){const f=proj(add(q.a,q.fn)).z-proj(q.a).z;if(f<=0.02)return;list.push({q,i,z:proj(q.a).z});return}
@@ -1242,6 +1246,104 @@ function frame(t){
  charDef().build(cur,phase);render();drawGait();showStatus();
  requestAnimationFrame(frame);
 }
+// ---------- three.js renderer (draws the same prims as the canvas renderer; loaded from jsDelivr) ----------
+// Pick with the Renderer switch. If three.js can't load (offline, blocked), the built-in canvas renderer keeps running.
+const R3={url:"https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",T:null,ok:false,failed:false,loading:null,want:"three"};
+try{const v=localStorage.getItem("mixmoRenderer");if(v==="canvas"||v==="three")R3.want=v}catch(e){}
+const r3on=()=>R3.want==="three"&&R3.ok;
+function r3msg(t){const m=$("r3msg");if(!m)return;m.textContent=t||"";m.style.display=t?"block":"none"}
+function r3load(){if(R3.loading)return R3.loading;r3msg("Loading the 3D renderer (three.js)...");
+ R3.loading=import(R3.url).then(T=>{R3.T=T;r3init();R3.ok=true;r3msg("");r3ui()}).catch(e=>{R3.failed=true;R3.loading=null;
+  r3msg("Couldn't download three.js (offline or blocked), so the built-in renderer is drawing instead. Everything else works as normal.");r3ui()});
+ return R3.loading}
+function r3init(){const T=R3.T,c=$("cv3");
+ const rd=new T.WebGLRenderer({canvas:c,antialias:true,alpha:true});rd.setClearColor(0x000000,0);
+ const sc=new T.Scene(),cam=new T.PerspectiveCamera(30,1,1,5000);
+ sc.add(new T.HemisphereLight(0xfff6e6,0x8a7560,1.6));const sun=new T.DirectionalLight(0xffffff,1.5);sun.position.set(0.4,0.8,0.5);sc.add(sun);sc.add(sun.target);
+ // three-step toon shading keeps the flat cartoon look
+ const g=new Uint8Array([90,170,255]),gm=new T.DataTexture(g,3,1,T.RedFormat);gm.minFilter=gm.magFilter=T.NearestFilter;gm.needsUpdate=true;
+ const fill=new T.MeshToonMaterial({vertexColors:true,gradientMap:gm});
+ const ink=new T.MeshBasicMaterial({color:0x3a2a1c,side:T.BackSide});
+ const N=1200,SEG=14;
+ // tubes: tapered open cylinders merged into one geometry (fill + slightly fatter back-faced outline)
+ const mkTubes=()=>{const geo=new T.BufferGeometry(),vc=N*SEG*2;
+  geo.setAttribute("position",new T.BufferAttribute(new Float32Array(vc*3),3));geo.setAttribute("normal",new T.BufferAttribute(new Float32Array(vc*3),3));
+  geo.setAttribute("color",new T.BufferAttribute(new Float32Array(vc*3),3));
+  const idx=new Uint32Array(N*SEG*6);let k=0;for(let t=0;t<N;t++){const o=t*SEG*2;for(let i=0;i<SEG;i++){const j=(i+1)%SEG,a=o+i,b=o+j,c2=o+SEG+i,d=o+SEG+j;idx.set([a,b,c2,b,d,c2],k);k+=6}}
+  geo.setIndex(new T.BufferAttribute(idx,1));return geo};
+ const tubeG=mkTubes(),tubeO=mkTubes();
+ const tubeM=new T.Mesh(tubeG,fill),tubeOM=new T.Mesh(tubeO,ink);tubeM.frustumCulled=tubeOM.frustumCulled=false;sc.add(tubeM,tubeOM);
+ // balls (joints, tube ends, eyes): instanced spheres
+ const sg=new T.SphereGeometry(1,18,12),balls=new T.InstancedMesh(sg,new T.MeshToonMaterial({gradientMap:gm}),N*3),ballsO=new T.InstancedMesh(sg,ink,N*3);
+ balls.instanceColor=new T.InstancedBufferAttribute(new Float32Array(N*3*3),3);balls.frustumCulled=ballsO.frustumCulled=false;sc.add(balls,ballsO);
+ // flat panels (box skin faces): merged triangles, flat-shaded, with ink edges
+ const PV=N*12,pg=new T.BufferGeometry();pg.setAttribute("position",new T.BufferAttribute(new Float32Array(PV*3),3));
+ pg.setAttribute("normal",new T.BufferAttribute(new Float32Array(PV*3),3));pg.setAttribute("color",new T.BufferAttribute(new Float32Array(PV*3),3));
+ const panels=new T.Mesh(pg,new T.MeshToonMaterial({vertexColors:true,gradientMap:gm,side:T.DoubleSide,polygonOffset:true,polygonOffsetFactor:1,polygonOffsetUnits:1}));panels.frustumCulled=false;sc.add(panels);
+ const eg=new T.BufferGeometry();eg.setAttribute("position",new T.BufferAttribute(new Float32Array(PV*2*3),3));
+ const edges=new T.LineSegments(eg,new T.LineBasicMaterial({color:0x3a2a1c}));edges.frustumCulled=false;sc.add(edges);
+ // ground and ceiling grids, contact shadows
+ const gridG=new T.BufferGeometry();gridG.setAttribute("position",new T.BufferAttribute(new Float32Array(2*22*31*2*3*2),3));
+ const grid=new T.LineSegments(gridG,new T.LineBasicMaterial({color:0x3a2a1c,transparent:true,opacity:.18}));grid.frustumCulled=false;sc.add(grid);
+ const shG=new T.CircleGeometry(1,24);shG.rotateX(-Math.PI/2);
+ const shadows=new T.InstancedMesh(shG,new T.MeshBasicMaterial({color:0x3a2a1c,transparent:true,opacity:.15,depthWrite:false}),64);shadows.frustumCulled=false;sc.add(shadows);
+ Object.assign(R3,{rd,sc,cam,tubeG,tubeO,balls,ballsO,pg,eg,gridG,grid,shadows,N,SEG,col:{}});
+}
+function r3color(s){const T=R3.T;let c=R3.col[s];if(!c){c=new T.Color();try{c.setStyle(s)}catch(e){c.set(0x888888)}R3.col[s]=c}return c}
+function r3render(){const T=R3.T,R=R3,OUT=0.7;
+ const w=Math.max(1,W),h=Math.max(1,Hh),dpr=Math.min(2,DPR);
+ if(R.rd.getPixelRatio()!==dpr)R.rd.setPixelRatio(dpr);const sz=R.rd.getSize(new T.Vector2());if(sz.x!==w||sz.y!==h)R.rd.setSize(w,h,false);
+ // camera: same view as the canvas renderer (orbit yaw/pitch round the target, 600 units back, same scale and pan)
+ const robo=CHAR==="robot",camY=robo?CAMY:68,s0=zoom*Math.min(w,h*1.1)/(robo?260+BODY_L*1.4:245),D=600;
+ const back=v=>rotY(rotX(v,-pitch),-yaw),cp=back([0,0,D]),up=back([0,1,0]);
+ R.cam.position.set(cp[0],cp[1]+camY,cp[2]);R.cam.up.set(up[0],up[1],up[2]);R.cam.lookAt(0,camY,0);
+ R.cam.fov=2*Math.atan(h/(2*s0*D))*180/Math.PI;R.cam.aspect=w/h;R.cam.setViewOffset(w,h,-panX,-panY,w,h);R.cam.updateProjectionMatrix();
+ // grids
+ {const gp=R.gridG.attributes.position.array;let n=0;const gx=Math.round(POS[0]/30)*30,gz=Math.round(POS[1]/30)*30;
+  const seg=(x1,z1,x2,z2,y)=>{gp.set([x1-POS[0],y(x1,z1),z1-POS[1],x2-POS[0],y(x2,z2),z2-POS[1]],n);n+=6};
+  for(let i=-5;i<=5;i++)for(let k=0;k<30;k++){const t0=k/30,t1=(k+1)/30;
+   seg(gx+i*30,gz-150+300*t0,gx+i*30,gz-150+300*t1,groundW);seg(gx-150+300*t0,gz+i*30,gx-150+300*t1,gz+i*30,groundW)}
+  if(robo){const t=flipT(),u=FLIP&&(FLIP.kind==="up"||FLIP.kind==="down")&&t>=0?(FLIP.kind==="up"?t:1-t):(GECKO?1:0);
+   if(u>0){const cy=()=>CEIL;for(let i=-5;i<=5;i++){seg(gx+i*30,gz-150,gx+i*30,gz+150,cy);seg(gx-150,gz+i*30,gx+150,gz+i*30,cy)}}}
+  R.gridG.setDrawRange(0,n/3);R.gridG.attributes.position.needsUpdate=true}
+ const tp=R.tubeG.attributes.position.array,tn=R.tubeG.attributes.normal.array,tc=R.tubeG.attributes.color.array,op=R.tubeO.attributes.position.array;
+ const pp=R.pg.attributes.position.array,pn=R.pg.attributes.normal.array,pc=R.pg.attributes.color.array,ep=R.eg.attributes.position.array;
+ const M=new T.Matrix4(),Q=new T.Quaternion(),V=new T.Vector3(),S=new T.Vector3();
+ let nt=0,nb=0,nv=0,ne=0,ns=0;
+ const ball=(a,r,col)=>{if(nb>=R.N*3)return;V.set(a[0],a[1],a[2]);S.set(r,r,r);M.compose(V,Q.identity(),S);R.balls.setMatrixAt(nb,M);R.balls.setColorAt(nb,col);
+  S.set(r+OUT,r+OUT,r+OUT);M.compose(V,Q,S);R.ballsO.setMatrixAt(nb,M);nb++};
+ for(const q of prims){
+  if(q.t===2){if(ns<64){V.set(q.a[0],q.a[1]+0.15,q.a[2]);S.set(q.r,1,q.r);M.compose(V,Q.identity(),S);R.shadows.setMatrixAt(ns++,M)}continue}
+  const col=r3color(q.col||"#888");
+  if(q.t===5){const P=q.pts;if(P.length<3)continue;const f=q.fn||[0,1,0];
+   for(let i=1;i<P.length-1&&nv+3<=R.N*12;i++)for(const v of [P[0],P[i],P[i+1]]){pp.set(v,nv*3);pn.set(f,nv*3);pc.set([col.r,col.g,col.b],nv*3);nv++}
+   for(let i=0;i<P.length;i++){const a=P[i],b=P[(i+1)%P.length];if(ne+2>R.N*24)break;ep.set(a,ne*3);ep.set(b,ne*3+3);ne+=2}continue}
+  if(q.t===1||q.a===q.b){ball(q.a,q.ra,col);continue}
+  // tapered tube from a (radius ra) to b (radius rb), with round ends
+  if(nt>=R.N)continue;const a=q.a,b=q.b,ra=q.ra,rb=q.rb===undefined?q.ra:q.rb;
+  const ax=[b[0]-a[0],b[1]-a[1],b[2]-a[2]],L=Math.hypot(...ax);if(L<1e-6){ball(a,Math.max(ra,rb),col);continue}
+  const d=[ax[0]/L,ax[1]/L,ax[2]/L],ref=Math.abs(d[1])<0.9?[0,1,0]:[1,0,0];
+  let u1=[d[1]*ref[2]-d[2]*ref[1],d[2]*ref[0]-d[0]*ref[2],d[0]*ref[1]-d[1]*ref[0]];const ul=Math.hypot(...u1);u1=u1.map(x=>x/ul);
+  const u2=[d[1]*u1[2]-d[2]*u1[1],d[2]*u1[0]-d[0]*u1[2],d[0]*u1[1]-d[1]*u1[0]];
+  const sl=(ra-rb)/L,o=nt*R.SEG*2*3;
+  for(let ring=0;ring<2;ring++){const c=ring?b:a,r=ring?rb:ra;
+   for(let i=0;i<R.SEG;i++){const th=i/R.SEG*Math.PI*2,cs=Math.cos(th),sn=Math.sin(th),rad=[u1[0]*cs+u2[0]*sn,u1[1]*cs+u2[1]*sn,u1[2]*cs+u2[2]*sn],k=o+(ring*R.SEG+i)*3;
+    for(let j=0;j<3;j++){tp[k+j]=c[j]+rad[j]*r;op[k+j]=c[j]+rad[j]*(r+OUT);const nn=rad[j]+d[j]*sl;tn[k+j]=nn}
+    tc[k]=col.r;tc[k+1]=col.g;tc[k+2]=col.b}}
+  nt++;ball(a,ra,col);ball(b,rb,col)}
+ R.tubeG.setDrawRange(0,nt*R.SEG*6);R.tubeO.setDrawRange(0,nt*R.SEG*6);
+ for(const k of ["position","normal","color"])R.tubeG.attributes[k].needsUpdate=true;R.tubeO.attributes.position.needsUpdate=true;
+ R.pg.setDrawRange(0,nv);for(const k of ["position","normal","color"])R.pg.attributes[k].needsUpdate=true;
+ R.eg.setDrawRange(0,ne);R.eg.attributes.position.needsUpdate=true;
+ R.balls.count=R.ballsO.count=nb;R.balls.instanceMatrix.needsUpdate=R.ballsO.instanceMatrix.needsUpdate=true;if(R.balls.instanceColor)R.balls.instanceColor.needsUpdate=true;
+ R.shadows.count=ns;R.shadows.instanceMatrix.needsUpdate=true;
+ R.rd.render(R.sc,R.cam)}
+function r3ui(){document.querySelectorAll("#rendSw button").forEach(b=>b.classList.toggle("on",b.dataset.r===R3.want));
+ $("cv3").style.display=r3on()?"block":"none";$("cv").style.visibility=r3on()?"hidden":"visible"}
+document.querySelectorAll("#rendSw button").forEach(b=>b.onclick=()=>{R3.want=b.dataset.r;try{localStorage.setItem("mixmoRenderer",R3.want)}catch(e){}
+ if(R3.want==="three"&&!R3.ok)r3load();else if(R3.want==="canvas")r3msg("");r3ui()});
+r3ui();if(R3.want==="three")r3load();
+
 segUI();buildSliders();applyCollapsed();syncJSON();requestAnimationFrame(frame);
 // ---------- spacebar always plays / pauses (never clicks the last button or opens a dropdown) ----------
 (function(){const typing=t=>t&&(t.tagName==="TEXTAREA"||(t.tagName==="INPUT"&&/^(text|number|search|email|url|password)$/i.test(t.type))||t.isContentEditable);
