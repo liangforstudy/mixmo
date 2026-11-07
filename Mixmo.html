@@ -58,13 +58,41 @@ textarea{width:100%;font-size:16px;font-family:Menlo,monospace;height:120px;bord
 .tb{flex:1;min-width:0;padding:0 2px;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:clip}
 .pick{flex:1;min-width:0;font-family:inherit;font-size:16px;min-height:44px;padding:0 36px 0 14px;border:2px solid var(--ink);border-radius:10px;color:var(--paper);background:var(--ink) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' fill='none' stroke='%23f4e8cf' stroke-width='2'/%3E%3C/svg%3E") no-repeat right 14px center;-webkit-appearance:none;appearance:none}
 #editSel{background-color:var(--paper2);color:var(--ink);background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' fill='none' stroke='%233a2a1c' stroke-width='2'/%3E%3C/svg%3E")}
+
+/* ---------- desktop interface (html.desk = compact controls; html.side = view left, controls right) ---------- */
+html.desk button{min-height:30px;min-width:30px;font-size:14px;padding:0 10px;border-width:1.5px;border-radius:7px}
+html.desk .pick{min-height:30px;font-size:14px;border-width:1.5px;border-radius:7px}
+html.desk input[type=range]{height:24px}
+html.desk .row{margin:6px 12px;gap:6px}
+html.desk fieldset{margin:8px 12px;padding:4px 10px 8px;border-width:1.5px}
+html.desk legend{min-height:0;padding:4px 6px}
+html.desk fieldset.collapsed>legend{padding:4px 6px}
+html.desk .sl label{font-size:13px;margin-top:2px}
+html.desk .val,html.desk .lbl{font-size:13px}
+html.desk .crow input[type=color]{height:30px}
+html.desk textarea{font-size:13px}
+html.desk h1{font-size:18px;margin:8px 12px 2px}
+html.desk .sub{font-size:13px;margin:0 12px 6px}
+html.desk #view{margin:0 12px}
+html.desk #split{flex-basis:12px}
+html.side #app{flex-direction:row}
+html.side #top{height:100%!important;max-height:none!important;width:62%;flex:0 0 auto;padding:6px 0}
+html.side #split{flex:0 0 10px;cursor:col-resize;border:0;border-left:1px solid var(--ink);border-right:1px solid var(--ink)}
+html.side #split::before{width:4px;height:36px;margin:-18px 0 0 -2px}
+html.side #bot{flex:1 1 auto;min-width:300px;height:100%}
+.uiSw{font:600 12px/1 -apple-system,system-ui,sans-serif}
+
+/* per-slider reset button (top right of each slider row) */
+.sl .rs{grid-column:2;grid-row:1;justify-self:end;align-self:end;min-height:32px;min-width:40px;padding:0 8px;font-size:17px;line-height:1;color:rgba(138,59,42,.35);border-color:rgba(58,42,28,.35);margin:2px 0}
+.sl.changed .rs{color:var(--accent);border-color:var(--ink)}
+html.desk .sl .rs{min-height:22px;min-width:30px;padding:0 6px;font-size:14px}
 </style>
 </head>
 <body>
 <div id="app"><div id="top">
 <div class="row" style="margin:8px 16px;flex-wrap:nowrap;gap:6px"><select id="charSel" aria-label="Character" class="pick" style="flex:0.8"></select><select id="modeSel" aria-label="Animation" class="pick"></select><button id="play" class="on">Pause</button></div>
 <div class="row" style="margin:0 16px 8px;flex-wrap:nowrap;gap:6px"><button class="tb" id="tL" aria-label="Turn left 90 degrees">&#8630; 90&deg;</button><button class="tb" id="tR" aria-label="Turn right 90 degrees">90&deg; &#8631;</button><button class="tb" id="tU" aria-label="Turn around">&#10226; 180&deg;</button><button class="tb" id="tS" aria-label="Spin on the spot">Spin</button><button class="tb" id="tF" aria-label="Walk over onto the other end" hidden>Over</button><button class="tb" id="tC" aria-label="Flip up onto the ceiling" hidden>Ceiling</button></div>
-<div id="view"><canvas id="cv"></canvas><div id="hint">1 finger: orbit - 2 fingers: pan &amp; zoom - double-tap: reset view</div></div>
+<div id="view"><canvas id="cv"></canvas><div id="hint">1 finger / drag: orbit - 2 fingers / wheel: zoom - 2 fingers / right-drag: pan - double-tap: reset</div></div>
 <div class="row" style="margin:6px 16px 0;flex-wrap:nowrap;align-items:center"><button id="prevF" aria-label="Previous frame">&#9664;</button><span id="scrubWrap"><input type="range" id="scrub" min="0" max="1" step="0.005" value="0"><span id="scrubMarks"></span></span><button id="nextF" aria-label="Next frame">&#9654;</button><span class="val" id="scrubV" hidden>0</span><button id="stepBlend" aria-label="How mode switches play while paused" style="padding:0 6px;font-size:13px;line-height:1.1" class="on">Switch:<br>by frame</button></div>
 <div id="status" aria-live="polite"><span id="stTag">LOOP</span><span id="stText">Walk</span></div>
 <div class="row" id="moodRow" style="margin:2px 16px 0;flex-wrap:nowrap;align-items:center"><span class="lbl">Tired</span><input type="range" id="mood" min="0" max="1" step="0.01" value="1" style="flex:1"><span class="lbl">Happy</span></div>
@@ -72,7 +100,7 @@ textarea{width:100%;font-size:16px;font-family:Menlo,monospace;height:120px;bord
 <h1>The Curious Gait of a Three-Legged Sergal</h1>
 <p class="sub">Drag to turn him about, pinch to look closer, slide two fingers to move the view.</p>
 <fieldset id="robotLook" hidden><legend>Robot look</legend>
-<div class="row" style="align-items:center;flex-wrap:nowrap"><span class="lbl">Bone stretch allowed</span><input type="range" id="boneTol" min="0" max="0.3" step="0.01" value="0" style="flex:1"><span class="lbl" id="boneTolV">0%</span><button id="boneShow">Bone check</button></div>
+<div class="sl"><label>Bone stretch allowed</label><input type="range" id="boneTol" min="0" max="0.3" step="0.01" value="0"><span class="val" id="boneTolV">0%</span></div><div class="row" style="margin:6px 0"><button id="boneShow">Bone check</button></div>
 <div class="sl"><label>Shape (0 = boxes, 1 = cylinders)</label><input type="range" id="rMorph" min="0" max="1" step="0.05" value="0.35"><span class="val" id="rMorphV">0.35</span></div>
 <div class="row" style="margin:6px 0;flex-wrap:nowrap"><span class="lbl">Skin:</span><select id="rSkin" class="pick" aria-label="Skin"><option value="robot">Robot (boxes)</option><option value="sergal">Sergal fur</option><option value="dino">Dinosaur</option><option value="roo">Kangaroo</option></select></div>
 <div class="row" style="margin:6px 0;flex-wrap:nowrap"><span class="lbl">Top middle limb ends in:</span><div class="seg" id="rHead"><button data-h="1" class="on">Head</button><button data-h="0">Paw</button></div></div>
@@ -86,6 +114,9 @@ textarea{width:100%;font-size:16px;font-family:Menlo,monospace;height:120px;bord
 <div class="crow"><label>Paws, end A<input type="color" id="cPawA" value="#2d2a26"></label><label>Paws, end B<input type="color" id="cPawB" value="#c4462f"></label></div>
 <div class="row" style="margin:8px 0 0;flex-wrap:nowrap"><span class="lbl">Six-leg gait:</span><div class="seg" id="gaitStyle"><button data-g="dog">Dog</button><button data-g="insect">Spider / insect</button></div></div>
 <p class="sub" style="margin:4px 0 0">Applies to the mode picked under "Editing".</p>
+<div class="row" style="margin:10px 0 0;flex-wrap:nowrap"><span class="lbl">180&deg; when on 4, 5 or 6 legs:</span></div>
+<div class="grid2" id="lyingTurn"><button data-t="swap" class="on">Swap ends</button><button data-t="turn">Turn round</button><button data-t="swapKeep" style="grid-column:1/3">Swap ends, raised limbs stay put (variant)</button></div>
+<p class="sub" style="margin:4px 0">Swap ends: he stops and the other end leads; a raised tail moves to the new back end. The variant keeps raised limbs where they are, so it looks like the opposite 5-leg run. Turn round: the body swings round; a shorter body turns faster.</p>
 <div class="row" style="margin:10px 0 0;flex-wrap:nowrap"><span class="lbl">Leaving six legs, stand on:</span></div>
 <div class="grid2" id="standEnd"><button data-e="keep" class="on">Back end</button><button data-e="front">Front end</button><button data-e="A">End A</button><button data-e="B">End B</button></div>
 <p class="sub" style="margin:4px 0 0">Back end tips him back onto the end behind him. Front end rises forward over his front legs, so he ends up the other way up, looking exactly the same but with the paw colours swapped. End A / End B pick a paw colour, whichever end it is on.</p>
@@ -128,6 +159,7 @@ textarea{width:100%;font-size:16px;font-family:Menlo,monospace;height:120px;bord
 </div>
 </fieldset>
 <p id="msg"></p>
+<div class="row" style="align-items:center;flex-wrap:nowrap"><span class="lbl">Interface:</span><div class="seg" id="uiSw"><button data-ui="auto">Auto</button><button data-ui="touch">Touch</button><button data-ui="desk">Desktop</button></div></div>
 <div style="height:40px"></div>
 </div></div>
 
@@ -181,9 +213,11 @@ let phase=0,playing=true,showColors=false,groundOff=0;
 // groundOff = how far he has travelled. Advancing the cycle by d moves him d*(distance per cycle),
 // so playing, scrubbing and frame-stepping all move him the same way and planted paws never slide.
 // turning: he has a heading and a position in the world; the terrain is fixed in the world
+let DIR=1;   // +1: he travels toward his front end; -1: on all six, the other end leads (after a 180)
 let HEAD=0,HEAD_T=0,OMEGA=0,POS=[0,0],TRAVK=1,SKIDLEAN=0,BOOST=0,TURN={st:null,t:0,fast:false};
 const effSpeed=()=>Math.max(cur.speed,BOOST);
-const perCycle=()=>effSpeed()>0.01?cur.travel*TRAVK/effSpeed():0;
+const dirNow=()=>((typeof LYING!=="undefined"&&LYING.has(mode))||(TURNM&&TURNM.kind==="U6"))?DIR:DIR+(1-DIR)*ease(blendU);   // leaving all six while reversed: ease back to forwards
+const perCycle=()=>effSpeed()>0.01?cur.travel*TRAVK*dirNow()/effSpeed():0;
 // parts of multi-part morphs, as [start (0-1), name]; markers on the scrubber show where each begins
 function morphParts(kind){return({
  skid:[[0,"skidding"],[0.35,"whipping round"],[0.65,"speeding off"]],
@@ -235,7 +269,7 @@ function buildSliders(){
   for(const [k0,l,mn,mx,st] of list){
    const k=(editMood==="t"&&MOODK.includes(k0))?k0+"_t":k0;
    const d=document.createElement("div");d.className="sl";
-   d.innerHTML=`<label>${l}</label><input type="range" min="${mn}" max="${mx}" step="${st}" value="${P[editMode][k]}"><span class="val">${P[editMode][k]}</span>`;
+   d.dataset.def=(DEFC[editMode]||{})[k]??"";d.innerHTML=`<label>${l}</label><input type="range" min="${mn}" max="${mx}" step="${st}" value="${P[editMode][k]}"><span class="val">${P[editMode][k]}</span>`;
    const r=d.querySelector("input"),v=d.querySelector(".val");
    r.oninput=()=>{P[editMode][k]=+r.value;v.textContent=r.value;syncJSON()};
    fs.appendChild(d);
@@ -279,7 +313,8 @@ $("modeSel").onchange=()=>{const m=$("modeSel").value;
 $("editSel").onchange=()=>{editMode=$("editSel").value;segUI();buildSliders()};
 $("play").onclick=()=>{playing=!playing;$("play").textContent=playing?"Pause":"Play";$("play").classList.toggle("on",playing)};
 $("boneTol").oninput=e=>{BONETOL=+e.target.value;$("boneTolV").textContent=Math.round(BONETOL*100)+"%"};
-$("boneShow").onclick=()=>{BONESHOW=!BONESHOW;$("boneShow").classList.toggle("on",BONESHOW)};
+const boneUI=()=>{const b=$("boneShow");b.classList.toggle("on",BONESHOW);b.textContent="Bone check: "+(BONESHOW?"On":"Off");b.setAttribute("aria-pressed",BONESHOW)};
+$("boneShow").onclick=()=>{BONESHOW=!BONESHOW;boneUI()};setTimeout(boneUI);
 $("colors").onclick=()=>{showColors=!showColors;$("colors").classList.toggle("on",showColors)};
 $("scrub").oninput=()=>{if(playing)$("play").onclick();const m=morphNow();
  if(m)m.set(+$("scrub").value);else scrubTo(+$("scrub").value);showFrame();showStatus()};
@@ -338,13 +373,15 @@ function applyCollapsed(){document.querySelectorAll("fieldset").forEach(fs=>{con
 // ---------- split-pane divider ----------
 (function(){
  const app=$("app"),top=$("top"),sp=$("split");
- const setPct=p=>{top.style.height=top.style.maxHeight=p+"%";resize()};
- try{const s=parseFloat(localStorage.getItem("tripodSplitPct"));if(s>=15&&s<=85)setTimeout(()=>setPct(s))}catch(e){}
+ const side=()=>document.documentElement.classList.contains("side"),key=()=>side()?"tripodSplitPctW":"tripodSplitPct";
+ const setPct=p=>{if(side()){top.style.width=p+"%"}else{top.style.height=top.style.maxHeight=p+"%"}resize()};
  let drag=false,pct=55;
+ window.applySplit=()=>{top.style.width=top.style.height=top.style.maxHeight="";let s=NaN;try{s=parseFloat(localStorage.getItem(key()))}catch(e){}
+  pct=s>=15&&s<=85?s:(side()?62:55);setPct(pct)};
  sp.addEventListener("pointerdown",e=>{drag=true;sp.classList.add("dragging");sp.setPointerCapture(e.pointerId)});
  sp.addEventListener("pointermove",e=>{if(!drag)return;const r=app.getBoundingClientRect();
-  pct=Math.max(15,Math.min(85,(e.clientY-r.top)/r.height*100));setPct(pct)});
- const end=()=>{if(!drag)return;drag=false;sp.classList.remove("dragging");try{localStorage.setItem("tripodSplitPct",pct)}catch(e){}};
+  pct=Math.max(15,Math.min(85,side()?(e.clientX-r.left)/r.width*100:(e.clientY-r.top)/r.height*100));setPct(pct)});
+ const end=()=>{if(!drag)return;drag=false;sp.classList.remove("dragging");try{localStorage.setItem(key(),pct)}catch(e){}};
  sp.addEventListener("pointerup",end);sp.addEventListener("pointercancel",end);
 })();
 
@@ -371,17 +408,24 @@ const view=$("view"),ptrs=new Map();let gesture=null;
 view.addEventListener("pointerdown",e=>{
  if(ptrs.size>=2)return; // ignore stray extra fingers
  view.setPointerCapture(e.pointerId);ptrs.set(e.pointerId,{x:e.clientX,y:e.clientY});
+ if(e.pointerType==="mouse"&&(e.button===1||e.button===2||e.shiftKey)){e.preventDefault();gesture="pan";return} // desktop: right / middle / shift-drag pans
  if(ptrs.size===1&&!gesture)gesture="orbit";
  else if(ptrs.size===2){gesture="pinch";const[a,b]=[...ptrs.values()];gesture={d:Math.hypot(a.x-b.x,a.y-b.y),z:zoom,mx:(a.x+b.x)/2,my:(a.y+b.y)/2,px:panX,py:panY}}
 });
 view.addEventListener("pointermove",e=>{
  const p=ptrs.get(e.pointerId);if(!p)return;
+ if(gesture==="pan"){panX+=e.clientX-p.x;panY+=e.clientY-p.y}
  if(gesture==="orbit"){yaw+=(e.clientX-p.x)*0.01;pitch=Math.max(-0.2,Math.min(1.3,pitch+(e.clientY-p.y)*0.008))}
  p.x=e.clientX;p.y=e.clientY;
  if(gesture&&gesture.d){const[a,b]=[...ptrs.values()];zoom=Math.max(.4,Math.min(3,gesture.z*Math.hypot(a.x-b.x,a.y-b.y)/gesture.d));panX=gesture.px+(a.x+b.x)/2-gesture.mx;panY=gesture.py+(a.y+b.y)/2-gesture.my}
 });
 const up=e=>{if(!ptrs.delete(e.pointerId))return;if(ptrs.size===0)gesture=null;else if(gesture&&gesture.d)gesture="done"};
-view.addEventListener("pointerup",up);view.addEventListener("dblclick",()=>{yaw=0.7;pitch=0.28;zoom=1;panX=panY=0});view.addEventListener("pointercancel",up);
+view.addEventListener("pointerup",up);
+// desktop: wheel (or trackpad pinch) zooms toward the mouse; no right-click menu over the view
+view.addEventListener("wheel",e=>{e.preventDefault();const r=cv.getBoundingClientRect(),cx=e.clientX-r.left-W/2-panX,cy=e.clientY-r.top-Hh*0.5-panY;
+ const d=e.deltaMode===1?e.deltaY*33:e.deltaY,z0=zoom;zoom=Math.max(.4,Math.min(3,zoom*Math.exp(-d*(e.ctrlKey?0.01:0.0015))));
+ const k=zoom/z0;panX-=cx*(k-1);panY-=cy*(k-1)},{passive:false});
+view.addEventListener("contextmenu",e=>e.preventDefault());view.addEventListener("dblclick",()=>{yaw=0.7;pitch=0.28;zoom=1;panX=panY=0});view.addEventListener("pointercancel",up);
 
 // ---------- math ----------
 const R=Math.PI/180;
@@ -454,6 +498,8 @@ function groundW(x,w){const h=TER.h,L=TER.len,T=2*Math.PI;
   default:return 0}}
 const tube=(a,b,ra,rb,col,bias=0)=>prims.push({t:0,a,b,ra,rb,col,bias,g:G});
 const dot=(a,r,col,bias=0)=>prims.push({t:1,a,b:a,ra:r,col,bias,g:G});
+// an underside part (pale jaw): drawn in front of its head whenever the camera can see the underside
+const underOf=(top,part,dn)=>{part.over=top;part.dn=dn};
 
 
 // =====================================================================
@@ -639,6 +685,7 @@ function buildRig(p,ph){
   const hp=v=>add(H0,rotY(rotX(v,-bob*0.03+(p.headDroop||0)*R),hy));
   tube(hp([0,3,-5]),hp([0,1,21]),8.5,1.6,C.fur);       // wedge skull + snout
   tube(hp([0,-1,-2]),hp([0,-2.5,12]),5.5,1.5,C.belly,.5); // pale jaw
+  underOf(prims[prims.length-2],prims[prims.length-1],sub3(hp([0,-1,0]),hp([0,0,0])));
   [1,-1].forEach(es=>{
    tube(hp([es*3,7,-5]),hp([es*4.5,22,-9]),3.2,0.6,C.fur,-.3);
    tube(hp([es*3,8,-4.3]),hp([es*4.3,19,-7.6]),1.6,0.4,C.ear,-.2);
@@ -728,7 +775,7 @@ function startFlip(kind){if(FLIP||CHAR!=="robot")return;if(!playing&&!STEPBLEND)
  // coming down they swap at the start, so the move can run as "up" played backwards
  if(kind==="down")SWAP=!SWAP}
 // which end he stands up on when leaving "Run on all six": "A" or "B"
-let STANDEND="keep";
+let STANDEND="keep",LYTURN="swap",LIMBSW=true;const LYING=new Set(["run6","run5b","run5f","run4","run4dog","run5head"]);
 const bottomEnd=()=>SWAP?"B":"A";
 
 // --- character switching ---
@@ -754,6 +801,7 @@ $("charSel").onchange=()=>{CHAR=$("charSel").value;const D=charDef();
 // body length moves the top cluster of limbs with the end of the body
 $("rLen").oninput=()=>{BODY_L=+$("rLen").value;$("rLenV").textContent=BODY_L;for(const L of RLIMBS)if(L.end==="T")L.v[1]=BODY_L;CEIL=ceilFor()};
 $("rRad").oninput=()=>{BODY_R=+$("rRad").value;$("rRadV").textContent=BODY_R};
+document.querySelectorAll("#lyingTurn button").forEach(b=>b.onclick=()=>{LYTURN=b.dataset.t;document.querySelectorAll("#lyingTurn button").forEach(x=>x.classList.toggle("on",x===b))});
 document.querySelectorAll("#standEnd button").forEach(b=>b.onclick=()=>{STANDEND=b.dataset.e;document.querySelectorAll("#standEnd button").forEach(x=>x.classList.toggle("on",x===b))});
 const tintEnds=()=>{$("standEnd").children[2].style.borderBottom="6px solid "+RLOOK.pawA;$("standEnd").children[3].style.borderBottom="6px solid "+RLOOK.pawB};tintEnds();
 ["cPawA","cPawB"].forEach(id=>$(id).addEventListener("input",tintEnds));
@@ -809,6 +857,10 @@ function prism(a,b,r,col,ref,sides){
 function buildRobot(p,ph){
  prims=[];G=0;const th=2*Math.PI*ph;
  const turnAmt=Math.min(1,Math.abs(OMEGA)/1.2);p.lift=Math.max(p.lift,90*turnAmt);p.lean+=SKIDLEAN;
+ // ends swapped (180 'Swap ends'): the raised middle limb moves to the new back end, so a back tail stays a back tail
+ let headHide=false;
+ if(LIMBSW&&LYING.has(mode)){const r=(1-dirNow())/2,a=p.tailUse||0,b=p.frontTail||0;p.tailUse=a+(b-a)*r;p.frontTail=b+(a-b)*r;
+  headHide=(p.frontHead||0)>0&&r>0.5}   // TEMPORARY: a head can't move to the other end yet, so once the ends have swapped it is hidden
  const ft0=flipT(),flipping=FLIP&&ft0>=0&&ft0<1,ft=flipping?ft0:0,ends=flipping&&(FLIP.kind==="ends"||FLIP.kind==="rise"),
   tuck=flipping&&FLIP.kind==="ends"?Math.sin(Math.PI*ft):0;
  // hanging from the ceiling: gravity pulls the body down, so the planted legs hang nearly straight instead of crouching
@@ -943,6 +995,16 @@ function buildRobot(p,ph){
    const lo=r*(1-BONETOL),hi=r*(1+BONETOL);
    if(l<lo-1e-6||l>hi+1e-6){BONEBAD++;c.bad.push(j);const nl=Math.max(lo,Math.min(hi,l)),dir=l>1e-6?mul(d,1/l):[0,-1,0],np=add(c.chain[j-1],mul(dir,nl)),sh=sub3(np,c.chain[j]);
     for(let k=j;k<c.chain.length;k++)c.chain[k]=add(c.chain[k],sh)}}}
+ // floor guard: a lifted or tucked limb (not standing on its paw) must not dip into the ground. If any joint ball or
+ // the paw would, swing the whole limb up at the hip until it clears: a turn, so no bone changes length.
+ if(!GECKO&&!FLIP)for(const c of chains){if(c.q.w>=0.99)continue;const ch=c.chain,hip=ch[0];   // fully planted paws are left alone
+  const rad=j=>j>=ch.length-2?2.9:(LS[j-1]?LS[j-1][1]+0.6:4);   // paw: a planted paw sits at 3.2
+  const pen=pts=>{let worst=0,at=-1;for(let j=1;j<pts.length;j++){const d=ground(pts[j][0],pts[j][2])+rad(j)+0.5-pts[j][1];if(d>worst){worst=d;at=j}}return[worst,at]};
+  let [d,at]=pen(ch);if(d<=0)continue;
+  const v=sub3(ch[at],hip);let ax=cross3(v,[0,1,0]);const al=Math.hypot(...ax);if(al<1e-6)continue;ax=mul(ax,1/al);
+  const rot=(p,a)=>{const w=sub3(p,hip),c2=Math.cos(a),s2=Math.sin(a);return add(hip,add(add(mul(w,c2),mul(cross3(ax,w),s2)),mul(ax,dot3(ax,w)*(1-c2))))};
+  let best=null;for(let k=1;k<=45;k++){const a=k*2*Math.PI/180,np=ch.map((p,j)=>j?rot(p,a):p);if(pen(np)[0]<=0){best=np;break}}
+  if(best)for(let j=1;j<ch.length;j++)ch[j]=best[j]}
  SEGDBG=chains.map(c=>c.q.curve||c.flex?[]:c.chain.slice(1).map((v,j)=>Math.hypot(...sub3(v,c.chain[j]))/c.restL[j]));
  for(const {L,q,chain} of chains){G++;
   const lc=showColors?L.c:RLOOK.limb,pts=chain.slice(1);
@@ -953,12 +1015,12 @@ function buildRobot(p,ph){
    const fc=showColors?L.c:SP.fur,lifted=q.w<0.5,isTail=L.role==="tail"&&lifted;
    const thick=isTail&&RLOOK.skin!=="sergal"?[3.5,2.5,1.5]:[1,0.5,0];   // dino/kangaroo tails are chunky
    for(let i=0;i<3;i++)tube(chain[i],chain[i+1],LS[i][0]+1+thick[i],LS[i][1]+0.5+(thick[i+1]||0),fc);
-   const asHead=L.role==="neck"&&lifted&&RLOOK.head;
+   const asHead=L.role==="neck"&&lifted&&RLOOK.head&&!headHide,noHead=L.role==="neck"&&lifted&&headHide;
    if(asHead){const fw=[0,0,1],H0=pts[2];   // in his own frame: always looking the way he's facing
     const side=norm3(cross3([0,1,0],fw)),hp=v=>add(H0,add(add(mul(side,v[0]),[0,v[1],0]),mul(fw,v[2])));
     const eye=(x,y,z)=>{dot(hp([x,y,z]),1.7,SP.eye);const e=prims[prims.length-1],q2=hp([x*1.25,y,z+0.6]);e.n=sub3(q2,e.a)};
     if(RLOOK.skin==="sergal"){
-     tube(hp([0,3,-5]),hp([0,1,21]),8.5,1.6,SP.fur);tube(hp([0,-1,-2]),hp([0,-2.5,12]),5.5,1.5,SP.belly,.5);
+     tube(hp([0,3,-5]),hp([0,1,21]),8.5,1.6,SP.fur);tube(hp([0,-1,-2]),hp([0,-2.5,12]),5.5,1.5,SP.belly,.5);underOf(prims[prims.length-2],prims[prims.length-1],sub3(hp([0,-1,0]),hp([0,0,0])));
      [1,-1].forEach(es=>{tube(hp([es*3,7,-5]),hp([es*4.5,22,-9]),3.2,0.6,SP.fur,-.3);tube(hp([es*3,8,-4.3]),hp([es*4.3,19,-7.6]),1.6,0.4,SP.inner,-.2);eye(es*4.6,5,5)})}
     else if(RLOOK.skin==="dino"){
      // blocky long skull, open-able jaw line, brow ridges
@@ -968,11 +1030,11 @@ function buildRobot(p,ph){
      // kangaroo: rounded head, short snout, tall upright ears
      tube(hp([0,3,-4]),hp([0,2,8]),7.5,5.5,SP.fur);tube(hp([0,0,6]),hp([0,-0.5,15]),4.6,3,SP.fur);dot(hp([0,1,15.5]),2,SP.eye);
      [1,-1].forEach(es=>{tube(hp([es*3,8,-3]),hp([es*5.5,25,-6]),3.4,1.4,SP.fur,-.3);tube(hp([es*3,9,-2.4]),hp([es*5.2,22,-5.2]),1.8,0.6,SP.inner,-.2);eye(es*5,5,4)})}}
-   else tube(pts[2],pts[3],4.4+(isTail?thick[2]:0),3.8,endCol(L)===RLOOK.pawB?SP.pawB:SP.dark);
+   else if(!noHead)tube(pts[2],pts[3],4.4+(isTail?thick[2]:0),3.8,endCol(L)===RLOOK.pawB?SP.pawB:SP.dark);
    if(isTail&&SP.tuft)dot(pts[3],7,SP.tuft)}
   else{
   for(let i=0;i<3;i++){prism(chain[i],chain[i+1],LS[i][0],lc,fwd,10);dot(chain[i+1],LS[i][1]+0.6,RLOOK.joint)}
-  prism(pts[2],pts[3],L.role==="neck"&&q.w<0.5?5.5:4.2,endCol(L),fwd,10);}
+  if(!(L.role==="neck"&&q.w<0.5&&headHide))prism(pts[2],pts[3],L.role==="neck"&&q.w<0.5?5.5:4.2,endCol(L),fwd,10);}
   if(q.w>0.5&&!GECKO){const cp=q.cpt||pts[2];prims.push({t:2,a:[cp[0],ground(cp[0],cp[2])+0.1,cp[2]],r:8})}
  }
  // bone check (debug): mark any bone that had to be pulled back to its allowed length
@@ -1000,6 +1062,30 @@ const cv=$("cv"),ctx=cv.getContext("2d");
 let W,Hh,DPR;
 function resize(){DPR=devicePixelRatio||1;W=cv.clientWidth;Hh=cv.clientHeight;cv.width=W*DPR;cv.height=Hh*DPR}
 addEventListener("resize",resize);resize();
+// ---------- reset button on every slider row: back to the default for that slider ----------
+(function(){
+ const dec=row=>{if(row.querySelector(".rs"))return;const r=row.querySelector('input[type=range]');if(!r)return;
+  const def=row.dataset.def!==undefined&&row.dataset.def!==""?+row.dataset.def:+r.getAttribute("value");if(!isFinite(def))return;
+  const lab=row.querySelector("label");if(lab)lab.style.gridColumn="1/2";
+  const b=document.createElement("button");b.className="rs";b.type="button";b.textContent="\u21BA";b.title="Reset to default ("+def+")";b.setAttribute("aria-label","Reset to default");
+  const mark=()=>row.classList.toggle("changed",Math.abs(+r.value-def)>1e-9);
+  b.onclick=()=>{r.value=def;r.dispatchEvent(new Event("input",{bubbles:true}));r.dispatchEvent(new Event("change",{bubbles:true}));mark()};
+  r.addEventListener("input",mark);row.insertBefore(b,r);mark()};
+ const all=()=>document.querySelectorAll(".sl").forEach(dec);all();
+ new MutationObserver(all).observe(document.body,{childList:true,subtree:true})})();
+// ---------- interface: Auto (mouse/trackpad -> Desktop, finger -> Touch), or forced by the switch ----------
+(function(){const fine=matchMedia("(pointer:fine)"),root=document.documentElement;let pick="auto",first=true;
+ try{const v=localStorage.getItem("mixmoUI");if(v==="touch"||v==="desk")pick=v}catch(e){}
+ const apply=()=>{const desk=pick==="desk"||(pick==="auto"&&fine.matches),side=desk&&innerWidth>=760;
+  const ch=root.classList.contains("desk")!==desk||root.classList.contains("side")!==side;
+  root.classList.toggle("desk",desk);root.classList.toggle("side",side);
+  document.querySelectorAll("#uiSw button").forEach(b=>b.classList.toggle("on",b.dataset.ui===pick));
+  $("uiSw").querySelector('[data-ui="auto"]').title="Auto: detected "+(fine.matches?"mouse/trackpad (Desktop)":"touch (Touch)");
+  $("hint").textContent=desk?"drag: orbit - wheel: zoom - right-drag / Shift+drag: pan - double-click: reset":"1 finger: orbit - 2 fingers: pan & zoom - double-tap: reset";
+  if((ch||first)&&window.applySplit)applySplit();else resize();first=false};
+ document.querySelectorAll("#uiSw button").forEach(b=>b.onclick=()=>{pick=b.dataset.ui;try{localStorage.setItem("mixmoUI",pick)}catch(e){}apply()});
+ (fine.addEventListener?fine.addEventListener("change",apply):fine.addListener(apply));addEventListener("resize",apply);
+ window.UIMODE=()=>({pick,desk:root.classList.contains("desk"),side:root.classList.contains("side")});apply()})();
 function proj(v){
  const robo=CHAR==="robot";let q=rotX(rotY([v[0],v[1]-(robo?CAMY:68),v[2]],yaw),pitch);
  const s=zoom*Math.min(W,Hh*1.1)/(robo?260+BODY_L*1.4:245)*(600/(600-q[2]));
@@ -1048,7 +1134,10 @@ function render(){
   if(q.t===5){const f=proj(add(q.a,q.fn)).z-proj(q.a).z;if(f<=0.02)return;list.push({q,i,z:proj(q.a).z});return}
   if(q.n){const f=proj(add(q.a,q.n)).z-proj(q.a).z;if(f<=0.05)return; // eye on far side: hidden
    list.push({q,i,eye:1,z:1e6});return}
-  const m=add(q.a,q.b);list.push({q,i,z:proj(mul(m,.5)).z+q.bias})});
+  const m=add(q.a,q.b);let z=proj(mul(m,.5)).z+q.bias;
+  // underside visible: clearly in front of its head (more than the 1.5 'keep last order' margin)
+  if(q.over&&proj(add(q.a,q.dn)).z-proj(q.a).z>0){const o=q.over;z=Math.max(z,proj(mul(add(o.a,o.b),.5)).z+o.bias+2)}
+  list.push({q,i,z})});
  // group parts by limb so limbs draw as whole pieces; hysteresis keeps
  // near-equal depths in last frame's order instead of swapping every frame
  const gz={};for(const o of list){(gz[o.q.g]||(gz[o.q.g]={s:0,n:0,max:-1e9,items:[]}));const g=gz[o.q.g];if(!o.eye){g.s+=o.z;g.n++}g.items.push(o)}
@@ -1093,11 +1182,15 @@ function toggleSpin(){if(SPIN){SPIN=null;HEAD_T=HEAD;OMEGA=0;TRAVK=1;BOOST=0;$("
 function startTurn(kind){
  if(kind==="S"){toggleSpin();return}
  if(TURNM)return;
- if(SPIN)toggleSpin();   // a 90/180 turn stops the spin first   // let the current turn finish
+ if(SPIN)toggleSpin();   // a 90/180 turn stops the spin first
+ const lying=CHAR==="robot"&&LYING.has(mode),bodyK=Math.max(0.6,Math.min(2.2,BODY_L/100));   // body length 100 = normal
+ if(kind==="U"&&lying&&(LYTURN==="swap"||LYTURN==="swapKeep")){LIMBSW=LYTURN==="swap";   // lying flat the body works from either end: swap which end leads, don't spin round
+  const ts=Math.max(cur.speed,2.2);TURNM={kind:"U6",label:"Turn around 180° (swap ends)",skidSw:cur.travel>100,p0:phase,len:1.1*Math.sqrt(bodyK)*ts,h0:HEAD,dh:0,skid:false,ts,d0:DIR};turnStep();return}   // let the current turn finish
  const fast=cur.travel>100,moving=cur.travel>=40,ts=Math.max(cur.speed,moving?1.2:2.2);
  let dh=0,dur=0.8,skid=false;
  if(kind==="L"){dh=Math.PI/2;dur=moving?0.9:0.8}
  else if(kind==="R"){dh=-Math.PI/2;dur=moving?0.9:0.8}
+ else if(kind==="U"&&lying){dh=Math.PI;dur=1.8*bodyK}   // turn round lying flat: slower, and slower still for a long body
  else if(kind==="U"){dh=Math.PI;if(fast){skid=true;dur=1.7}else dur=1.1}
  else{dh=2*Math.PI;dur=1.1}
  TURNM={kind,label:{L:"Turn left 90°",R:"Turn right 90°",U:"Turn around 180°",S:"Spin"}[kind],p0:phase,len:dur*ts,h0:HEAD,dh,skid,ts};
@@ -1108,15 +1201,18 @@ function turnShape(T,t){   // -> [heading fraction, travel factor, lean back, su
   if(t<0.65)return[smt((t-0.35)/0.3),0,lean,"whipping round"];
   const k=(t-0.65)/0.35;return[1,k*k,lean,"speeding off"]}
  if(T.kind==="S")return[smt(t),1-Math.sin(Math.PI*t),0,"spinning"];
+ if(T.kind==="U6"){const lean=T.skidSw?-26*Math.sin(Math.PI*Math.min(1,t/0.55)):0;return[0,1,lean,t<0.5?(T.skidSw?"skidding":"slowing"):"other end leading"]}
  return[smt(t),1,0,""]}
 function turnStep(){
  if(!TURNM&&SPIN){const t=(phase-SPIN.p0)/SPIN.len;HEAD=SPIN.h0+2*Math.PI*t;HEAD_T=HEAD;TRAVK=0;BOOST=SPIN.ts;
   // pivot round the middle of the body, not the hips: the middle stays put in the world
   POS[0]=SPIN.W[0]-Math.sin(HEAD)*SPIN.pz;POS[1]=SPIN.W[1]-Math.cos(HEAD)*SPIN.pz;
   OMEGA=2*Math.PI/(SPIN.len/SPIN.ts);TURN={st:null,t:0};return}
- if(!TURNM){BOOST=0;TURN={st:null,t:0};return}
+ if(!TURNM){if(!LYING.has(mode)&&DIR!==1&&blendU>=1)DIR=1;BOOST=0;TURN={st:null,t:0};return}
  const T=TURNM,t=(phase-T.p0)/T.len;
  const end=h=>{HEAD=h;HEAD_T=h;TRAVK=1;SKIDLEAN=0;OMEGA=0;BOOST=0;TURNM=null;TURN={st:null,t:0}};
+ if(T.kind==="U6"){if(t<0){DIR=T.d0;end(T.h0);return}if(t>=1){DIR=-T.d0;end(T.h0);return}
+  DIR=T.d0*Math.cos(Math.PI*smt(t));HEAD=HEAD_T=T.h0;TRAVK=1;OMEGA=0;BOOST=T.ts;const sh=turnShape(T,t);SKIDLEAN=sh[2];TURN={st:sh[3],t};return}
  if(t<0){end(T.h0);return}            // stepped back past the start: cancelled
  if(t>=1){end(T.h0+T.dh);return}      // finished
  const [h,tr,lean,st]=turnShape(T,t),h2=turnShape(T,Math.min(1,t+0.01))[0];
@@ -1147,6 +1243,22 @@ function frame(t){
  requestAnimationFrame(frame);
 }
 segUI();buildSliders();applyCollapsed();syncJSON();requestAnimationFrame(frame);
+// ---------- spacebar always plays / pauses (never clicks the last button or opens a dropdown) ----------
+(function(){const typing=t=>t&&(t.tagName==="TEXTAREA"||(t.tagName==="INPUT"&&/^(text|number|search|email|url|password)$/i.test(t.type))||t.isContentEditable);
+ const isSp=e=>e.code==="Space"||e.key===" ";
+ addEventListener("keydown",e=>{if(!isSp(e)||typing(e.target))return;e.preventDefault();e.stopPropagation();if(!e.repeat)$("play").onclick()},true);
+ addEventListener("keyup",e=>{if(isSp(e)&&!typing(e.target)){e.preventDefault();e.stopPropagation()}},true);
+ addEventListener("keypress",e=>{if(isSp(e)&&!typing(e.target)){e.preventDefault();e.stopPropagation()}},true)})();
+// ---------- desktop: mouse wheel over a closed dropdown steps through its choices ----------
+(function(){let acc=0,lastT=0;
+ document.addEventListener("wheel",e=>{const s=e.target.closest&&e.target.closest("select");if(!s||s.disabled)return;
+  e.preventDefault();const now=performance.now();if(now-lastT>300)acc=0;lastT=now;
+  acc+=e.deltaMode===1?e.deltaY*33:e.deltaY;           // lines -> pixels; trackpads send many small steps
+  if(Math.abs(acc)<50)return;const dir=acc>0?1:-1;acc=0;
+  const o=s.options;let i=s.selectedIndex;
+  do{i+=dir}while(i>=0&&i<o.length&&(o[i].disabled||o[i].hidden));
+  if(i<0||i>=o.length)return;
+  s.selectedIndex=i;if(s.onchange)s.onchange();else s.dispatchEvent(new Event("change",{bubbles:true}))},{passive:false})})();
 </script>
 </body>
 </html>
