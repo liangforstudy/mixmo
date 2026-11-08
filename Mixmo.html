@@ -181,6 +181,11 @@ html.desk .sl .rs{min-height:22px;min-width:30px;padding:0 6px;font-size:14px}
 <div class="row" style="margin:6px 0"><span class="lbl" style="min-width:76px">Shadows</span><div class="seg"><button data-k="shadow" data-v="real">Real</button><button data-k="shadow" data-v="blob">Soft spots</button></div></div>
 <div class="row" style="margin:6px 0"><span class="lbl" style="min-width:76px">Ground</span><div class="seg"><button data-k="ground" data-v="solid">Solid</button><button data-k="ground" data-v="grid">Grid only</button></div></div>
 </fieldset>
+<fieldset id="pickBox" style="margin:8px 16px"><legend>2D debug: what's hiding it?</legend>
+<p class="sub" style="margin:4px 0">Turn on, then tap a shape in the view (2D renderer). It gets a dashed red outline, and as you move the camera this lists what is drawn on top of it.</p>
+<div class="row" style="margin:6px 0;gap:8px"><div class="seg" id="pickSw"><button data-p="on">Pick: On</button><button data-p="off" class="on">Off</button></div><button id="pickClr">Clear</button></div>
+<p id="pickOut" class="sub" aria-live="polite" style="margin:4px 0;opacity:1;min-height:1.3em"></p>
+</fieldset>
 <div class="row" style="align-items:center;flex-wrap:nowrap"><span class="lbl">Interface:</span><div class="seg" id="uiSw"><button data-ui="auto">Auto</button><button data-ui="touch">Touch</button><button data-ui="desk">Desktop</button></div></div>
 <fieldset id="fresh" style="margin:8px 16px"><legend>Start fresh</legend>
 <p class="sub" style="margin:4px 0">Forget everything this app has saved in this browser (drawers, layout, renderer, 3D look and other choices) and reload, as if opening it for the first time.</p>
@@ -578,8 +583,9 @@ function groundW(x,w){const h=TER.h,L=TER.len,T=2*Math.PI;
   case "bumpy":return h*(0.5*Math.sin(w*T/L+x*0.05)+0.3*Math.sin(w*T/L*2.3-x*0.09)+0.2*Math.sin(w*T/L*4.1+x*0.17));
   case "steps":{const st=Math.floor(w/(L/6)),m=((st%8)+8)%8;return h*0.5*(m<4?m:8-m)-h}
   default:return 0}}
-const tube=(a,b,ra,rb,col,bias=0)=>prims.push({t:0,a,b,ra,rb,col,bias,g:G});
-const dot=(a,r,col,bias=0)=>prims.push({t:1,a,b:a,ra:r,col,bias,g:G});
+let PNAME="";   // name of the part being built (shown by the 2D debug picker)
+const tube=(a,b,ra,rb,col,bias=0)=>prims.push({t:0,a,b,ra,rb,col,bias,g:G,nm:PNAME});
+const dot=(a,r,col,bias=0)=>prims.push({t:1,a,b:a,ra:r,col,bias,g:G,nm:PNAME});
 // an underside part (pale jaw): drawn in front of its head whenever the camera can see the underside
 const underOf=(top,part,dn)=>{part.over=top;part.dn=dn};
 
@@ -658,7 +664,7 @@ function splitLegs(e){const mid=ATT[LEGS[0].k];
  return SPLIT_LEGS}
 function buildRig(p,ph){
  p=moodMix(p);
- prims=[];G=0;
+ prims=[];G=0;PNAME="";
  const th=2*Math.PI*ph;
  const H=restHeight(p),BOB=p.bob*(p.bobWave*0.5+0.5);
  // body rides at the lowest ground any paw might plant on, so no leg has to over-reach
@@ -715,7 +721,7 @@ function buildRig(p,ph){
  // legs
  for(const q of plan){
   const {L,o}=q;
-  G++;const hip=add(P0,[q.A.x,q.A.y,q.A.z]);
+  G++;PNAME=L.n+(L.copy?"":L.tail?"":" leg")+(L.side?(L.side>0?" (half 1)":" (half 2)"):"");const hip=add(P0,[q.A.x,q.A.y,q.A.z]);
   let pts;
   if(TER.feet){
    // 2-joint solve: thigh swing (sw) + leg fold (a) so the paw reaches its planned target
@@ -739,7 +745,7 @@ function buildRig(p,ph){
   if(q.gw===undefined||q.gw>=0.75)prims.push({t:2,a:[pts[2][0],ground(pts[2][0],pts[2][2]+4)+0.1,pts[2][2]+4],r:9});
  }
  // torso
- G++;
+ G++;PNAME="Body";
  {const T=SERGAL_SHAPE.torso;
   if(!SPL){tube(B([0,0,-1]),B([0,T.len,0]),T.rBase,T.rTop,C.fur);tube(B(T.belly.from),B(T.belly.to),T.belly.r0,T.belly.r1,C.belly,1)}
   else for(const sd of [1,-1]){const bx=v=>{const f=Math.max(0,Math.min(1,v[1]/T.len)),e=SPLb+(SPLt-SPLb)*f,k=1-0.3*e;return B([v[0]*k+sd*e*SPLIT_GAP,v[1],v[2]])},kb=1-0.3*SPLb,k=1-0.3*SPLt;if(sd<0)G++;   // each half: its own, slimmer body, parted from the neck down
@@ -750,7 +756,7 @@ function buildRig(p,ph){
  SA.pairs.map(pr=>[pr.y,pr.offset]).forEach(([sy,off])=>{
   [1,-1].forEach(side=>{
    if(armI++>=SHOW.nArms)return;
-   G++;
+   G++;PNAME=(off?"Lower":"Upper")+" arm "+(side>0?"A":"B");
    // split: the upper arm on each side stays that half's outer arm; the lower one moves round to its inner side
    // inner (lower) arms: option 1 grow with the third leg; options 2/3 don't exist until he divides (see below)
    const opt=off&&ARMOPT!==1,gA=off?(opt?(SPL>0?Math.max(ARMT,ARMOPT===3?0.0001:0):0):GLEG):1;if(gA<0.05&&!(opt&&ARMOPT===3&&SPL>0))return;
@@ -793,7 +799,7 @@ function buildRig(p,ph){
   if(HM>0.97&&i===1)return;   // squashed all the way: one head
   // split: each half carries its head over its own middle; squash: the two heads slide together and stand straight
   const tw=SPL?1-SPLh:1-HM;
-  G++;const SN=SERGAL_SHAPE.necks,base=B([side*SN.x*tw+side*SPLh*SPLIT_GAP,SN.y,0]);
+  G++;PNAME="Neck and head "+(side>0?"A":"B");const SN=SERGAL_SHAPE.necks,base=B([side*SN.x*tw+side*SPLh*SPLIT_GAP,SN.y,0]);
   const nd=rotZ([0,1,0.15],-side*p.neck*R*tw);
   let top=add(base,mul(nd,SN.len));
   // head steadying (like a bird or a dog): the head floats on a slow spring and the neck
@@ -817,7 +823,7 @@ function buildRig(p,ph){
  // lion tails
  (SPL?[1,-1]:SHOW.nTails===1?[0]:[1,-1].slice(0,SHOW.nTails)).forEach((side,i)=>{
   const gT=i===1?GT2:1;if(gT<0.05)return;   // the second tail grows first, before the third leg
-  G++;const ST=SERGAL_SHAPE.tails;let pt=add(P0,rotZ([SPL?side*ST.root[0]*(1-SPLb)+side*SPLb*SPLIT_GAP:side*ST.root[0]*(GW<1?GT2:1),ST.root[1],ST.root[2]],swayA));
+  G++;PNAME="Tail "+(i+1);const ST=SERGAL_SHAPE.tails;let pt=add(P0,rotZ([SPL?side*ST.root[0]*(1-SPLb)+side*SPLb*SPLIT_GAP:side*ST.root[0]*(GW<1?GT2:1),ST.root[1],ST.root[2]],swayA));
   for(let k=0;k<ST.segs;k++){
    const e=(p.tailLift-25+k*p.tailCurl)*R;
    const s=(side*10+p.tailSwing*Math.sin(th-k*0.55+i*0.9))*R;
@@ -973,13 +979,13 @@ function prism(a,b,r,col,ref,sides){
  const mid=mul(add(a,b),0.5);
  for(let k=0;k<N;k++){const k1=(k+1)%N,q=[P1[k],P1[k1],P2[k1],P2[k]],c=mul(add(add(q[0],q[1]),add(q[2],q[3])),0.25);
   let n=norm3(cross3(sub3(q[1],q[0]),sub3(q[3],q[0])));if(dot3(n,sub3(c,mid))<0)n=mul(n,-1);
-  prims.push({t:5,pts:q,a:c,b:c,fn:n,col,bias:0,g:G})}
- prims.push({t:5,pts:P1.slice().reverse(),a:a,b:a,fn:mul(u,-1),col,bias:0,g:G});
- prims.push({t:5,pts:P2,a:b,b:b,fn:u,col,bias:0,g:G})}
+  prims.push({t:5,pts:q,a:c,b:c,fn:n,col,bias:0,g:G,nm:PNAME,side:1})}
+ prims.push({t:5,pts:P1.slice().reverse(),a:a,b:a,fn:mul(u,-1),col,bias:0,g:G,nm:PNAME,cap:"start"});
+ prims.push({t:5,pts:P2,a:b,b:b,fn:u,col,bias:0,g:G,nm:PNAME,cap:"end"})}
 
 // --- the robot's rig, built with the same planner, springs, terrain and turning as the sergal ---
 function buildRobot(p,ph){
- prims=[];G=0;const th=2*Math.PI*ph;
+ prims=[];G=0;PNAME="";const th=2*Math.PI*ph;
  rigLean(p);
  // ends swapped (180 'Swap ends'): the raised middle limb moves to the new back end, so a back tail stays a back tail
  let headHide=false;
@@ -1023,7 +1029,7 @@ function buildRobot(p,ph){
  // body
  G++;{const N=RLOOK.segs,gap=N>1?4:0,SB=segBounds(N);
   for(let i=0;i<N;i++){const y0=(i?SB[i]+gap/2:-2),y1=(i<N-1?SB[i+1]-gap/2:BODY_L+2);
-   const SP=SKINPAL[RLOOK.skin],pb=prims.length;
+   const SP=SKINPAL[RLOOK.skin],pb=prims.length;PNAME=N>1?"Body segment "+(i+1):"Body";
    // with 3 segments the middle one (torso/waist) can be slimmer
    const BRs=BODY_R*(N===3&&i===1?RLOOK.midSeg:1);
    if(SP){tube(B([0,y0+3,-1]),B([0,y1-3,0]),BRs+1,BRs,SP.fur);tube(B([0,y0+5,BRs*0.45]),B([0,y1-5,BRs*0.5]),BRs*0.58,BRs*0.52,SP.belly,1);
@@ -1133,7 +1139,7 @@ function buildRobot(p,ph){
   let best=null;for(let k=1;k<=45;k++){const a=k*2*Math.PI/180,np=ch.map((p,j)=>j?rot(p,a):p);if(pen(np)[0]<=0){best=np;break}}
   if(best)for(let j=1;j<ch.length;j++)ch[j]=best[j]}
  SEGDBG=chains.map(c=>c.q.curve||c.flex?[]:c.chain.slice(1).map((v,j)=>Math.hypot(...sub3(v,c.chain[j]))/c.restL[j]));
- for(const {L,q,chain} of chains){G++;
+ for(const {L,q,chain} of chains){G++;PNAME=L.n.toLowerCase().includes(L.role)?L.n:L.n+" "+L.role;
   const lc=showColors?L.c:RLOOK.limb,pts=chain.slice(1);
 
   const SP=SKINPAL[RLOOK.skin];
@@ -1165,7 +1171,7 @@ function buildRobot(p,ph){
   if(q.w>0.5&&!GECKO){const cp=q.cpt||pts[2];prims.push({t:2,a:[cp[0],ground(cp[0],cp[2])+0.1,cp[2]],r:8})}
  }
  // bone check (debug): mark any bone that had to be pulled back to its allowed length
- if(BONESHOW)for(const c of chains)for(const j of c.bad){G++;dot(c.chain[j-1],2.6,"#e0201a");dot(c.chain[j],2.6,"#e0201a")}
+ if(BONESHOW)for(const c of chains)for(const j of c.bad){G++;PNAME="Bone check marker";dot(c.chain[j-1],2.6,"#e0201a");dot(c.chain[j],2.6,"#e0201a")}
  // somersault: whole robot pitches end over end around its middle and hops up
  const xf=(T,N)=>{for(const q of prims){const same=q.b===q.a;q.a=T(q.a);if(q.b)q.b=same?q.a:T(q.b);if(q.pts)q.pts=q.pts.map(T);if(q.fn)q.fn=N(q.fn);if(q.n)q.n=N(q.n)}};
  const mir=v=>[v[0],CEIL-v[1],v[2]];   // ceiling world: upside-down mirror of the floor pose
@@ -1253,9 +1259,49 @@ function drawTube(p){
  ctx.lineWidth=2.2;ctx.strokeStyle=C.ink;ctx.stroke();ctx.fillStyle=p.col;ctx.fill();
 }
 const rankG={},rankP={};
+// ---------- 2D debug picker: tap a shape to track it; it reports what is drawn on top of it ----------
+const DRAWN=[];let PICK=false,PSEL=null,PTXT="";
+// a drawn shape on screen: a polygon (box face) or a capsule (tube; a dot is a capsule with both ends together)
+function pShape(q){if(q.t===5)return{poly:q.pts.map(v=>{const p=proj(v);return[p.x,p.y]})};
+ const A=proj(q.a),B=proj(q.b),ra=q.ra*A.s,rb=q.t===1?ra:(q.rb===undefined?q.ra:q.rb)*B.s;return{A:[A.x,A.y],B:[B.x,B.y],ra,rb}}
+function pInside(S,x,y){if(S.poly){let c=false;const P=S.poly;for(let i=0,j=P.length-1;i<P.length;j=i++){const [xi,yi]=P[i],[xj,yj]=P[j];
+  if((yi>y)!==(yj>y)&&x<(xj-xi)*(y-yi)/(yj-yi||1e-9)+xi)c=!c}return c}
+ const dx=S.B[0]-S.A[0],dy=S.B[1]-S.A[1],L2=dx*dx+dy*dy,t=L2?Math.max(0,Math.min(1,((x-S.A[0])*dx+(y-S.A[1])*dy)/L2)):0;
+ return Math.hypot(x-S.A[0]-dx*t,y-S.A[1]-dy*t)<=S.ra+(S.rb-S.ra)*t}
+// sample points spread over a shape, to measure how much of it is covered
+function pSamples(S){const out=[];
+ if(S.poly){const P=S.poly,c=P.reduce((a,p)=>[a[0]+p[0]/P.length,a[1]+p[1]/P.length],[0,0]);out.push(c);
+  for(let i=0;i<P.length;i++){const p=P[i],n=P[(i+1)%P.length];for(const k of [0.35,0.75])out.push([c[0]+(p[0]-c[0])*k,c[1]+(p[1]-c[1])*k],[c[0]+((p[0]+n[0])/2-c[0])*k,c[1]+((p[1]+n[1])/2-c[1])*k])}return out}
+ const dx=S.B[0]-S.A[0],dy=S.B[1]-S.A[1],L=Math.hypot(dx,dy)||1,nx=-dy/L,ny=dx/L;
+ for(let t=0;t<=1.001;t+=0.25){const r=S.ra+(S.rb-S.ra)*t,x=S.A[0]+dx*t,y=S.A[1]+dy*t;for(const k of [-0.7,0,0.7])out.push([x+nx*r*k,y+ny*r*k])}return out}
+const pKind=q=>q.t===5?(q.cap?"box end face":"box side face"):q.n?"eye":q.t===1?"ball":"tube";
+const pName=q=>(q.nm||"part "+q.g)+", "+pKind(q);
+function pickAt(x,y){for(let k=DRAWN.length-1;k>=0;k--){const o=DRAWN[k];if(pInside(pShape(o.q),x,y)){PSEL={i:o.i,nm:o.q.nm,kind:pKind(o.q)};return}}PSEL=null}
+// called after each 2D frame: find the tracked shape again, list later-drawn shapes that overlap it, outline it
+function pickReport(){if(!PSEL){pSay(PICK?"Tap a shape in the view to track it.":"");return}
+ let k=DRAWN.findIndex(o=>o.i===PSEL.i&&o.q.nm===PSEL.nm&&pKind(o.q)===PSEL.kind);
+ const q=k>=0?DRAWN[k].q:(prims[PSEL.i]&&prims[PSEL.i].nm===PSEL.nm?prims[PSEL.i]:null);
+ if(!q){pSay("The tracked shape isn't in this pose any more (the character or mode changed). Tap another.");return}
+ const S=pShape(q);
+ ctx.save();ctx.setLineDash([5,4]);ctx.lineWidth=2.5;ctx.strokeStyle="#e0201a";ctx.beginPath();
+ if(S.poly){S.poly.forEach((p,i)=>i?ctx.lineTo(p[0],p[1]):ctx.moveTo(p[0],p[1]));ctx.closePath()}
+ else{const a=Math.atan2(S.B[1]-S.A[1],S.B[0]-S.A[0]),n=a+Math.PI/2;ctx.moveTo(S.A[0]+Math.cos(n)*S.ra,S.A[1]+Math.sin(n)*S.ra);ctx.lineTo(S.B[0]+Math.cos(n)*S.rb,S.B[1]+Math.sin(n)*S.rb);
+  ctx.arc(S.B[0],S.B[1],S.rb,n,n-Math.PI,true);ctx.lineTo(S.A[0]-Math.cos(n)*S.ra,S.A[1]-Math.sin(n)*S.ra);ctx.arc(S.A[0],S.A[1],S.ra,n-Math.PI,n-2*Math.PI,true)}
+ ctx.stroke();ctx.restore();
+ const head="Tracking: "+pName(q)+".";
+ if(k<0){pSay(head+" Not drawn in this view: it faces away from the camera (only faces turned towards you are drawn).");return}
+ const sm=pSamples(S),cov=new Array(sm.length).fill(false),by=[];
+ for(let j=k+1;j<DRAWN.length;j++){const T=pShape(DRAWN[j].q);let n=0;sm.forEach((p,m)=>{if(pInside(T,p[0],p[1])){n++;cov[m]=true}});
+  if(n){const nm=pName(DRAWN[j].q),e=by.find(b=>b.nm===nm);if(e)e.n=Math.max(e.n,n);else by.push({nm,n})}}
+ const tot=cov.filter(Boolean).length;
+ if(!by.length){pSay(head+" Drawn "+(k+1)+" of "+DRAWN.length+". Nothing is drawn on top of it.");return}
+ by.sort((a,b)=>b.n-a.n);
+ pSay(head+" Drawn "+(k+1)+" of "+DRAWN.length+"; about "+Math.round(100*tot/sm.length)+"% covered by: "+by.slice(0,6).map(b=>b.nm+" ("+Math.round(100*b.n/sm.length)+"%)").join("; ")+(by.length>6?"; and "+(by.length-6)+" more":"")+".")}
+function pSay(t){if(t===PTXT)return;PTXT=t;const e=$("pickOut");if(e)e.textContent=t}
 function render(){
  ctx.setTransform(DPR,0,0,DPR,0,0);ctx.clearRect(0,0,W,Hh);
  drawGround();
+ DRAWN.length=0;
  if(r3on()){ctx.clearRect(0,0,W,Hh);r3render();return}
  for(const s of prims.filter(q=>q.t===2)){const c=proj(s.a);ctx.fillStyle="rgba(58,42,28,.15)";ctx.beginPath();ctx.ellipse(c.x,c.y,s.r*c.s,s.r*c.s*0.4,0,0,7);ctx.fill()}
  const list=[];prims.forEach((q,i)=>{if(q.t===2)return;
@@ -1285,8 +1331,9 @@ function render(){
  for(const g of groups){
   g.items.sort((a,b)=>Math.abs(a.z-b.z)<1.5?(rankP[a.i]??a.i)-(rankP[b.i]??b.i):a.z-b.z);
   g.items.forEach((o,r)=>rankP[o.i]=r);
-  for(const o of g.items)drawTube(o.q);
+  for(const o of g.items){drawTube(o.q);DRAWN.push(o)}
  }
+ pickReport();
 }
 // gait chart: the bars (which part of the stride each leg is down) only change when the timings, size or character
 // change, so they are drawn once into a cached picture; each frame just copies it and draws the moving playhead
@@ -1598,11 +1645,18 @@ function r3render(){const T=R3.T,R=R3,OUT=0.7,L=R.look;
  R.rd.render(R.sc,R.cam)}
 function r3ui(){document.querySelectorAll("#rendSw button").forEach(b=>b.classList.toggle("on",b.dataset.r===R3.want));
  $("cv3").style.display=r3on()?"block":"none";$("cv").style.visibility=r3on()?"hidden":"visible";
- $("r3Look").hidden=R3.want!=="three";
+ $("r3Look").hidden=R3.want!=="three";$("pickBox").hidden=r3on();if(r3on()&&PICK){PICK=false;PSEL=null;pickUI()}
  document.querySelectorAll("#r3Look [data-k]").forEach(b=>b.classList.toggle("on",R3.look[b.dataset.k]===b.dataset.v))}
 document.querySelectorAll("#rendSw button").forEach(b=>b.onclick=()=>{R3.want=b.dataset.r;try{localStorage.setItem("mixmoRenderer",R3.want)}catch(e){}
  if(R3.want==="three"&&!R3.ok)r3load();else if(R3.want==="canvas")r3msg("");r3ui()});
 document.querySelectorAll("#r3Look [data-k]").forEach(b=>b.onclick=()=>{R3.look[b.dataset.k]=b.dataset.v;try{localStorage.setItem("mixmoLook3D",JSON.stringify(R3.look))}catch(e){}r3applyLook();r3ui()});
+function pickUI(){document.querySelectorAll("#pickSw button").forEach(b=>b.classList.toggle("on",(b.dataset.p==="on")===PICK));if(!PICK&&!PSEL)pSay("")}
+document.querySelectorAll("#pickSw button").forEach(b=>b.onclick=()=>{PICK=b.dataset.p==="on";pickUI()});
+$("pickClr").onclick=()=>{PSEL=null;pSay(PICK?"Tap a shape in the view to track it.":"")};
+// a tap (no drag) in the view picks the topmost shape under it; drags still orbit / pan as usual
+{let d0=null;view.addEventListener("pointerdown",e=>{d0={x:e.clientX,y:e.clientY,t:performance.now()}});
+ view.addEventListener("pointerup",e=>{if(!PICK||!d0||r3on())return;const moved=Math.hypot(e.clientX-d0.x,e.clientY-d0.y),dt=performance.now()-d0.t;d0=null;
+  if(moved>6||dt>500)return;const r=cv.getBoundingClientRect();pickAt(e.clientX-r.left,e.clientY-r.top);if(!PSEL)pSay("Nothing there. Tap on a shape.")})}
 r3ui();if(R3.want==="three")r3load();
 // Start fresh: remove only this app's saved keys (on w3schools the storage is shared with the site), then reload
 $("freshGo").onclick=()=>{$("freshAsk").hidden=false;$("freshGo").hidden=true};
@@ -1626,6 +1680,7 @@ document.addEventListener("click",e=>{if(!e.isTrusted||!e.target.closest)return;
   const el=t.closest("button,input,select,label");if(!el||NAV.has(el.id)||t.closest("#view"))return;
   if(el.id==="hapSw"||el.id==="hapLb")return;   // the hidden haptic switch is not a change you made
   if(el.tagName==="LABEL")return;
+         if(t.closest("#pickBox,#fresh,#r3Look,#rendSw,#uiSw"))return;   // display / debug switches don't change the motion
   if(el.id==="charSel")return;hBranch()};
  document.addEventListener("click",br,true);document.addEventListener("input",br,true);document.addEventListener("change",br,true);
  document.addEventListener("change",e=>{if(e.target&&e.target.id==="charSel")hClear()},true)}
