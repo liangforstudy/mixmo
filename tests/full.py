@@ -4,7 +4,8 @@ JS=r"""async()=>{
  const tick=()=>{showFrame();showStatus();(CHAR==="robot"?buildRobot:buildRig)(cur,phase)};
  const frameBlend=()=>{const tg=P[mode],u=ease(blendU);for(const k in tg)cur[k]=from[k]+(tg[k]-from[k])*u;const th0=2*Math.PI*phase,fb=Math.sin(th0*Math.round(from.bobMul||1));cur.bobWave=fb+(Math.sin(th0*Math.round(tg.bobMul||1))-fb)*u;springStep(1/60);flipStep();if(typeof walkoverStep==="function")walkoverStep()};
  const step=d=>{stepFrame(d);frameBlend();tick()};
- const scrub=v=>{$("scrub").value=v;$("scrub").dispatchEvent(new Event("input"));frameBlend();tick()};
+ // the on-screen scrubber now runs over the recorded history; these engine tests scrub the current move directly
+ const scrub=v=>{const m=morphNow();if(m)m.set(v);else scrubTo(v);frameBlend();tick()};
  const chk=(lbl)=>{if(bad())fails.push(lbl+": NaN/Infinity in pose");};
  if(playing)$("play").onclick();STEPBLEND=true;
  for(const ch of ["sergal","robot"]){
@@ -56,7 +57,7 @@ JS=r"""async()=>{
    HEAD=HEAD_T=0;TURNM=null;SPIN=null;startTurn("S");for(let i=0;i<10;i++)step(1);const h10=HEAD;
    if(!(h10>0.1))fails.push(`${ch} ${m} spin: not turning`);tick();if($("stTag").textContent!=="LOOP")fails.push(`${ch} ${m} spin: status not LOOP`);
    for(let i=0;i<5;i++)step(-1);if(!(HEAD<h10))fails.push(`${ch} ${m} spin: stepping back did not unspin`);
-   for(let i=0;i<60;i++)step(1);startTurn("S");const hOff=HEAD;for(let i=0;i<10;i++)step(1);if(Math.abs(HEAD-hOff)>1e-6)fails.push(`${ch} ${m} spin: kept turning after stop`);
+   for(let i=0;i<60;i++)step(1);startTurn("S");const hOff=HEAD;for(let i=0;i<400&&SPIN;i++)step(1);{const q=Math.PI/2,r=HEAD/q;if(SPIN)fails.push(`${ch} ${m} spin: still spinning after stop`);else if(Math.abs(r-Math.round(r))>1e-6)fails.push(`${ch} ${m} spin: stopped at ${(HEAD*57.3).toFixed(1)}, not a multiple of 90`);else if(HEAD-hOff<-1e-6||HEAD-hOff>q+1e-6)fails.push(`${ch} ${m} spin: wound down ${((HEAD-hOff)*57.3).toFixed(1)} deg (want 0-90)`);const hS=HEAD;for(let i=0;i<10;i++)step(1);if(Math.abs(HEAD-hS)>1e-6)fails.push(`${ch} ${m} spin: kept turning after stop`)}
    chk(`${ch} ${m} spin`);SPIN=null;HEAD=HEAD_T=0}
 
   HEAD=HEAD_T=0;OMEGA=0;TURNM=null;BOOST=0;SPIN=null;

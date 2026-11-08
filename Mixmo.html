@@ -1410,14 +1410,20 @@ let TURNM=null;
 const smt=u=>u*u*(3-2*u);
 // Spin is a loop, not a morph: while it's on he keeps turning on the spot, one full turn per SPIN.len cycles.
 let SPIN=null;const SPINSTEP=45;   // how far (around the circle) each paw may be carried per stride while spinning
-function toggleSpin(){if(SPIN){SPIN=null;HEAD_T=HEAD;OMEGA=0;TRAVK=1;BOOST=0;$("tS").classList.remove("on");return}
+// Turning Spin off keeps him turning until he faces the next of the four main directions (a multiple of 90°), then
+// stops there (SPIN.stopH). Pressing Spin again while he winds down carries on spinning. now=true stops at once.
+function spinEnd(){SPIN=null;HEAD_T=HEAD;OMEGA=0;TRAVK=1;BOOST=0;$("tS").classList.remove("on")}
+function toggleSpin(now){if(SPIN){
+  if(now){spinEnd();return}
+  if(SPIN.stopH!==undefined){delete SPIN.stopH;$("tS").classList.add("on");return}   // pressed again: keep spinning
+  const q=Math.PI/2;SPIN.stopH=Math.ceil((HEAD+1e-3)/q)*q;$("tS").classList.remove("on");turnStep();return}
  const ts=Math.max(cur.speed,2.2),pz=CHAR==="robot"?LASTMID[2]:0;
  const rmax=CHAR==="robot"?Math.max(15,...LASTHIPS.map(a=>Math.hypot(a[0],a[2]-pz)+25)):15;
  SPIN={p0:phase,h0:HEAD,len:Math.max(1.1*ts,2*Math.PI*rmax/SPINSTEP),ts,pz,W:[POS[0]+Math.sin(HEAD)*pz,POS[1]+Math.cos(HEAD)*pz]};$("tS").classList.add("on");turnStep()}
 function startTurn(kind){
  if(kind==="S"){toggleSpin();return}
  if(TURNM)return;
- if(SPIN)toggleSpin();   // a 90/180 turn stops the spin first
+ if(SPIN)toggleSpin(true);   // a 90/180 turn stops the spin first (at once)
  const lying=CHAR==="robot"&&LYING.has(mode),bodyK=Math.max(0.6,Math.min(2.2,BODY_L/100));   // body length 100 = normal
  if(kind==="U"&&lying&&(LYTURN==="swap"||LYTURN==="swapKeep")){LIMBSW=LYTURN==="swap";   // lying flat the body works from either end: swap which end leads, don't spin round
   const ts=Math.max(cur.speed,2.2);TURNM={kind:"U6",label:"Turn around 180° (swap ends)",skidSw:cur.travel>100,p0:phase,len:1.1*Math.sqrt(bodyK)*ts,h0:HEAD,dh:0,skid:false,ts,d0:DIR};turnStep();return}   // let the current turn finish
@@ -1440,6 +1446,8 @@ function turnShape(T,t){   // -> [heading fraction, travel factor, lean back, su
  return[smt(t),1,0,""]}
 function turnStep(){
  if(!TURNM&&SPIN){const t=(phase-SPIN.p0)/SPIN.len;HEAD=SPIN.h0+2*Math.PI*t;HEAD_T=HEAD;TRAVK=0;BOOST=SPIN.ts;
+  if(SPIN.stopH!==undefined&&HEAD>=SPIN.stopH-1e-9){HEAD=SPIN.stopH;   // reached the main direction: stop, square on
+   POS[0]=SPIN.W[0]-Math.sin(HEAD)*SPIN.pz;POS[1]=SPIN.W[1]-Math.cos(HEAD)*SPIN.pz;spinEnd();TURN={st:null,t:0};return}
   // pivot round the middle of the body, not the hips: the middle stays put in the world
   POS[0]=SPIN.W[0]-Math.sin(HEAD)*SPIN.pz;POS[1]=SPIN.W[1]-Math.cos(HEAD)*SPIN.pz;
   OMEGA=2*Math.PI/(SPIN.len/SPIN.ts);TURN={st:null,t:0};return}
