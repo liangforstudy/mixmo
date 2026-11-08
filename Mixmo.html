@@ -1030,7 +1030,10 @@ function buildRobot(p,ph){
     // turn the leg's plane (which sits x0 to the side of the hip) so it passes through the target; smallest turn wins
     const x0=foot(x[0],x[1])[0],R=Math.hypot(T[0],T[2]);if(R<1)break;
     const ph=Math.atan2(T[2],T[0]),ac=Math.acos(Math.max(-1,Math.min(1,x0/R))),w=a=>Math.atan2(Math.sin(a),Math.cos(a)),y1=w(ac-ph),y2=w(-ac-ph);
-    const ny=Math.max(-1.2,Math.min(1.2,Math.abs(y1)<Math.abs(y2)?y1:y2));
+    const c1=Math.max(-1.2,Math.min(1.2,y1)),c2=Math.max(-1.2,Math.min(1.2,y2)),pv=L.ik&&L.yaw!=null?L.yaw:null;
+    // smallest turn wins; but when that answer swaps to the other side (a jump of more than ~20 deg since last frame),
+    // glide there over a few frames while the leg is in the air, instead of snapping (the 'legs bounce out' pop)
+    let ny=Math.abs(c1)<Math.abs(c2)?c1:c2;if(pv!=null&&!q.stance&&Math.abs(ny-pv)>0.35)ny=pv+Math.sign(ny-pv)*0.12;   // only in the air: a planted paw must stay exactly put
     // target closer in than the leg's sideways offset: tilt the leg in at the hip as well
     const c=foot(x[0],x[1]),Ty=rotY(T,-ny);if(c[1]<-5)roll=Math.max(-0.6,Math.min(0.6,roll+(Ty[0]-c[0])/(-c[1])));
     yaw=ny}return{x,yaw,roll}};
@@ -1348,7 +1351,9 @@ const hLimbs=()=>[...LEGS,...RLIMBS,...SPLIT_LEGS];
 function hSnap(){return{t:HCLOCK,mode,blendU,phase,groundOff,DIR,HEAD,HEAD_T,OMEGA,POS:[...POS],TRAVK,SKIDLEAN,BOOST,TURN:hcl(TURN),
  BLENDFROM,BLENDP0,BLENDTOT,TURNREC:hcl(TURNREC),SPLIT,SPLITE,HMERGE,GROW,GROWE,TAILE,FLIP:hcl(FLIP),SWAP,GECKO,CEIL,LIMBSW,
  WALKOVER:hcl(WALKOVER),CAMY,TURNM:hcl(TURNM),SPIN:hcl(SPIN),cur:{...cur},from:{...from},SPR:{...SPR},RAW:{...RAW},HRAW:[...HRAW],HS:hcl(HS),
- limbs:hLimbs().map(L=>[L.ik?[...L.ik]:null,L.yaw])}}
+ limbs:HPRE||hLimbs().map(L=>[L.ik?[...L.ik]:null,L.yaw])}}
+// each leg's solver state as it was BEFORE this frame was built (the build reads it as its starting point)
+let HPRE=null;const hPre=()=>{HPRE=hLimbs().map(L=>[L.ik?[...L.ik]:null,L.yaw])};
 function hRestore(h){({mode,blendU,phase,groundOff,DIR,HEAD,HEAD_T,OMEGA,TRAVK,SKIDLEAN,BOOST,BLENDFROM,BLENDP0,BLENDTOT,SPLIT,SPLITE,HMERGE,GROW,GROWE,TAILE,SWAP,GECKO,CEIL,LIMBSW,CAMY}=h);
  POS=[...h.POS];TURN=hcl(h.TURN);TURNREC=hcl(h.TURNREC);FLIP=hcl(h.FLIP);WALKOVER=hcl(h.WALKOVER);TURNM=hcl(h.TURNM);SPIN=hcl(h.SPIN);
  cur={...h.cur};from={...h.from};Object.assign(SPR,h.SPR);Object.assign(RAW,h.RAW);HRAW.length=0;HRAW.push(...h.HRAW);HS.length=0;HS.push(...hcl(h.HS));
@@ -1398,7 +1403,7 @@ function frame(t){
  if(playing)advance(dt*effSpeed());
  showFrame();
  flipStep();
- charDef().build({...cur},phase);render();drawGait();showStatus();hRecord(dt);
+ hPre();charDef().build({...cur},phase);render();drawGait();showStatus();hRecord(dt);
  requestAnimationFrame(frame);
 }
 // ---------- three.js renderer (draws the same prims as the canvas renderer; loaded from jsDelivr) ----------
@@ -1570,7 +1575,9 @@ document.addEventListener("click",e=>{if(!e.isTrusted||!e.target.closest)return;
  const f=document.activeElement;try{$("hapLb").click()}catch(_){}try{if(f&&f.focus)f.focus({preventScroll:true})}catch(_){}},true);
 {const NAV=new Set(["play","prevF","nextF","scrub"]);
  const br=e=>{if(HPOS<0)return;const t=e.target;if(!t||!t.closest||!t.closest("#app"))return;
-  const el=t.closest("button,input,select");if(!el||NAV.has(el.id)||t.closest("#view"))return;
+  const el=t.closest("button,input,select,label");if(!el||NAV.has(el.id)||t.closest("#view"))return;
+  if(el.id==="hapSw"||el.id==="hapLb")return;   // the hidden haptic switch is not a change you made
+  if(el.tagName==="LABEL")return;
   if(el.id==="charSel")return;hBranch()};
  document.addEventListener("click",br,true);document.addEventListener("input",br,true);document.addEventListener("change",br,true);
  document.addEventListener("change",e=>{if(e.target&&e.target.id==="charSel")hClear()},true)}
