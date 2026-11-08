@@ -44,6 +44,12 @@ html:not(.devmode) .dev{display:none!important}
 html.game .anim{display:none!important}   /* Game: the animation tools are hidden */
 html:not(.game) .gameOnly{display:none!important}
 #gameTip{margin:6px 16px 0;font-size:14px;line-height:1.35}
+#stickBtn{position:absolute;left:10px;bottom:30px;width:48px;height:48px;min-height:48px;padding:0;border-radius:50%;display:flex;align-items:center;justify-content:center;z-index:3;opacity:.85}
+#stickBtn svg{width:28px;height:28px}
+#stick{position:absolute;left:14px;bottom:30px;width:132px;height:132px;border-radius:50%;border:2px solid var(--ink);background:rgba(251,246,234,.55);touch-action:none;z-index:2;display:none}
+html.game #stick.show{display:block}
+#stickKnob{position:absolute;left:50%;top:50%;width:56px;height:56px;margin:-28px 0 0 -28px;border-radius:50%;background:var(--ink);opacity:.85;pointer-events:none}
+html.game #stick.show~#stickBtn{left:154px}
 #gameTip kbd{font:inherit;font-size:12px;border:1px solid var(--ink);border-radius:4px;padding:0 4px;background:var(--paper)}
 .devHead{font-size:18px;font-style:italic;margin:14px 16px 4px;border-top:2px solid var(--ink);padding-top:10px}   /* Dev mode: advanced settings hidden for players */
 .gaitMini{width:100%;display:block;position:sticky;top:0;z-index:2;background:#f8eed8;border-bottom:1px solid var(--ink);padding-bottom:2px}
@@ -104,9 +110,9 @@ html.desk .sl .rs{min-height:22px;min-width:30px;padding:0 6px;font-size:14px}
 <div class="row" style="margin:8px 16px;flex-wrap:nowrap;gap:6px"><select id="charSel" aria-label="Character" class="pick" style="flex:0.8"></select><select id="modeSel" aria-label="Animation" class="pick anim"></select><button id="play" class="on">Pause</button></div>
 <div class="row anim" style="margin:0 16px 8px;flex-wrap:nowrap;gap:6px"><button class="tb" id="tL" aria-label="Turn left 90 degrees">&#8630; 90&deg;</button><button class="tb" id="tR" aria-label="Turn right 90 degrees">90&deg; &#8631;</button><button class="tb" id="tU" aria-label="Turn around">&#10226; 180&deg;</button><button class="tb" id="tS" aria-label="Spin on the spot">Spin</button><button class="tb" id="tF" aria-label="Walk over onto the other end" hidden>Over</button><button class="tb" id="tC" aria-label="Flip up onto the ceiling" hidden>Ceiling</button></div>
 <input type="checkbox" switch id="hapSw" tabindex="-1" aria-hidden="true" style="position:fixed;left:0;top:0;width:1px;height:1px;opacity:0;pointer-events:none;margin:0"><label for="hapSw" id="hapLb" aria-hidden="true" style="position:fixed;left:0;top:0;width:1px;height:1px;opacity:0;pointer-events:none;overflow:hidden"></label>
-<div id="view"><canvas id="cv"></canvas><canvas id="cv3"></canvas><div id="r3msg"></div><div id="hint">1 finger / drag: orbit - 2 fingers / wheel: zoom - 2 fingers / right-drag: pan - double-tap: reset</div></div>
+<div id="view"><canvas id="cv"></canvas><canvas id="cv3"></canvas><div id="r3msg"></div><div id="stick" aria-label="Joystick: drag to steer, all the way to run"><div id="stickKnob"></div></div><button id="stickBtn" class="gameOnly" aria-label="Show or hide the joystick" title="Joystick"><svg viewBox="0 0 28 28" aria-hidden="true"><circle cx="14" cy="14" r="12" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="14" cy="14" r="5" fill="currentColor"/></svg></button><div id="hint">1 finger / drag: orbit - 2 fingers / wheel: zoom - 2 fingers / right-drag: pan - double-tap: reset</div></div>
 <div class="row anim" style="margin:6px 16px 0;flex-wrap:nowrap;align-items:center"><button id="prevF" aria-label="Previous frame">&#9664;</button><span id="scrubWrap"><input type="range" id="scrub" min="0" max="1" step="0.001" value="0"><span id="scrubMarks"></span></span><button id="nextF" aria-label="Next frame">&#9654;</button><span class="val" id="scrubV" hidden>0</span><button id="stepBlend" class="dev on" aria-label="How mode switches play while paused" style="padding:0 6px;font-size:13px;line-height:1.1">Switch:<br>by frame</button></div>
-<p id="gameTip" class="gameOnly"><b>Game.</b> <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> to run, hold <kbd>Shift</kbd> to walk; the arrow keys walk. Up = away from the camera. Drag the view to look around as usual.</p>
+<p id="gameTip" class="gameOnly"><b>Game.</b> <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> to run, hold <kbd>Shift</kbd> to walk; the arrow keys walk. On a phone, tap the round button in the corner of the view for a joystick: push a little to walk, all the way to run. Up = away from the camera. Drag the view to look around as usual. <i>Psst: try spinning the joystick round.</i></p>
 <div id="status" class="anim" aria-live="polite"><span id="stTag">LOOP</span><span id="stText">Walk</span></div>
 <div class="row" id="moodRow" style="margin:2px 16px 0;flex-wrap:nowrap;align-items:center"><span class="lbl">Tired</span><input type="range" id="mood" min="0" max="1" step="0.01" value="1" style="flex:1"><span class="lbl">Happy</span></div>
 </div><div id="split"></div><div id="bot">
@@ -1547,13 +1553,41 @@ addEventListener("keydown",e=>{if(TIER!=="game"||typingIn(e.target)||e.ctrlKey||
  if(GSPRINT.has(e.code)||GWALK.has(e.code)||e.code==="ShiftLeft"||e.code==="ShiftRight"){GKEYS.add(e.code);e.preventDefault();if(HPOS>=0)hBranch();if(!playing)$("play").onclick()}});
 addEventListener("keyup",e=>{GKEYS.delete(e.code)});addEventListener("blur",()=>GKEYS.clear());
 document.addEventListener("visibilitychange",()=>{if(document.hidden)GKEYS.clear()});
+// ---- on-screen joystick (hidden until its button is tapped; remembered) ----
+const STICK={x:0,y:0,on:false,id:null,ang:null,turn:0,last:0};
+let STICKSHOW=false;try{STICKSHOW=localStorage.getItem("mixmoStick")==="on"}catch(e){}
+function stickUI(){$("stick").classList.toggle("show",STICKSHOW);$("stickBtn").classList.toggle("on",STICKSHOW)}
+{const st=$("stick"),kn=$("stickKnob"),R=48;   // R: how far the knob travels from the centre (px)
+ const stop=e=>e.stopPropagation();   // the view mustn't orbit, reset or flash for joystick touches
+ for(const ev of ["pointerdown","pointermove","pointerup","pointercancel","click","dblclick","wheel","contextmenu"]){st.addEventListener(ev,stop);$("stickBtn").addEventListener(ev,stop)}
+ const set=e=>{const r=st.getBoundingClientRect();let dx=e.clientX-(r.left+r.width/2),dy=e.clientY-(r.top+r.height/2);const L=Math.hypot(dx,dy);
+  if(L>R){dx*=R/L;dy*=R/L}kn.style.transform=`translate(${dx}px,${dy}px)`;STICK.x=dx/R;STICK.y=-dy/R;
+  // spinning the stick round: add up how far the knob has gone round the centre while pushed well out
+  const m=Math.hypot(STICK.x,STICK.y),now=performance.now();
+  if(m>0.6){const a=Math.atan2(STICK.y,STICK.x);if(STICK.ang!==null){let d=a-STICK.ang;d=Math.atan2(Math.sin(d),Math.cos(d));
+    if(Math.sign(d)!==Math.sign(STICK.turn)&&Math.abs(STICK.turn)>0.5)STICK.turn*=0.3;STICK.turn+=d}STICK.ang=a;STICK.last=now}
+  else{STICK.ang=null;STICK.turn=0}};
+ st.addEventListener("pointerdown",e=>{if(STICK.id!==null)return;STICK.id=e.pointerId;STICK.on=true;try{st.setPointerCapture(e.pointerId)}catch(_){}
+  if(HPOS>=0)hBranch();if(!playing)$("play").onclick();set(e)});
+ st.addEventListener("pointermove",e=>{if(e.pointerId===STICK.id)set(e)});
+ const end=e=>{if(e.pointerId!==STICK.id)return;STICK.id=null;STICK.on=false;STICK.x=STICK.y=0;STICK.ang=null;STICK.turn=0;kn.style.transform=""};
+ st.addEventListener("pointerup",end);st.addEventListener("pointercancel",end);
+ $("stickBtn").onclick=()=>{STICKSHOW=!STICKSHOW;try{localStorage.setItem("mixmoStick",STICKSHOW?"on":"off")}catch(e){}stickUI()};stickUI()}
+// the secret: about one and a half turns of the stick starts a Spin; it winds down once the circling stops
+let STICKSPIN=false;
+function stickSpinStep(){const now=performance.now();
+ if(!STICKSPIN&&Math.abs(STICK.turn)>3*Math.PI&&!TURNM){STICK.turn=0;STICKSPIN=true;if(!SPIN)toggleSpin();else if(SPIN.stopH!==undefined)toggleSpin()}
+ else if(STICKSPIN&&(!STICK.on||now-STICK.last>350||STICK.ang===null)){STICKSPIN=false;if(SPIN&&SPIN.stopH===undefined)toggleSpin()}}
 function gameInput(){const k=c=>GKEYS.has(c);
+ if(STICK.on){const m=Math.hypot(STICK.x,STICK.y);   // the stick wins over the keys while it's held
+  if(m<0.18)return{x:0,y:0,speed:"idle"};return{x:STICK.x/m,y:STICK.y/m,speed:m>=0.8?"run":"walk"}}
  const x=(k("KeyD")||k("ArrowRight")?1:0)-(k("KeyA")||k("ArrowLeft")?1:0),y=(k("KeyW")||k("ArrowUp")?1:0)-(k("KeyS")||k("ArrowDown")?1:0);
  const wasd=["KeyW","KeyA","KeyS","KeyD"].some(k),shift=k("ShiftLeft")||k("ShiftRight");
  return{x,y,speed:!x&&!y?"idle":(wasd&&!shift?"run":"walk")}}
 function gameEnter(){GKEYS.clear();if(TIER!=="game")return;if(HPOS>=0)hBranch();if(TURNM||SPIN){TURNM=null;if(SPIN)spinEnd()}if(!playing)$("play").onclick()}
 let GAMEMODE=null;
-function gameStep(dt){if(TIER!=="game"||!playing||HPOS>=0||TURNM||SPIN||FLIP)return;
+function gameStep(dt){if(TIER==="game"&&playing&&HPOS<0)stickSpinStep();
+ if(TIER!=="game"||!playing||HPOS>=0||TURNM||SPIN||FLIP)return;
  const g=gameInput(),want=g.speed;
  if(want!==GAMEMODE||mode!==want){GAMEMODE=want;if(mode!==want&&MODES.some(m=>m[0]===want)){const sel=$("modeSel");sel.value=want;sel.onchange()}}
  // the keys as a direction on the ground, as seen from the camera (up = away from it)
