@@ -182,6 +182,12 @@ html.desk .sl .rs{min-height:22px;min-width:30px;padding:0 6px;font-size:14px}
 <div class="row" style="margin:6px 0"><span class="lbl" style="min-width:76px">Ground</span><div class="seg"><button data-k="ground" data-v="solid">Solid</button><button data-k="ground" data-v="grid">Grid only</button></div></div>
 </fieldset>
 <div class="row" style="align-items:center;flex-wrap:nowrap"><span class="lbl">Interface:</span><div class="seg" id="uiSw"><button data-ui="auto">Auto</button><button data-ui="touch">Touch</button><button data-ui="desk">Desktop</button></div></div>
+<fieldset id="fresh" style="margin:8px 16px"><legend>Start fresh</legend>
+<p class="sub" style="margin:4px 0">Forget everything this app has saved in this browser (drawers, layout, renderer, 3D look and other choices) and reload, as if opening it for the first time.</p>
+<div class="row" style="margin:6px 0"><button id="freshGo" style="color:var(--accent)">Reset to factory defaults</button></div>
+<div id="freshAsk" hidden style="margin:6px 0"><p class="sub" style="margin:4px 0;opacity:1">Sure? Unsaved changes to the character are lost too (copy them out in Save &amp; load first).</p>
+<div class="row" style="gap:8px"><button id="freshYes" style="background:var(--accent);color:var(--paper);border-color:var(--accent)">Clear and reload</button><button id="freshNo">Cancel</button></div></div>
+</fieldset>
 <div style="height:40px"></div>
 </div></div>
 
@@ -1017,14 +1023,15 @@ function buildRobot(p,ph){
  // body
  G++;{const N=RLOOK.segs,gap=N>1?4:0,SB=segBounds(N);
   for(let i=0;i<N;i++){const y0=(i?SB[i]+gap/2:-2),y1=(i<N-1?SB[i+1]-gap/2:BODY_L+2);
-   const SP=SKINPAL[RLOOK.skin];
+   const SP=SKINPAL[RLOOK.skin],pb=prims.length;
    // with 3 segments the middle one (torso/waist) can be slimmer
    const BRs=BODY_R*(N===3&&i===1?RLOOK.midSeg:1);
    if(SP){tube(B([0,y0+3,-1]),B([0,y1-3,0]),BRs+1,BRs,SP.fur);tube(B([0,y0+5,BRs*0.45]),B([0,y1-5,BRs*0.5]),BRs*0.58,BRs*0.52,SP.belly,1);
     // dinosaur: a row of back plates
     if(RLOOK.skin==="dino")for(let y=y0+6;y<y1-3;y+=9){const b0=B([0,y,-BODY_R*0.85]),tip=B([0,y+2,-BODY_R-7]);tube(b0,tip,3.4,0.6,SP.dark,-.5)}}
    else prism(B([0,y0,0]),B([0,y1,0]),BRs,RLOOK.body,fwd,16);
-   if(i<N-1)dot(B([0,y1+gap/2,0]),BODY_R*0.72,SP?SP.dark:RLOOK.joint)}}
+   if(i<N-1)dot(B([0,y1+gap/2,0]),BODY_R*0.72,SP?SP.dark:RLOOK.joint);
+   if(!SP)for(let k=pb;k<prims.length;k++)prims[k].bseg=i}}   // box body segment i (convex: the 2D renderer sorts limbs against its faces)
  // limbs
  const LS=[[6.5,5.5],[5.5,4.5],[4.5,4],[4.2,3.6]];
  const endCol=L=>((L.end==="B")!==SWAP)?RLOOK.pawA:RLOOK.pawB;
@@ -1259,11 +1266,21 @@ function render(){
   // underside visible: clearly in front of its head (more than the 1.5 'keep last order' margin)
   if(q.over&&proj(add(q.a,q.dn)).z-proj(q.a).z>0){const o=q.over;z=Math.max(z,proj(mul(add(o.a,o.b),.5)).z+o.bias+2)}
   list.push({q,i,z})});
- // group parts by limb so limbs draw as whole pieces; hysteresis keeps
+ // Box body (robot, box skin): its segments are convex, so a piece on the outer side of one of a segment's
+ // visible faces can't be hidden by that segment (draw it after), and a piece on the inner side of all of them is
+ // behind it or inside it (draw it before, so the segment covers e.g. the roots of hips and tail). Each piece goes
+ // in the slot just before the first segment (far to near) that hides it; everything else after the body.
+ const segs={};for(const o of list)if(o.q.bseg!==undefined){const S=segs[o.q.bseg]||(segs[o.q.bseg]={pl:[],zs:0,n:0});S.zs+=o.z;S.n++;if(o.q.t===5)S.pl.push(o.q)}
+ const segOrd=Object.keys(segs).filter(k=>segs[k].pl.length).sort((a,b)=>segs[a].zs/segs[a].n-segs[b].zs/segs[b].n);
+ const slotOf=o=>{if(o.q.bseg!==undefined){const j=segOrd.indexOf(String(o.q.bseg));return j<0?segOrd.length+1:j+0.5}
+  if(!segOrd.length||o.eye)return segOrd.length+1;const c=o.q.t===0?mul(add(o.q.a,o.q.b),0.5):o.q.a;
+  for(let j=0;j<segOrd.length;j++)if(!segs[segOrd[j]].pl.some(F=>dot3(sub3(c,F.a),F.fn)>0.5))return j;
+  return segOrd.length+1};
+ // group parts by limb (and slot) so limbs draw as whole pieces; hysteresis keeps
  // near-equal depths in last frame's order instead of swapping every frame
- const gz={};for(const o of list){(gz[o.q.g]||(gz[o.q.g]={s:0,n:0,max:-1e9,items:[]}));const g=gz[o.q.g];if(!o.eye){g.s+=o.z;g.n++}g.items.push(o)}
- const groups=Object.keys(gz).map(k=>({k,z:gz[k].s/(gz[k].n||1),items:gz[k].items}));
- groups.sort((a,b)=>Math.abs(a.z-b.z)<4?(rankG[a.k]??0)-(rankG[b.k]??0):a.z-b.z);
+ const gz={};for(const o of list){const sl=slotOf(o),key=o.q.g+"|"+sl;(gz[key]||(gz[key]={sl,s:0,n:0,items:[]}));const g=gz[key];if(!o.eye){g.s+=o.z;g.n++}g.items.push(o)}
+ const groups=Object.keys(gz).map(k=>({k,sl:gz[k].sl,z:gz[k].s/(gz[k].n||1),items:gz[k].items}));
+ groups.sort((a,b)=>a.sl!==b.sl?a.sl-b.sl:Math.abs(a.z-b.z)<4?(rankG[a.k]??0)-(rankG[b.k]??0):a.z-b.z);
  groups.forEach((g,r)=>rankG[g.k]=r);
  for(const g of groups){
   g.items.sort((a,b)=>Math.abs(a.z-b.z)<1.5?(rankP[a.i]??a.i)-(rankP[b.i]??b.i):a.z-b.z);
@@ -1587,6 +1604,12 @@ document.querySelectorAll("#rendSw button").forEach(b=>b.onclick=()=>{R3.want=b.
  if(R3.want==="three"&&!R3.ok)r3load();else if(R3.want==="canvas")r3msg("");r3ui()});
 document.querySelectorAll("#r3Look [data-k]").forEach(b=>b.onclick=()=>{R3.look[b.dataset.k]=b.dataset.v;try{localStorage.setItem("mixmoLook3D",JSON.stringify(R3.look))}catch(e){}r3applyLook();r3ui()});
 r3ui();if(R3.want==="three")r3load();
+// Start fresh: remove only this app's saved keys (on w3schools the storage is shared with the site), then reload
+$("freshGo").onclick=()=>{$("freshAsk").hidden=false;$("freshGo").hidden=true};
+$("freshNo").onclick=()=>{$("freshAsk").hidden=true;$("freshGo").hidden=false};
+$("freshYes").onclick=()=>{const mine=k=>/^(mixmo|tripod)/.test(k||"");
+ for(const st of ["localStorage","sessionStorage"])try{const S=window[st];for(let i=S.length-1;i>=0;i--){const k=S.key(i);if(mine(k))S.removeItem(k)}}catch(e){}
+ try{location.reload()}catch(e){$("freshAsk").querySelector("p").textContent="Cleared. Close and reopen the page to start fresh."}};
 
 segUI();buildSliders();applyCollapsed();syncJSON();requestAnimationFrame(frame);
 // ---------- a haptic tick on every button tap ----------
