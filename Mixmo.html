@@ -173,6 +173,8 @@ html.desk .sl .rs{min-height:22px;min-width:30px;padding:0 6px;font-size:14px}
 </div>
 </fieldset>
 <p id="msg"></p>
+<div class="row" style="align-items:center;flex-wrap:nowrap"><span class="lbl">Power saving:</span><div class="seg" id="powSw"><button data-p="off">Off</button><button data-p="on">On</button></div></div>
+<p class="sub" style="margin:2px 16px 6px">Draws at most 30 frames a second and stops redrawing while nothing moves. In 3D, shadows become soft spots. Works with 2D and 3D; 2D uses the least power.</p>
 <div class="row" style="align-items:center;flex-wrap:nowrap"><span class="lbl">Renderer:</span><div class="seg" id="rendSw"><button data-r="three">3D (three.js)</button><button data-r="canvas">2D</button></div></div>
 <fieldset id="r3Look" style="margin:8px 16px"><legend>3D look</legend>
 <div class="row" style="margin:6px 0"><span class="lbl" style="min-width:76px">Style</span><div class="seg"><button data-k="style" data-v="toon">Cartoon</button><button data-k="style" data-v="soft">Soft</button></div></div>
@@ -278,8 +280,8 @@ function showStatus(){
   const pp=T.skid?morphParts("skid"):null,pi=pp?partAt(pp,t):0;
   parts.push(`${T.label}${pp?` part ${pi+1}/${pp.length} (${pp[pi][1]})`:""}, frame ${Math.min(tot,Math.floor(t*tot)+1)}/${tot}`)}
  const el=$("status"),morph=parts.length>0;el.classList.toggle("morph",morph);
- $("stTag").textContent=morph?"MORPH":"LOOP";
- $("stText").textContent=morph?parts.join(" + "):modeName(mode)+GECKOtxt()+(SPIN?", spinning":"")+", frame "+(Math.round(frac(phase)*FRAMES)%FRAMES+1)+"/"+FRAMES;}
+ setText("stTag",morph?"MORPH":"LOOP");
+ setText("stText",morph?parts.join(" + "):modeName(mode)+GECKOtxt()+(SPIN?", spinning":"")+", frame "+(Math.round(frac(phase)*FRAMES)%FRAMES+1)+"/"+FRAMES);}
 const GECKOtxt=()=>(typeof GECKO!=="undefined"&&GECKO&&CHAR==="robot")?" (on the ceiling)":"";
 setTimeout(()=>{$("stepBlend").onclick=()=>{STEPBLEND=!STEPBLEND;$("stepBlend").innerHTML="Switch:<br>"+(STEPBLEND?"by frame":"instant");$("stepBlend").classList.toggle("on",STEPBLEND)}});
 function advance(d){
@@ -382,9 +384,11 @@ function drawMarks(parts){const key=parts?parts.map(p=>p[0]).join(","):"";if(key
  const pad=/iPhone|iPad|iPod/.test(navigator.userAgent)?14:8;   // half the slider thumb's width (iOS thumbs are bigger)
  for(const [t,name] of parts.slice(1)){const d=document.createElement("span");d.className="mk";d.title=name;
   d.style.left=`calc(${pad}px + (100% - ${2*pad}px) * ${t})`;host.appendChild(d)}}
+// write text / values only when they change (each write makes the page redo its layout)
+const setText=(id,t)=>{const e=$(id);if(e.textContent!==t)e.textContent=t};
 function showFrame(){const sc=$("scrub");drawMarks(null);const n=HIST.length;
- if(!scrubDrag)sc.value=n<2?1:hNow()/(n-1);
- const back=n?HIST[n-1].t-HIST[hNow()].t:0;$("scrubV").textContent=HPOS<0?"now":"-"+back.toFixed(1)+"s";sc.classList.toggle("morph",HPOS>=0)}
+ if(!scrubDrag){const v=String(n<2?1:hNow()/(n-1));if(sc.value!==v)sc.value=v}
+ const back=n?HIST[n-1].t-HIST[hNow()].t:0;setText("scrubV",HPOS<0?"now":"-"+back.toFixed(1)+"s");sc.classList.toggle("morph",HPOS>=0)}
 let scrubDrag=false;
 document.addEventListener("pointerdown",e=>{if(e.target.id==="scrub")scrubDrag=true},true);
 document.addEventListener("pointerup",()=>scrubDrag=false,true);document.addEventListener("pointercancel",()=>scrubDrag=false,true);
@@ -1197,7 +1201,8 @@ const LIGHT=norm3([0.4,0.8,0.5]);
 // ---------- render ----------
 const cv=$("cv"),ctx=cv.getContext("2d");
 let W,Hh,DPR;
-function resize(){DPR=devicePixelRatio||1;W=cv.clientWidth;Hh=cv.clientHeight;cv.width=W*DPR;cv.height=Hh*DPR}
+let POWER=false,PDIRTY=0;try{POWER=localStorage.getItem("mixmoPower")==="on"}catch(e){}
+function resize(){PDIRTY++;DPR=devicePixelRatio||1;W=cv.clientWidth;Hh=cv.clientHeight;cv.width=W*DPR;cv.height=Hh*DPR}
 addEventListener("resize",resize);resize();
 // ---------- reset button on every slider row: back to the default for that slider ----------
 (function(){
@@ -1352,10 +1357,15 @@ function render(){
 }
 // gait chart: the bars (which part of the stride each leg is down) only change when the timings, size or character
 // change, so they are drawn once into a cached picture; each frame just copies it and draws the moving playhead
-function drawGait(){drawGaitOn($("gait"),22);const m=document.querySelector(".gaitMini");if(m&&m.offsetParent)drawGaitOn(m,11)}
+// Size and visibility of the two gait charts are remembered and only re-measured when they change (ResizeObserver):
+// asking the page for them every frame forced it to redo its layout each time (the text above had just changed).
+const GSZ=new WeakMap(),GRO=typeof ResizeObserver!=="undefined"?new ResizeObserver(es=>{for(const e of es)GSZ.set(e.target,{w:e.target.clientWidth,vis:!!e.target.offsetParent})}):null;
+let GMINI=null;
+function drawGait(){drawGaitOn($("gait"),22);GMINI=GMINI||document.querySelector(".gaitMini");if(GMINI)drawGaitOn(GMINI,11)}
 function drawGaitOn(g,rh){
- if(!g.offsetParent)return;   // folded away: nothing to draw
- const d=devicePixelRatio||1,w=g.clientWidth,LL=charDef().limbs,gap=rh>15?4:2,h=LL.length*(rh+gap)+6;
+ let z=GSZ.get(g);if(!z||!GRO){z={w:g.clientWidth,vis:!!g.offsetParent};GSZ.set(g,z);if(GRO)GRO.observe(g)}
+ if(!z.vis||!z.w)return;   // folded away: nothing to draw
+ const d=devicePixelRatio||1,w=z.w,LL=charDef().limbs,gap=rh>15?4:2,h=LL.length*(rh+gap)+6;
  const lx=rh>15?82:62,rw=w-lx-4;
  const key=[CHAR,w,h,d,rh,showColors,...LL.map(L=>L.n+":"+(+cur[L.k]).toFixed(3))].join("|");
  if(g._key!==key){g._key=key;
@@ -1469,7 +1479,15 @@ function hStep(d){if(playing)$("play").onclick();
  showFrame();showStatus()}
 // ---------- loop ----------
 let last=performance.now();
+// Power saving: at most 30 frames a second, and nothing is redrawn while the picture would come out the same
+let PSIG="";
+["pointerdown","pointermove","wheel","input","change","click","keydown"].forEach(ev=>document.addEventListener(ev,()=>PDIRTY++,{capture:true,passive:true}));
+addEventListener("resize",()=>PDIRTY++);
+function powerSig(){let h=0;const r=v=>Math.round(v*4);   // movements under a quarter unit (well under a pixel) don't count
+ for(const q of prims){const a=q.a,b=q.b;if(a)h+=r(a[0])*11+r(a[1])*13+r(a[2])*17;if(b&&b!==a)h+=r(b[0])*7+r(b[1])*19+r(b[2])*23;if(q.pts)h+=r(q.pts[0][0])*3+r(q.pts[0][1])*5}
+ return [h,prims.length,yaw,pitch,zoom,panX,panY,W,Hh,r3on(),R3.ok,PDIRTY,HPOS,mode,CHAR].join("|")}
 function frame(t){
+ if(POWER&&t-last<1000/30-4){requestAnimationFrame(frame);return}   // 30 frames a second: skip every other screen refresh
  const dt=Math.min(.05,(t-last)/1000);last=t;
  if(HPOS>=0){// rewound: show recorded frames (Play replays them until "now", then carries on live)
   if(playing){HPOS++;if(HPOS>=HIST.length-1)HPOS=-1}
@@ -1492,7 +1510,9 @@ function frame(t){
  if(playing)advance(dt*effSpeed());
  showFrame();
  flipStep();
- hPre();charDef().build({...cur},phase);render();drawGait();showStatus();hRecord(dt);
+ hPre();charDef().build({...cur},phase);
+ if(POWER){const sg=powerSig();if(sg===PSIG){hRecord(dt);requestAnimationFrame(frame);return}PSIG=sg}   // nothing changed: keep the last picture
+ render();drawGait();showStatus();hRecord(dt);
  requestAnimationFrame(frame);
 }
 // ---------- three.js renderer (draws the same prims as the canvas renderer; loaded from jsDelivr) ----------
@@ -1589,10 +1609,10 @@ function r3warm(){const R=R3,T=R.T,M=R.MAT;
   add(R.grid,[R.grid.material]);add(R.shadows,[R.shadows.material]);return W};
  const go=W=>R.rd.compileAsync?R.rd.compileAsync(W,R.cam):Promise.resolve(R.rd.compile(W,R.cam));
  return Promise.all([go(mk(true)),go(mk(false))]).catch(()=>{})}
-function r3applyLook(){const R=R3,L=R.look,M=R.MAT[L.style]||R.MAT.toon;if(!R.rd)return;
+function r3applyLook(){const R=R3,L=R.look;if(!R.rd||!R.MAT)return;const M=R.MAT[L.style]||R.MAT.toon;
  R.segM.material=M.seg;R.balls.material=M.plain;R.panels.material=M.panel;
  const ol=L.outline==="on";R.segOM.visible=R.ballsO.visible=R.edges.visible=ol;
- const real=L.shadow==="real";R.sun.castShadow=real;R.shadows.visible=!real;
+ const real=L.shadow==="real"&&!POWER;R.sun.castShadow=real;   // power saving: soft spots instead of real shadowsR.shadows.visible=!real;
  R.groundM.material=L.ground==="solid"?M.ground:R.catcher;R.groundM.visible=L.ground==="solid"||real}
 function r3color(s){const T=R3.T;let c=R3.col[s];if(!c){c=new T.Color();try{c.setStyle(s)}catch(e){c.set(0x888888)}R3.col[s]=c}return c}
 // one tube segment for the GPU: ends p0/p1, end directions m0/m1 (Hermite), ring frame n0 at the start, radii, smooth flag, colours
@@ -1665,6 +1685,9 @@ function r3ui(){document.querySelectorAll("#rendSw button").forEach(b=>b.classLi
 document.querySelectorAll("#rendSw button").forEach(b=>b.onclick=()=>{R3.want=b.dataset.r;try{localStorage.setItem("mixmoRenderer",R3.want)}catch(e){}
  if(R3.want==="three"&&!R3.ok)r3load();else if(R3.want==="canvas")r3msg("");r3ui()});
 document.querySelectorAll("#r3Look [data-k]").forEach(b=>b.onclick=()=>{R3.look[b.dataset.k]=b.dataset.v;try{localStorage.setItem("mixmoLook3D",JSON.stringify(R3.look))}catch(e){}r3applyLook();r3ui()});
+function powUI(){document.querySelectorAll("#powSw button").forEach(b=>b.classList.toggle("on",(b.dataset.p==="on")===POWER))}
+document.querySelectorAll("#powSw button").forEach(b=>b.onclick=()=>{POWER=b.dataset.p==="on";try{localStorage.setItem("mixmoPower",POWER?"on":"off")}catch(e){}
+ r3applyLook();PSIG="";powUI()});powUI();
 function pickUI(){document.querySelectorAll("#pickSw button").forEach(b=>b.classList.toggle("on",(b.dataset.p==="on")===PICK));if(!PICK&&!PSEL)pSay("")}
 document.querySelectorAll("#pickSw button").forEach(b=>b.onclick=()=>{PICK=b.dataset.p==="on";pickUI()});
 $("pickClr").onclick=()=>{PSEL=null;pSay(PICK?"Tap a shape in the view to track it.":"")};
@@ -1695,7 +1718,7 @@ document.addEventListener("click",e=>{if(!e.isTrusted||!e.target.closest)return;
   const el=t.closest("button,input,select,label");if(!el||NAV.has(el.id)||t.closest("#view"))return;
   if(el.id==="hapSw"||el.id==="hapLb")return;   // the hidden haptic switch is not a change you made
   if(el.tagName==="LABEL")return;
-         if(t.closest("#pickBox,#fresh,#r3Look,#rendSw,#uiSw"))return;   // display / debug switches don't change the motion
+         if(t.closest("#pickBox,#fresh,#r3Look,#rendSw,#uiSw,#powSw"))return;   // display / debug switches don't change the motion
   if(el.id==="charSel")return;hBranch()};
  document.addEventListener("click",br,true);document.addEventListener("input",br,true);document.addEventListener("change",br,true);
  document.addEventListener("change",e=>{if(e.target&&e.target.id==="charSel")hClear()},true)}
