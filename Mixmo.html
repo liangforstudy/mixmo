@@ -1445,15 +1445,39 @@ function r3init(){const T=R3.T,c=$("cv3");
    panel:new T.MeshStandardMaterial({vertexColors:true,roughness:.75,metalness:0,flatShading:true,side:T.DoubleSide,polygonOffset:true,polygonOffsetFactor:1,polygonOffsetUnits:1}),
    ground:new T.MeshStandardMaterial({color:0xe9d7b3,roughness:1,metalness:0})}};
  const ink=new T.MeshBasicMaterial({color:0x3a2a1c,side:T.BackSide}),catcher=new T.ShadowMaterial({opacity:.22});
- const N=1200,SEG=14;
- const dyn=(verts,idx)=>{const geo=new T.BufferGeometry();for(const k of ["position","normal","color"])geo.setAttribute(k,new T.BufferAttribute(new Float32Array(verts*3),3));
-  geo.setIndex(new T.BufferAttribute(new Uint32Array(idx),1));return geo};
- // capsule mode: one tapered open cylinder per tube, merged (fill + slightly fatter back-faced outline)
- const mkTubes=()=>{const geo=dyn(N*SEG*2,N*SEG*6),idx=geo.index.array;let k=0;
-  for(let t=0;t<N;t++){const o=t*SEG*2;for(let i=0;i<SEG;i++){const j=(i+1)%SEG,a=o+i,b=o+j,c2=o+SEG+i,d=o+SEG+j;idx.set([a,b,c2,b,d,c2],k);k+=6}}return geo};
- const tubeG=mkTubes(),tubeO=mkTubes(),tubeM=new T.Mesh(tubeG,MAT.toon.vc),tubeOM=new T.Mesh(tubeO,ink);
- // smooth mode: each limb (tubes joined end to end) swept as one curved tube through its joints
- const SR=6000,smG=dyn(SR*SEG,SR*SEG*6),smO=dyn(SR*SEG,SR*SEG*6),smM=new T.Mesh(smG,MAT.toon.vc),smOM=new T.Mesh(smO,ink);
+ const N=1200,SEG=14,RINGS=7,NI=4000;
+ // Tubes are built ONCE: a single tube segment (rings of SEG points at RINGS steps along it). Every bone is one copy
+ // (instance) of it; per frame only each bone's ends, end directions, radii and colours are sent, and the graphics chip
+ // bends the segment into place (tubeEval in the shader). Smooth limbs: neighbouring segments share end points and
+ // end directions, so a limb comes out as one curved tube. Capsules: straight segments with balls at the ends.
+ const segG=new T.InstancedBufferGeometry();
+ {const pos=new Float32Array(RINGS*SEG*3),ix=[];
+  for(let r=0;r<RINGS;r++)for(let j=0;j<SEG;j++){const a=j/SEG*Math.PI*2;pos.set([Math.cos(a),Math.sin(a),r/(RINGS-1)],(r*SEG+j)*3)}
+  for(let r=0;r<RINGS-1;r++)for(let j=0;j<SEG;j++){const j1=(j+1)%SEG,a0=r*SEG,b0=(r+1)*SEG;ix.push(a0+j,a0+j1,b0+j,a0+j1,b0+j1,b0+j)}
+  segG.setAttribute("position",new T.BufferAttribute(pos,3));segG.setIndex(ix);
+  for(const k of ["p0","p1","m0","m1","n0","rr","color","c1"]){const at=new T.InstancedBufferAttribute(new Float32Array(NI*3),3);at.setUsage(T.DynamicDrawUsage);segG.setAttribute(k,at)}
+  segG.instanceCount=0}
+ const TUBE_GLSL=`attribute vec3 p0;attribute vec3 p1;attribute vec3 m0;attribute vec3 m1;attribute vec3 n0;attribute vec3 rr;attribute vec3 c1;uniform float uOut;
+void tubeEval(out vec3 P,out vec3 N){float t=position.z,t2=t*t,t3=t2*t;
+ vec3 p=p0*(2.*t3-3.*t2+1.)+m0*(t3-2.*t2+t)+p1*(-2.*t3+3.*t2)+m1*(t3-t2);
+ vec3 dv=p0*(6.*t2-6.*t)+m0*(3.*t2-4.*t+1.)+p1*(-6.*t2+6.*t)+m1*(3.*t2-2.*t);
+ float sp=max(length(dv),1e-5);vec3 d=dv/sp;
+ vec3 nr=n0-d*dot(n0,d);float nl=length(nr);nr=nl>1e-4?nr/nl:normalize(cross(d,abs(d.y)<.9?vec3(0.,1.,0.):vec3(1.,0.,0.)));
+ vec3 rad=nr*position.x+cross(d,nr)*position.y;
+ float sm=step(.5,rr.z),e=mix(t,t*t*(3.-2.*t),sm),de=mix(1.,6.*t*(1.-t),sm);
+ float r=rr.x+(rr.y-rr.x)*e;P=p+rad*(r+uOut);N=normalize(rad-d*((rr.y-rr.x)*de/sp));}
+`;
+ // patch a stock three.js material so it draws the tube segments (fill, outline or shadow depth)
+ const tubeMat=(m,out,colors)=>{m.onBeforeCompile=sh=>{sh.uniforms.uOut={value:out};
+   sh.vertexShader=sh.vertexShader.replace("#include <common>","#include <common>\n"+TUBE_GLSL)
+    .replace("#include <beginnormal_vertex>","vec3 tbP,tbN;tubeEval(tbP,tbN);vec3 objectNormal=tbN;")
+    .replace("#include <begin_vertex>","vec3 tbP2,tbN2;tubeEval(tbP2,tbN2);vec3 transformed=tbP2;")
+    .replace("#include <color_vertex>",colors?"#include <color_vertex>\n vColor.rgb=mix(color,c1,step(.5,position.z));":"#include <color_vertex>")};
+  m.customProgramCacheKey=()=>"tube"+(colors?"c":"")+m.type;return m};
+ for(const k in MAT)MAT[k].seg=tubeMat(MAT[k].vc.clone(),0,true);
+ const segInk=tubeMat(new T.MeshBasicMaterial({color:0x3a2a1c,side:T.BackSide}),0.7,false);
+ const segM=new T.Mesh(segG,MAT.toon.seg),segOM=new T.Mesh(segG,segInk);
+ segM.customDepthMaterial=tubeMat(new T.MeshDepthMaterial({depthPacking:T.RGBADepthPacking}),0,false);
  // balls (joints, tube ends, eyes): instanced spheres
  const sg=new T.SphereGeometry(1,18,12),balls=new T.InstancedMesh(sg,MAT.toon.plain,N*3),ballsO=new T.InstancedMesh(sg,ink,N*3);
  balls.instanceColor=new T.InstancedBufferAttribute(new Float32Array(N*3*3),3);
@@ -1468,40 +1492,32 @@ function r3init(){const T=R3.T,c=$("cv3");
  const grid=new T.LineSegments(gridG,new T.LineBasicMaterial({color:0x3a2a1c,transparent:true,opacity:.18}));
  const shG=new T.CircleGeometry(1,24);shG.rotateX(-Math.PI/2);
  const shadows=new T.InstancedMesh(shG,new T.MeshBasicMaterial({color:0x3a2a1c,transparent:true,opacity:.15,depthWrite:false}),64);
- for(const m of [tubeM,tubeOM,smM,smOM,balls,ballsO,panels,edges,groundM,grid,shadows])m.frustumCulled=false;
- for(const m of [tubeM,smM,balls,panels])m.castShadow=true;
- sc.add(groundM,grid,shadows,tubeM,tubeOM,smM,smOM,balls,ballsO,panels,edges);
- Object.assign(R3,{rd,sc,cam,sun,MAT,ink,catcher,tubeG,tubeO,tubeM,tubeOM,smG,smO,smM,smOM,SR,balls,ballsO,pg,panels,eg,edges,groundM,grG,grBase,gridG,grid,shadows,N,SEG,col:{}});
+ for(const m of [segM,segOM,balls,ballsO,panels,edges,groundM,grid,shadows])m.frustumCulled=false;
+ for(const m of [segM,balls,panels])m.castShadow=true;
+ sc.add(groundM,grid,shadows,segM,segOM,balls,ballsO,panels,edges);
+ Object.assign(R3,{rd,sc,cam,sun,MAT,ink,catcher,segG,segM,segOM,NI,balls,ballsO,pg,panels,eg,edges,groundM,grG,grBase,gridG,grid,shadows,N,SEG,col:{}});
  r3applyLook()}
 function r3applyLook(){const R=R3,L=R.look,M=R.MAT[L.style]||R.MAT.toon;if(!R.rd)return;
- R.tubeM.material=R.smM.material=M.vc;R.balls.material=M.plain;R.panels.material=M.panel;
- const ol=L.outline==="on";R.tubeOM.visible=R.smOM.visible=R.ballsO.visible=R.edges.visible=ol;
+ R.segM.material=M.seg;R.balls.material=M.plain;R.panels.material=M.panel;
+ const ol=L.outline==="on";R.segOM.visible=R.ballsO.visible=R.edges.visible=ol;
  const real=L.shadow==="real";R.sun.castShadow=real;R.shadows.visible=!real;
  R.groundM.material=L.ground==="solid"?M.ground:R.catcher;R.groundM.visible=L.ground==="solid"||real}
 function r3color(s){const T=R3.T;let c=R3.col[s];if(!c){c=new T.Color();try{c.setStyle(s)}catch(e){c.set(0x888888)}R3.col[s]=c}return c}
-// sweep one smooth tube through a chain of joints. P: points, Rr: radii, Cc: colours. Writes rings into the smooth buffers.
-function r3sweep(P,Rr,Cc,st){const R=R3,SEG=R.SEG,OUT=0.7,S=6,n=P.length-1;
- const tp=R.smG.attributes.position.array,tn=R.smG.attributes.normal.array,tc=R.smG.attributes.color.array,op=R.smO.attributes.position.array,ix=R.smG.index.array,ox=R.smO.index.array;
- const tan=i=>{const a=P[Math.max(0,i-1)],b=P[Math.min(n,i+1)];return sub3(b,a)};
- const ring0=st.rings;let nrm=null,prevT=null;
- for(let i=0;i<n;i++){const p0=P[i],p1=P[i+1],L=Math.hypot(...sub3(p1,p0)),m0=mul(tan(i),(i===0?1:0.5)*0.4),m1=mul(tan(i+1),(i+1===n?1:0.5)*0.4);   // short tangents: straight bones, rounded joints
-  // Catmull-Rom (Hermite) tangents, kept short so tight bends don't loop
-  const k0=Math.min(1,L/(Math.hypot(...m0)||1)),k1=Math.min(1,L/(Math.hypot(...m1)||1));
-  for(let s=(i===0?0:1);s<=S;s++){if(st.rings>=R.SR)return;const t=s/S,t2=t*t,t3=t2*t;
-   const h00=2*t3-3*t2+1,h10=t3-2*t2+t,h01=-2*t3+3*t2,h11=t3-t2;
-   const p=add(add(mul(p0,h00),mul(m0,h10*k0)),add(mul(p1,h01),mul(m1,h11*k1)));
-   const d=norm3(add(add(mul(p0,6*t2-6*t),mul(m0,(3*t2-4*t+1)*k0)),add(mul(p1,-6*t2+6*t),mul(m1,(3*t2-2*t)*k1))));
-   // parallel-transport the ring's frame along the curve so it doesn't twist
-   if(!nrm){const ref=Math.abs(d[1])<0.9?[0,1,0]:[1,0,0];nrm=norm3(cross3(d,ref))}
-   else{nrm=norm3(sub3(nrm,mul(d,dot3(nrm,d))))}
-   const bin=cross3(d,nrm),e=t*t*(3-2*t),r=Rr[i]+(Rr[i+1]-Rr[i])*e,col=Cc[t<0.5?i:Math.min(i+1,Cc.length-1)];
-   const o=st.rings*SEG*3;
-   for(let j=0;j<SEG;j++){const a=j/SEG*Math.PI*2,c=Math.cos(a),sn=Math.sin(a),rad=[nrm[0]*c+bin[0]*sn,nrm[1]*c+bin[1]*sn,nrm[2]*c+bin[2]*sn],k=o+j*3;
-    for(let q=0;q<3;q++){tp[k+q]=p[q]+rad[q]*r;op[k+q]=p[q]+rad[q]*(r+OUT);tn[k+q]=rad[q]}
-    tc[k]=col.r;tc[k+1]=col.g;tc[k+2]=col.b}
-   if(st.rings>ring0){const a0=(st.rings-1)*SEG,b0=st.rings*SEG;
-    for(let j=0;j<SEG;j++){const j1=(j+1)%SEG,qq=[a0+j,a0+j1,b0+j,a0+j1,b0+j1,b0+j];ix.set(qq,st.idx);ox.set(qq,st.idx);st.idx+=6}}
-   st.rings++;prevT=d}}}
+// one tube segment for the GPU: ends p0/p1, end directions m0/m1 (Hermite), ring frame n0 at the start, radii, smooth flag, colours
+function r3seg(p0,p1,m0,m1,n0,r0,r1,sm,c0,c1){const R=R3,g=R.segG,n=g.instanceCount;if(n>=R.NI)return;const o=n*3,A=g.attributes;
+ A.p0.array.set(p0,o);A.p1.array.set(p1,o);A.m0.array.set(m0,o);A.m1.array.set(m1,o);A.n0.array.set(n0,o);
+ A.rr.array[o]=r0;A.rr.array[o+1]=r1;A.rr.array[o+2]=sm;A.color.array.set([c0.r,c0.g,c0.b],o);A.c1.array.set([c1.r,c1.g,c1.b],o);g.instanceCount=n+1}
+const r3ref=d=>norm3(cross3(d,Math.abs(d[1])<0.9?[0,1,0]:[1,0,0]));
+// a smooth limb: one curved tube through a chain of joints, as segments that share ends and directions (no twist:
+// the ring frame is carried from segment to segment)
+function r3chain(P,Rr,Cc){const n=P.length-1,tan=i=>sub3(P[Math.min(n,i+1)],P[Math.max(0,i-1)]);let nrm=null;
+ for(let i=0;i<n;i++){const p0=P[i],p1=P[i+1],ch=sub3(p1,p0),L=Math.hypot(...ch);if(L<1e-6)continue;
+  let m0=mul(tan(i),(i===0?1:0.5)*0.4),m1=mul(tan(i+1),(i+1===n?1:0.5)*0.4);   // short tangents: straight bones, rounded joints
+  m0=mul(m0,Math.min(1,L/(Math.hypot(...m0)||1)));m1=mul(m1,Math.min(1,L/(Math.hypot(...m1)||1)));
+  const d0=norm3(Math.hypot(...m0)>1e-6?m0:ch),d1=norm3(Math.hypot(...m1)>1e-6?m1:ch);
+  if(!nrm)nrm=r3ref(d0);else{const q=sub3(nrm,mul(d0,dot3(nrm,d0)));nrm=Math.hypot(...q)>1e-4?norm3(q):r3ref(d0)}
+  r3seg(p0,p1,m0,m1,nrm,Rr[i],Rr[i+1],1,Cc[i],Cc[Math.min(i+1,Cc.length-1)]);
+  const q=sub3(nrm,mul(d1,dot3(nrm,d1)));nrm=Math.hypot(...q)>1e-4?norm3(q):r3ref(d1)}}
 function r3render(){const T=R3.T,R=R3,OUT=0.7,L=R.look;
  const w=Math.max(1,W),h=Math.max(1,Hh),dpr=Math.min(2,DPR);
  if(R.rd.getPixelRatio()!==dpr)R.rd.setPixelRatio(dpr);const sz=R.rd.getSize(new T.Vector2());if(sz.x!==w||sz.y!==h)R.rd.setSize(w,h,false);
@@ -1521,10 +1537,9 @@ function r3render(){const T=R3.T,R=R3,OUT=0.7,L=R.look;
   if(robo){const t=flipT(),u=FLIP&&(FLIP.kind==="up"||FLIP.kind==="down")&&t>=0?(FLIP.kind==="up"?t:1-t):(GECKO?1:0);
    if(u>0){const cy=()=>CEIL;for(let i=-5;i<=5;i++){seg(gx+i*30,gz-150,gx+i*30,gz+150,cy);seg(gx-150,gz+i*30,gx+150,gz+i*30,cy)}}}
   R.gridG.setDrawRange(0,n/3);R.gridG.attributes.position.needsUpdate=true}
- const tp=R.tubeG.attributes.position.array,tn=R.tubeG.attributes.normal.array,tc=R.tubeG.attributes.color.array,op=R.tubeO.attributes.position.array;
  const pp=R.pg.attributes.position.array,pn=R.pg.attributes.normal.array,pc=R.pg.attributes.color.array,ep=R.eg.attributes.position.array;
  const M=new T.Matrix4(),Q=new T.Quaternion(),V=new T.Vector3(),S=new T.Vector3();
- let nt=0,nb=0,nv=0,ne=0,ns=0;
+ let nb=0,nv=0,ne=0,ns=0;R.segG.instanceCount=0;
  const ball=(a,r,col)=>{if(nb>=R.N*3)return;V.set(a[0],a[1],a[2]);S.set(r,r,r);M.compose(V,Q.identity(),S);R.balls.setMatrixAt(nb,M);R.balls.setColorAt(nb,col);
   S.set(r+OUT,r+OUT,r+OUT);M.compose(V,Q,S);R.ballsO.setMatrixAt(nb,M);nb++};
  const smooth=L.limbs==="smooth",chains=[];let ch=null;
@@ -1539,26 +1554,13 @@ function r3render(){const T=R3.T,R=R3,OUT=0.7,L=R.look;
   if(smooth){// tubes joined end to end within one part (limb, tail, neck) become one chain
    if(ch&&ch.g===q.g&&Math.hypot(...sub3(a,ch.P[ch.P.length-1]))<0.05){ch.R[ch.R.length-1]=Math.max(ch.R[ch.R.length-1],ra);ch.P.push(b);ch.R.push(rb);ch.C.push(col)}
    else{ch={g:q.g,P:[a,b],R:[ra,rb],C:[col,col]};chains.push(ch)}continue}
-  // capsule mode: tapered tube from a (radius ra) to b (radius rb), with round ends
-  if(nt>=R.N)continue;
-  const ax=[b[0]-a[0],b[1]-a[1],b[2]-a[2]],Ln=Math.hypot(...ax);if(Ln<1e-6){ball(a,Math.max(ra,rb),col);continue}
-  const d=[ax[0]/Ln,ax[1]/Ln,ax[2]/Ln],ref=Math.abs(d[1])<0.9?[0,1,0]:[1,0,0];
-  let u1=[d[1]*ref[2]-d[2]*ref[1],d[2]*ref[0]-d[0]*ref[2],d[0]*ref[1]-d[1]*ref[0]];const ul=Math.hypot(...u1);u1=u1.map(x=>x/ul);
-  const u2=[d[1]*u1[2]-d[2]*u1[1],d[2]*u1[0]-d[0]*u1[2],d[0]*u1[1]-d[1]*u1[0]];
-  const sl=(ra-rb)/Ln,o=nt*R.SEG*2*3;
-  for(let ring=0;ring<2;ring++){const c=ring?b:a,r=ring?rb:ra;
-   for(let i=0;i<R.SEG;i++){const th=i/R.SEG*Math.PI*2,cs=Math.cos(th),sn=Math.sin(th),rad=[u1[0]*cs+u2[0]*sn,u1[1]*cs+u2[1]*sn,u1[2]*cs+u2[2]*sn],k=o+(ring*R.SEG+i)*3;
-    for(let j=0;j<3;j++){tp[k+j]=c[j]+rad[j]*r;op[k+j]=c[j]+rad[j]*(r+OUT);tn[k+j]=rad[j]+d[j]*sl}
-    tc[k]=col.r;tc[k+1]=col.g;tc[k+2]=col.b}}
-  nt++;ball(a,ra,col);ball(b,rb,col)}
+  // capsule mode: a straight tapered segment from a (radius ra) to b (radius rb), with round ends
+  const ax=sub3(b,a);if(Math.hypot(...ax)<1e-6){ball(a,Math.max(ra,rb),col);continue}
+  r3seg(a,b,ax,ax,r3ref(norm3(ax)),ra,rb,0,col,col);ball(a,ra,col);ball(b,rb,col)}
  // smooth limbs: sweep each chain, with round caps at both ends
- const st={rings:0,idx:0};
  for(const c of chains){if(c.P.length===2&&Math.hypot(...sub3(c.P[1],c.P[0]))<1e-6){ball(c.P[0],Math.max(...c.R),c.C[0]);continue}
-  r3sweep(c.P,c.R,c.C,st);ball(c.P[0],c.R[0],c.C[0]);ball(c.P[c.P.length-1],c.R[c.R.length-1],c.C[c.C.length-1])}
- R.smG.setDrawRange(0,st.idx);R.smO.setDrawRange(0,st.idx);
- for(const k of ["position","normal","color"])R.smG.attributes[k].needsUpdate=true;R.smO.attributes.position.needsUpdate=true;R.smG.index.needsUpdate=R.smO.index.needsUpdate=true;
- R.tubeG.setDrawRange(0,nt*R.SEG*6);R.tubeO.setDrawRange(0,nt*R.SEG*6);
- for(const k of ["position","normal","color"])R.tubeG.attributes[k].needsUpdate=true;R.tubeO.attributes.position.needsUpdate=true;
+  r3chain(c.P,c.R,c.C);ball(c.P[0],c.R[0],c.C[0]);ball(c.P[c.P.length-1],c.R[c.R.length-1],c.C[c.C.length-1])}
+ {const A=R.segG.attributes,n=R.segG.instanceCount*3;for(const k of ["p0","p1","m0","m1","n0","rr","color","c1"]){A[k].clearUpdateRanges();A[k].addUpdateRange(0,n);A[k].needsUpdate=true}}
  R.pg.setDrawRange(0,nv);for(const k of ["position","normal","color"])R.pg.attributes[k].needsUpdate=true;
  R.eg.setDrawRange(0,ne);R.eg.attributes.position.needsUpdate=true;
  R.balls.count=R.ballsO.count=nb;R.balls.instanceMatrix.needsUpdate=R.ballsO.instanceMatrix.needsUpdate=true;if(R.balls.instanceColor)R.balls.instanceColor.needsUpdate=true;
