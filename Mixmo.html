@@ -173,7 +173,7 @@ html.desk .sl .rs{min-height:22px;min-width:30px;padding:0 6px;font-size:14px}
 </div>
 </fieldset>
 <p id="msg"></p>
-<div class="row" style="align-items:center;flex-wrap:nowrap"><span class="lbl">Renderer:</span><div class="seg" id="rendSw"><button data-r="three">3D (three.js)</button><button data-r="canvas">Built-in</button></div></div>
+<div class="row" style="align-items:center;flex-wrap:nowrap"><span class="lbl">Renderer:</span><div class="seg" id="rendSw"><button data-r="three">3D (three.js)</button><button data-r="canvas">2D</button></div></div>
 <fieldset id="r3Look" style="margin:8px 16px"><legend>3D look</legend>
 <div class="row" style="margin:6px 0"><span class="lbl" style="min-width:76px">Style</span><div class="seg"><button data-k="style" data-v="toon">Cartoon</button><button data-k="style" data-v="soft">Soft</button></div></div>
 <div class="row" style="margin:6px 0"><span class="lbl" style="min-width:76px">Limbs</span><div class="seg"><button data-k="limbs" data-v="smooth">Smooth</button><button data-k="limbs" data-v="capsule">Capsules</button></div></div>
@@ -1426,8 +1426,9 @@ try{const v=JSON.parse(localStorage.getItem("mixmoLook3D")||"null");if(v&&typeof
 const r3on=()=>R3.want==="three"&&R3.ok;
 function r3msg(t){const m=$("r3msg");if(!m)return;m.textContent=t||"";m.style.display=t?"block":"none"}
 function r3load(){if(R3.loading)return R3.loading;r3msg("Loading the 3D renderer (three.js)...");
- R3.loading=import(R3.url).then(T=>{R3.T=T;r3init();R3.ok=true;r3msg("");r3ui()}).catch(e=>{R3.failed=true;R3.loading=null;
-  r3msg("Couldn't download three.js (offline or blocked), so the built-in renderer is drawing instead. Everything else works as normal.");r3ui()});
+ // the 3D view only takes over once every shader it may need is ready (r3warm); until then 2D keeps drawing
+ R3.loading=import(R3.url).then(T=>{R3.T=T;r3init();r3msg("Preparing the 3D renderer...");return r3warm()}).then(()=>{R3.ok=true;r3applyLook();r3msg("");r3ui()}).catch(e=>{R3.failed=true;R3.loading=null;
+  r3msg("Couldn't download three.js (offline or blocked), so the 2D renderer is drawing instead. Everything else works as normal.");r3ui()});
  return R3.loading}
 function r3init(){const T=R3.T,c=$("cv3");
  const rd=new T.WebGLRenderer({canvas:c,antialias:true,alpha:true});rd.setClearColor(0x000000,0);
@@ -1497,6 +1498,18 @@ void tubeEval(out vec3 P,out vec3 N){float t=position.z,t2=t*t,t3=t2*t;
  sc.add(groundM,grid,shadows,segM,segOM,balls,ballsO,panels,edges);
  Object.assign(R3,{rd,sc,cam,sun,MAT,ink,catcher,segG,segM,segOM,NI,balls,ballsO,pg,panels,eg,edges,groundM,grG,grBase,gridG,grid,shadows,N,SEG,col:{}});
  r3applyLook()}
+// Build every shader the 3D look switches can need (both styles, outlines, both shadow kinds, both grounds, robot
+// panels) in the background, so pressing a switch later never stops the page to compile one. Uses three.js
+// compileAsync on two hidden copies of the scene (sun casting shadows / not); the real scene keeps drawing meanwhile.
+function r3warm(){const R=R3,T=R.T,M=R.MAT;
+ const mk=sh=>{const W=new T.Scene();W.fog=R.sc.fog;
+  for(const o of R.sc.children)if(o.isLight){const l=o.clone();if(l.isDirectionalLight){l.castShadow=sh;W.add(l.target)}W.add(l)}
+  const add=(o,mats)=>{for(const m of mats){const c=o.clone();c.material=m;c.visible=true;W.add(c)}};
+  add(R.segM,[M.toon.seg,M.soft.seg]);add(R.segOM,[R.segOM.material]);add(R.balls,[M.toon.plain,M.soft.plain]);add(R.ballsO,[R.ballsO.material]);
+  add(R.panels,[M.toon.panel,M.soft.panel]);add(R.edges,[R.edges.material]);add(R.groundM,[M.toon.ground,M.soft.ground,R.catcher]);
+  add(R.grid,[R.grid.material]);add(R.shadows,[R.shadows.material]);return W};
+ const go=W=>R.rd.compileAsync?R.rd.compileAsync(W,R.cam):Promise.resolve(R.rd.compile(W,R.cam));
+ return Promise.all([go(mk(true)),go(mk(false))]).catch(()=>{})}
 function r3applyLook(){const R=R3,L=R.look,M=R.MAT[L.style]||R.MAT.toon;if(!R.rd)return;
  R.segM.material=M.seg;R.balls.material=M.plain;R.panels.material=M.panel;
  const ol=L.outline==="on";R.segOM.visible=R.ballsO.visible=R.edges.visible=ol;
