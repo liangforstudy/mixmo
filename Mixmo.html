@@ -40,6 +40,7 @@ fieldset.collapsed::after{content:"";display:block;clear:both}
 input[type=range]{width:100%;height:44px;margin:0;accent-color:var(--accent);touch-action:pan-y}
 .val{font-size:14px;text-align:right;font-variant-numeric:tabular-nums}
 #gait{width:100%;height:84px;display:block}
+html:not(.devmode) .dev{display:none!important}   /* Dev mode: advanced settings hidden for players */
 .gaitMini{width:100%;display:block;position:sticky;top:0;z-index:2;background:#f8eed8;border-bottom:1px solid var(--ink);padding-bottom:2px}
 textarea{width:100%;font-size:16px;font-family:Menlo,monospace;height:120px;border:2px solid var(--ink);border-radius:10px;background:#fffaf0;color:var(--ink);padding:8px}
 #msg{margin:0 16px;min-height:20px;font-size:14px;color:var(--accent)}
@@ -99,14 +100,14 @@ html.desk .sl .rs{min-height:22px;min-width:30px;padding:0 6px;font-size:14px}
 <div class="row" style="margin:0 16px 8px;flex-wrap:nowrap;gap:6px"><button class="tb" id="tL" aria-label="Turn left 90 degrees">&#8630; 90&deg;</button><button class="tb" id="tR" aria-label="Turn right 90 degrees">90&deg; &#8631;</button><button class="tb" id="tU" aria-label="Turn around">&#10226; 180&deg;</button><button class="tb" id="tS" aria-label="Spin on the spot">Spin</button><button class="tb" id="tF" aria-label="Walk over onto the other end" hidden>Over</button><button class="tb" id="tC" aria-label="Flip up onto the ceiling" hidden>Ceiling</button></div>
 <input type="checkbox" switch id="hapSw" tabindex="-1" aria-hidden="true" style="position:fixed;left:0;top:0;width:1px;height:1px;opacity:0;pointer-events:none;margin:0"><label for="hapSw" id="hapLb" aria-hidden="true" style="position:fixed;left:0;top:0;width:1px;height:1px;opacity:0;pointer-events:none;overflow:hidden"></label>
 <div id="view"><canvas id="cv"></canvas><canvas id="cv3"></canvas><div id="r3msg"></div><div id="hint">1 finger / drag: orbit - 2 fingers / wheel: zoom - 2 fingers / right-drag: pan - double-tap: reset</div></div>
-<div class="row" style="margin:6px 16px 0;flex-wrap:nowrap;align-items:center"><button id="prevF" aria-label="Previous frame">&#9664;</button><span id="scrubWrap"><input type="range" id="scrub" min="0" max="1" step="0.001" value="0"><span id="scrubMarks"></span></span><button id="nextF" aria-label="Next frame">&#9654;</button><span class="val" id="scrubV" hidden>0</span><button id="stepBlend" aria-label="How mode switches play while paused" style="padding:0 6px;font-size:13px;line-height:1.1" class="on">Switch:<br>by frame</button></div>
+<div class="row" style="margin:6px 16px 0;flex-wrap:nowrap;align-items:center"><button id="prevF" aria-label="Previous frame">&#9664;</button><span id="scrubWrap"><input type="range" id="scrub" min="0" max="1" step="0.001" value="0"><span id="scrubMarks"></span></span><button id="nextF" aria-label="Next frame">&#9654;</button><span class="val" id="scrubV" hidden>0</span><button id="stepBlend" class="dev on" aria-label="How mode switches play while paused" style="padding:0 6px;font-size:13px;line-height:1.1">Switch:<br>by frame</button></div>
 <div id="status" aria-live="polite"><span id="stTag">LOOP</span><span id="stText">Walk</span></div>
 <div class="row" id="moodRow" style="margin:2px 16px 0;flex-wrap:nowrap;align-items:center"><span class="lbl">Tired</span><input type="range" id="mood" min="0" max="1" step="0.01" value="1" style="flex:1"><span class="lbl">Happy</span></div>
 </div><div id="split"></div><div id="bot">
 <h1>The Curious Gait of a Three-Legged Sergal</h1>
 <p class="sub">Drag to turn him about, pinch to look closer, slide two fingers to move the view.</p>
 <fieldset id="robotLook" hidden><legend>Robot look</legend>
-<div class="sl"><label>Bone stretch allowed</label><input type="range" id="boneTol" min="0" max="0.3" step="0.01" value="0"><span class="val" id="boneTolV">0%</span></div><div class="row" style="margin:6px 0"><button id="boneShow">Bone check</button></div>
+<div class="sl dev"><label>Bone stretch allowed</label><input type="range" id="boneTol" min="0" max="0.3" step="0.01" value="0"><span class="val" id="boneTolV">0%</span></div><div class="row dev" style="margin:6px 0"><button id="boneShow">Bone check</button></div>
 <div class="sl"><label>Shape (0 = boxes, 1 = cylinders)</label><input type="range" id="rMorph" min="0" max="1" step="0.05" value="0.35"><span class="val" id="rMorphV">0.35</span></div>
 <div class="row" style="margin:6px 0;flex-wrap:nowrap"><span class="lbl">Skin:</span><select id="rSkin" class="pick" aria-label="Skin"><option value="robot">Robot (boxes)</option><option value="sergal">Sergal fur</option><option value="dino">Dinosaur</option><option value="roo">Kangaroo</option></select></div>
 <div class="row" style="margin:6px 0;flex-wrap:nowrap"><span class="lbl">Top middle limb ends in:</span><div class="seg" id="rHead"><button data-h="1" class="on">Head</button><button data-h="0">Paw</button></div></div>
@@ -119,7 +120,7 @@ html.desk .sl .rs{min-height:22px;min-width:30px;padding:0 6px;font-size:14px}
 <div class="crow"><label>Body<input type="color" id="cBody" value="#e8b923"></label><label>Limbs<input type="color" id="cLimb" value="#d9a514"></label><label>Joints<input type="color" id="cJoint" value="#2d2a26"></label></div>
 <div class="crow"><label>Paws, end A<input type="color" id="cPawA" value="#2d2a26"></label><label>Paws, end B<input type="color" id="cPawB" value="#c4462f"></label></div>
 <div class="row" style="margin:8px 0 0;flex-wrap:nowrap"><span class="lbl">Six-leg gait:</span><div class="seg" id="gaitStyle"><button data-g="dog">Dog</button><button data-g="insect">Spider / insect</button></div></div>
-<p class="sub" style="margin:4px 0 0">Applies to the mode picked under "Editing".</p>
+<p class="sub dev" style="margin:4px 0 0">Applies to the mode picked under "Editing".</p>
 <div class="row" style="margin:10px 0 0;flex-wrap:nowrap"><span class="lbl">180&deg; when on 4, 5 or 6 legs:</span></div>
 <div class="grid2" id="lyingTurn"><button data-t="swap" class="on">Swap ends</button><button data-t="turn">Turn round</button><button data-t="swapKeep" style="grid-column:1/3">Swap ends, raised limbs stay put (variant)</button></div>
 <p class="sub" style="margin:4px 0">Swap ends: he stops and the other end leads; a raised tail moves to the new back end. The variant keeps raised limbs where they are, so it looks like the opposite 5-leg run. Turn round: the body swings round; a shorter body turns faster.</p>
@@ -127,7 +128,7 @@ html.desk .sl .rs{min-height:22px;min-width:30px;padding:0 6px;font-size:14px}
 <div class="grid2" id="standEnd"><button data-e="keep" class="on">Back end</button><button data-e="front">Front end</button><button data-e="A">End A</button><button data-e="B">End B</button></div>
 <p class="sub" style="margin:4px 0 0">Back end tips him back onto the end behind him. Front end rises forward over his front legs, so he ends up the other way up, looking exactly the same but with the paw colours swapped. End A / End B pick a paw colour, whichever end it is on.</p>
 </fieldset>
-<fieldset id="sergalParts"><legend>Show parts</legend>
+<fieldset id="sergalParts" class="dev"><legend>Show parts</legend>
 <div class="sl"><label>Heads</label><input type="range" id="nHeads" min="0" max="2" step="1" value="2"><span class="val" id="nHeadsV">2</span></div>
 <div class="sl"><label>Arms</label><input type="range" id="nArms" min="0" max="4" step="1" value="4"><span class="val" id="nArmsV">4</span></div>
 <div class="sl"><label>Lion tails</label><input type="range" id="nTails" min="0" max="2" step="1" value="2"><span class="val" id="nTailsV">2</span></div>
@@ -144,28 +145,28 @@ html.desk .sl .rs{min-height:22px;min-width:30px;padding:0 6px;font-size:14px}
 <div class="row" style="margin:6px 0"><div class="seg" id="terrain"><button data-t="flat" class="on">Flat</button><button data-t="hills">Hills</button><button data-t="bumpy">Bumpy</button><button data-t="steps">Steps</button></div></div>
 <div class="sl"><label>Height</label><input type="range" id="tH" min="0" max="40" step="0.5" value="12"><span class="val" id="tHV">12</span></div>
 <div class="sl"><label>Length / spacing</label><input type="range" id="tLen" min="20" max="400" step="5" value="160"><span class="val" id="tLenV">160</span></div>
-<div class="sl"><label>Lean into slopes (0-1)</label><input type="range" id="tLean" min="0" max="1.5" step="0.05" value="0.6"><span class="val" id="tLeanV">0.6</span></div>
-<div class="sl"><label>Thigh spring (low = soft and floaty, high = stiff)</label><input type="range" id="tSpring" min="5" max="400" step="5" value="150"><span class="val" id="tSpringV">150</span></div>
-<div class="sl"><label>Head steadiness (0 = rides the body, 1 = floats steady)</label><input type="range" id="tSteady" min="0" max="1" step="0.05" value="0.85"><span class="val" id="tSteadyV">0.85</span></div>
-<div class="row" style="margin:6px 0"><button id="tFeet" class="on">Feet follow ground</button><span class="lbl" style="margin-left:8px;font-size:13px">also plants paws on flat ground</span></div>
+<div class="sl dev"><label>Lean into slopes (0-1)</label><input type="range" id="tLean" min="0" max="1.5" step="0.05" value="0.6"><span class="val" id="tLeanV">0.6</span></div>
+<div class="sl dev"><label>Thigh spring (low = soft and floaty, high = stiff)</label><input type="range" id="tSpring" min="5" max="400" step="5" value="150"><span class="val" id="tSpringV">150</span></div>
+<div class="sl dev"><label>Head steadiness (0 = rides the body, 1 = floats steady)</label><input type="range" id="tSteady" min="0" max="1" step="0.05" value="0.85"><span class="val" id="tSteadyV">0.85</span></div>
+<div class="row dev" style="margin:6px 0"><button id="tFeet" class="on">Feet follow ground</button><span class="lbl" style="margin-left:8px;font-size:13px">also plants paws on flat ground</span></div>
 </fieldset>
-<fieldset id="attach" class="sergalOnly"><legend>Where each leg joins the body</legend></fieldset>
+<fieldset id="attach" class="sergalOnly dev"><legend>Where each leg joins the body</legend></fieldset>
 
-<div class="row">
+<div class="row dev">
 <button id="colors">Leg colours</button>
 </div>
 
-<fieldset><legend>Footfall chart</legend>
+<fieldset class="dev"><legend>Footfall chart</legend>
 <canvas id="gait"></canvas>
 <div class="sl"><label>Blend time between modes (s)</label><input type="range" id="blend" min="0" max="2" step="0.05" value="0.6"><span class="val" id="blendV">0.6</span></div>
 <div class="crow"><label>Morph part markers<input type="color" id="mkCol" value="#3a2a1c"></label><label>Hex code<input type="text" id="mkHex" value="#3a2a1c" maxlength="9" spellcheck="false" style="font-size:16px;height:44px;border:2px solid var(--ink);border-radius:10px;padding:0 8px;background:#fffaf0;color:var(--ink)"></label></div>
 </fieldset>
 
-<div class="row" style="flex-wrap:nowrap"><span class="lbl">Editing:</span><select id="editSel" aria-label="Animation to edit" class="pick"></select></div>
-<div class="row" id="emoodRow"><span class="lbl">Arms, heads &amp; tails for:</span><div class="seg" id="emoods"><button data-mo="t">Tired</button><button data-mo="h" class="on">Happy</button></div></div>
-<div id="sliders"></div>
+<div class="row dev" style="flex-wrap:nowrap"><span class="lbl">Editing:</span><select id="editSel" aria-label="Animation to edit" class="pick"></select></div>
+<div class="row dev" id="emoodRow"><span class="lbl">Arms, heads &amp; tails for:</span><div class="seg" id="emoods"><button data-mo="t">Tired</button><button data-mo="h" class="on">Happy</button></div></div>
+<div id="sliders" class="dev"></div>
 
-<fieldset><legend>Save &amp; load</legend>
+<fieldset class="dev"><legend>Save &amp; load</legend>
 <p class="sub" style="margin:4px 0 8px">Copies the whole character: body shape, limb layout, robot look, and every mode's settings. Older settings-only text still loads.</p>
 <textarea id="json" spellcheck="false"></textarea>
 <div class="row" style="margin:8px 0 0">
@@ -183,16 +184,18 @@ html.desk .sl .rs{min-height:22px;min-width:30px;padding:0 6px;font-size:14px}
 <div class="row" style="margin:6px 0"><span class="lbl" style="min-width:76px">Shadows</span><div class="seg"><button data-k="shadow" data-v="real">Real</button><button data-k="shadow" data-v="blob">Soft spots</button></div></div>
 <div class="row" style="margin:6px 0"><span class="lbl" style="min-width:76px">Ground</span><div class="seg"><button data-k="ground" data-v="solid">Solid</button><button data-k="ground" data-v="grid">Grid only</button></div></div>
 </fieldset>
-<fieldset id="pickBox" style="margin:8px 16px"><legend>2D debug: what's hiding it?</legend>
+<fieldset id="pickBox" class="dev" style="margin:8px 16px"><legend>2D debug: what's hiding it?</legend>
 <p class="sub" style="margin:4px 0">Turn on, then tap a shape in the view (2D renderer). It gets a dashed red outline, and as you move the camera this lists what is drawn on top of it.</p>
 <div class="row" style="margin:6px 0;gap:8px"><div class="seg" id="pickSw"><button data-p="on">Pick: On</button><button data-p="off" class="on">Off</button></div><button id="pickClr">Clear</button></div>
 <p id="pickOut" class="sub" aria-live="polite" style="margin:4px 0;opacity:1;min-height:1.3em"></p>
 <p class="sub camOut" style="margin:4px 0;opacity:1;white-space:pre-line"></p>
 </fieldset>
-<fieldset id="camBox" style="margin:8px 16px"><legend>3D debug, camera edition</legend>
+<fieldset id="camBox" class="dev" style="margin:8px 16px"><legend>3D debug, camera edition</legend>
 <p class="sub camOut" style="margin:4px 0;opacity:1;white-space:pre-line"></p>
 </fieldset>
 <div class="row" style="align-items:center;flex-wrap:nowrap"><span class="lbl">Interface:</span><div class="seg" id="uiSw"><button data-ui="auto">Auto</button><button data-ui="touch">Touch</button><button data-ui="desk">Desktop</button></div></div>
+<div class="row" style="align-items:center;flex-wrap:nowrap"><span class="lbl">Dev mode:</span><div class="seg" id="devSw"><button data-d="off">Off</button><button data-d="on">On</button></div></div>
+<p class="sub" style="margin:2px 16px 6px">Shows the advanced settings: gait sliders, leg placement, the footfall chart, sergal parts, save &amp; load, bone and debug tools.</p>
 <fieldset id="fresh" style="margin:8px 16px"><legend>Start fresh</legend>
 <p class="sub" style="margin:4px 0">Forget everything this app has saved in this browser (drawers, layout, renderer, 3D look and other choices) and reload, as if opening it for the first time.</p>
 <div class="row" style="margin:6px 0"><button id="freshGo" style="color:var(--accent)">Reset to factory defaults</button></div>
@@ -1706,6 +1709,10 @@ function r3ui(){document.querySelectorAll("#rendSw button").forEach(b=>b.classLi
 document.querySelectorAll("#rendSw button").forEach(b=>b.onclick=()=>{R3.want=b.dataset.r;try{localStorage.setItem("mixmoRenderer",R3.want)}catch(e){}
  if(R3.want==="three"&&!R3.ok)r3load();else if(R3.want==="canvas")r3msg("");r3ui()});
 document.querySelectorAll("#r3Look [data-k]").forEach(b=>b.onclick=()=>{R3.look[b.dataset.k]=b.dataset.v;try{localStorage.setItem("mixmoLook3D",JSON.stringify(R3.look))}catch(e){}r3applyLook();r3ui()});
+// Dev mode: players see the view, animations, terrain, looks, power saving and the timeline; the rest is for the author
+let DEV=false;try{DEV=localStorage.getItem("mixmoDev")==="on"}catch(e){}
+function devUI(){document.documentElement.classList.toggle("devmode",DEV);document.querySelectorAll("#devSw button").forEach(b=>b.classList.toggle("on",(b.dataset.d==="on")===DEV))}
+document.querySelectorAll("#devSw button").forEach(b=>b.onclick=()=>{DEV=b.dataset.d==="on";try{localStorage.setItem("mixmoDev",DEV?"on":"off")}catch(e){}devUI()});devUI();
 function powUI(){document.querySelectorAll("#powSw button").forEach(b=>b.classList.toggle("on",(b.dataset.p==="on")===POWER))}
 document.querySelectorAll("#powSw button").forEach(b=>b.onclick=()=>{POWER=b.dataset.p==="on";try{localStorage.setItem("mixmoPower",POWER?"on":"off")}catch(e){}
  r3applyLook();PSIG="";powUI()});powUI();
@@ -1739,7 +1746,7 @@ document.addEventListener("click",e=>{if(!e.isTrusted||!e.target.closest)return;
   const el=t.closest("button,input,select,label");if(!el||NAV.has(el.id)||t.closest("#view"))return;
   if(el.id==="hapSw"||el.id==="hapLb")return;   // the hidden haptic switch is not a change you made
   if(el.tagName==="LABEL")return;
-         if(t.closest("#pickBox,#fresh,#r3Look,#rendSw,#uiSw,#powSw"))return;   // display / debug switches don't change the motion
+         if(t.closest("#pickBox,#fresh,#r3Look,#rendSw,#uiSw,#powSw,#devSw"))return;   // display / debug switches don't change the motion
   if(el.id==="charSel")return;hBranch()};
  document.addEventListener("click",br,true);document.addEventListener("input",br,true);document.addEventListener("change",br,true);
  document.addEventListener("change",e=>{if(e.target&&e.target.id==="charSel")hClear()},true)}
