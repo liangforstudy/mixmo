@@ -185,6 +185,10 @@ html.desk .sl .rs{min-height:22px;min-width:30px;padding:0 6px;font-size:14px}
 <p class="sub" style="margin:4px 0">Turn on, then tap a shape in the view (2D renderer). It gets a dashed red outline, and as you move the camera this lists what is drawn on top of it.</p>
 <div class="row" style="margin:6px 0;gap:8px"><div class="seg" id="pickSw"><button data-p="on">Pick: On</button><button data-p="off" class="on">Off</button></div><button id="pickClr">Clear</button></div>
 <p id="pickOut" class="sub" aria-live="polite" style="margin:4px 0;opacity:1;min-height:1.3em"></p>
+<p class="sub camOut" style="margin:4px 0;opacity:1;white-space:pre-line"></p>
+</fieldset>
+<fieldset id="camBox" style="margin:8px 16px"><legend>3D debug, camera edition</legend>
+<p class="sub camOut" style="margin:4px 0;opacity:1;white-space:pre-line"></p>
 </fieldset>
 <div class="row" style="align-items:center;flex-wrap:nowrap"><span class="lbl">Interface:</span><div class="seg" id="uiSw"><button data-ui="auto">Auto</button><button data-ui="touch">Touch</button><button data-ui="desk">Desktop</button></div></div>
 <fieldset id="fresh" style="margin:8px 16px"><legend>Start fresh</legend>
@@ -1297,11 +1301,22 @@ function pickReport(){if(!PSEL){pSay(PICK?"Tap a shape in the view to track it."
  if(!by.length){pSay(head+" Drawn "+(k+1)+" of "+DRAWN.length+". Nothing is drawn on top of it.");return}
  by.sort((a,b)=>b.n-a.n);
  pSay(head+" Drawn "+(k+1)+" of "+DRAWN.length+"; about "+Math.round(100*tot/sm.length)+"% covered by: "+by.slice(0,6).map(b=>b.nm+" ("+Math.round(100*b.n/sm.length)+"%)").join("; ")+(by.length>6?"; and "+(by.length-6)+" more":"")+".")}
+// camera readout (both debug panels): the orbit settings, where the camera is, and which side of him it sees
+let CTXT="";
+function camReport(){const robo=CHAR==="robot",camY=robo?CAMY:68,D=600,deg=r=>Math.round(r*180/Math.PI);
+ const back=v=>rotY(rotX(v,-pitch),-yaw),cp=back([0,0,D]),rel=[cp[0],cp[1]+camY,cp[2]];
+ let a=Math.atan2(cp[0],cp[2])-HEAD;a=Math.atan2(Math.sin(a),Math.cos(a));   // 0 = in front of him, ±180 = behind
+ const sides=["front","front-left","left","back-left","back","back-right","right","front-right"],side=sides[((Math.round(a/(Math.PI/4))%8)+8)%8];
+ const r1=v=>Math.round(v);let t="Camera: yaw "+deg(yaw)+"°, pitch "+deg(pitch)+"°, zoom "+zoom.toFixed(2)+"×, pan "+r1(panX)+", "+r1(panY)+
+  "\nLooking at a point "+camY+" above his feet, from "+D+" away\nCamera position from him: x "+r1(rel[0])+", y "+r1(rel[1])+", z "+r1(rel[2])+
+  "\nWorld: x "+r1(rel[0]+POS[0])+", y "+r1(rel[1])+", z "+r1(rel[2]+POS[1])+"; he faces "+deg(((HEAD%(2*Math.PI))+2*Math.PI)%(2*Math.PI))+"°\nSeen from his "+side+(pitch>0.6?", from above":pitch<-0.1?", from below":"");
+ if(r3on()&&R3.cam)t+="\n3D: field of view "+R3.cam.fov.toFixed(1)+"°";
+ if(t===CTXT)return;CTXT=t;document.querySelectorAll(".camOut").forEach(e=>{e.textContent=t})}
 function pSay(t){if(t===PTXT)return;PTXT=t;const e=$("pickOut");if(e)e.textContent=t}
 function render(){
  ctx.setTransform(DPR,0,0,DPR,0,0);ctx.clearRect(0,0,W,Hh);
  drawGround();
- DRAWN.length=0;
+ DRAWN.length=0;camReport();
  if(r3on()){ctx.clearRect(0,0,W,Hh);r3render();return}
  for(const s of prims.filter(q=>q.t===2)){const c=proj(s.a);ctx.fillStyle="rgba(58,42,28,.15)";ctx.beginPath();ctx.ellipse(c.x,c.y,s.r*c.s,s.r*c.s*0.4,0,0,7);ctx.fill()}
  const list=[];prims.forEach((q,i)=>{if(q.t===2)return;
@@ -1645,7 +1660,7 @@ function r3render(){const T=R3.T,R=R3,OUT=0.7,L=R.look;
  R.rd.render(R.sc,R.cam)}
 function r3ui(){document.querySelectorAll("#rendSw button").forEach(b=>b.classList.toggle("on",b.dataset.r===R3.want));
  $("cv3").style.display=r3on()?"block":"none";$("cv").style.visibility=r3on()?"hidden":"visible";
- $("r3Look").hidden=R3.want!=="three";$("pickBox").hidden=r3on();if(r3on()&&PICK){PICK=false;PSEL=null;pickUI()}
+ $("r3Look").hidden=R3.want!=="three";$("pickBox").hidden=r3on();$("camBox").hidden=!r3on();if(r3on()&&PICK){PICK=false;PSEL=null;pickUI()}
  document.querySelectorAll("#r3Look [data-k]").forEach(b=>b.classList.toggle("on",R3.look[b.dataset.k]===b.dataset.v))}
 document.querySelectorAll("#rendSw button").forEach(b=>b.onclick=()=>{R3.want=b.dataset.r;try{localStorage.setItem("mixmoRenderer",R3.want)}catch(e){}
  if(R3.want==="three"&&!R3.ok)r3load();else if(R3.want==="canvas")r3msg("");r3ui()});
