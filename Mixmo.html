@@ -99,7 +99,7 @@ html.desk .sl .rs{min-height:22px;min-width:30px;padding:0 6px;font-size:14px}
 <div class="row" style="margin:0 16px 8px;flex-wrap:nowrap;gap:6px"><button class="tb" id="tL" aria-label="Turn left 90 degrees">&#8630; 90&deg;</button><button class="tb" id="tR" aria-label="Turn right 90 degrees">90&deg; &#8631;</button><button class="tb" id="tU" aria-label="Turn around">&#10226; 180&deg;</button><button class="tb" id="tS" aria-label="Spin on the spot">Spin</button><button class="tb" id="tF" aria-label="Walk over onto the other end" hidden>Over</button><button class="tb" id="tC" aria-label="Flip up onto the ceiling" hidden>Ceiling</button></div>
 <input type="checkbox" switch id="hapSw" tabindex="-1" aria-hidden="true" style="position:fixed;left:0;top:0;width:1px;height:1px;opacity:0;pointer-events:none;margin:0"><label for="hapSw" id="hapLb" aria-hidden="true" style="position:fixed;left:0;top:0;width:1px;height:1px;opacity:0;pointer-events:none;overflow:hidden"></label>
 <div id="view"><canvas id="cv"></canvas><canvas id="cv3"></canvas><div id="r3msg"></div><div id="hint">1 finger / drag: orbit - 2 fingers / wheel: zoom - 2 fingers / right-drag: pan - double-tap: reset</div></div>
-<div class="row" style="margin:6px 16px 0;flex-wrap:nowrap;align-items:center"><button id="prevF" aria-label="Previous frame">&#9664;</button><span id="scrubWrap"><input type="range" id="scrub" min="0" max="1" step="0.005" value="0"><span id="scrubMarks"></span></span><button id="nextF" aria-label="Next frame">&#9654;</button><span class="val" id="scrubV" hidden>0</span><button id="stepBlend" aria-label="How mode switches play while paused" style="padding:0 6px;font-size:13px;line-height:1.1" class="on">Switch:<br>by frame</button></div>
+<div class="row" style="margin:6px 16px 0;flex-wrap:nowrap;align-items:center"><button id="prevF" aria-label="Previous frame">&#9664;</button><span id="scrubWrap"><input type="range" id="scrub" min="0" max="1" step="0.001" value="0"><span id="scrubMarks"></span></span><button id="nextF" aria-label="Next frame">&#9654;</button><span class="val" id="scrubV" hidden>0</span><button id="stepBlend" aria-label="How mode switches play while paused" style="padding:0 6px;font-size:13px;line-height:1.1" class="on">Switch:<br>by frame</button></div>
 <div id="status" aria-live="polite"><span id="stTag">LOOP</span><span id="stText">Walk</span></div>
 <div class="row" id="moodRow" style="margin:2px 16px 0;flex-wrap:nowrap;align-items:center"><span class="lbl">Tired</span><input type="range" id="mood" min="0" max="1" step="0.01" value="1" style="flex:1"><span class="lbl">Happy</span></div>
 </div><div id="split"></div><div id="bot">
@@ -357,8 +357,20 @@ const boneUI=()=>{const b=$("boneShow");b.classList.toggle("on",BONESHOW);b.text
 $("boneShow").onclick=()=>{BONESHOW=!BONESHOW;boneUI()};setTimeout(boneUI);
 $("colors").onclick=()=>{showColors=!showColors;$("colors").classList.toggle("on",showColors)};
 // the scrubber runs over the whole recorded history (left = 30 s ago, right = now)
+// The scrubber shows a window of the recording sized to fit it: about 20 px per second, 10 s on a phone, up to the full
+// 30 s on a wide (desktop) layout. It ends at "now"; stepping back past its left end slides the window back with you.
+let SCRUBW=200;
+if(typeof ResizeObserver!=="undefined")new ResizeObserver(es=>{for(const e of es)if(e.contentRect.width>0)SCRUBW=e.contentRect.width}).observe($("scrub"));
+const scrubSpan=()=>Math.max(10,Math.min(30,SCRUBW/20));
+let SW0=-1;   // left end of a window slid back into the past (-1: the window ends at "now")
+function scrubWin(){const n=HIST.length,end=n-1;if(n<2){SW0=-1;return[0,Math.max(0,end)]}if(HPOS<0)SW0=-1;
+ const span=scrubSpan(),c=hNow(),back=i=>{let j=i;while(j>0&&HIST[i].t-HIST[j-1].t<=span)j--;return j},fwd=i=>{let j=i;while(j<end&&HIST[j+1].t-HIST[i].t<=span)j++;return j};
+ let i0,i1;if(SW0<0||SW0>end){i1=end;i0=back(end)}else{i0=SW0;i1=fwd(i0)}
+ if(c<i0){i0=c;i1=fwd(c)}else if(c>i1){i1=c;i0=back(c)}   // stepped out of the window: slide it along
+ if(i1>=end){i1=end;i0=back(end);SW0=-1}else SW0=i0;
+ return[i0,i1]}
 $("scrub").oninput=()=>{if(playing)$("play").onclick();if(HIST.length<2)return;
- const i=Math.round(+$("scrub").value*(HIST.length-1));HPOS=i>=HIST.length-1?-1:i;hRestore(HIST[i]);showFrame();showStatus()};
+ const [w0,w1]=scrubWin(),i=Math.round(w0+(+$("scrub").value)*(w1-w0));HPOS=i>=HIST.length-1?-1:i;hRestore(HIST[i]);showFrame();showStatus()};
 // while a morph is running, the scrubber scrubs the morph (start -> end) instead of the loop cycle
 function morphNow(){
  if(typeof FLIP!=="undefined"&&FLIP){const t=flipT();if(t>=0&&t<1){const f=FLIP;
@@ -387,7 +399,8 @@ function drawMarks(parts){const key=parts?parts.map(p=>p[0]).join(","):"";if(key
 // write text / values only when they change (each write makes the page redo its layout)
 const setText=(id,t)=>{const e=$(id);if(e.textContent!==t)e.textContent=t};
 function showFrame(){const sc=$("scrub");drawMarks(null);const n=HIST.length;
- if(!scrubDrag){const v=String(n<2?1:hNow()/(n-1));if(sc.value!==v)sc.value=v}
+ if(!scrubDrag){const [w0,w1]=scrubWin(),v=String(w1>w0?(hNow()-w0)/(w1-w0):1);if(sc.value!==v)sc.value=v}
+ const tl="Scrub through the last "+Math.round(scrubSpan())+" seconds";if(sc.title!==tl)sc.title=tl;
  const back=n?HIST[n-1].t-HIST[hNow()].t:0;setText("scrubV",HPOS<0?"now":"-"+back.toFixed(1)+"s");sc.classList.toggle("morph",HPOS>=0)}
 let scrubDrag=false;
 document.addEventListener("pointerdown",e=>{if(e.target.id==="scrub")scrubDrag=true},true);
@@ -1461,21 +1474,29 @@ function hRestore(h){({mode,blendU,phase,groundOff,DIR,HEAD,HEAD_T,OMEGA,TRAVK,S
  $("split").value=SPLIT;$("splitV").textContent=SPLIT.toFixed(2);$("hMerge").value=HMERGE;$("hMergeV").textContent=HMERGE.toFixed(2);$("grow").value=GROW;$("growV").textContent=GROW.toFixed(2)}
 // record after a live frame: a new frame while playing (or after a step forward); while paused just refresh the newest one
 function hRecord(dt){if(HPOS>=0)return;const adv=playing||HFORCE;if(adv)HCLOCK+=HFORCE&&!playing?1/30:dt;const h=hSnap();
- if(!adv&&HIST.length)HIST[HIST.length-1]=h;else{HIST.push(h);if(HIST.length>HMAX)HIST.shift()}HFORCE=false}
+ if(playing){NOWSTEPS.length=0;HSTEPS.length=0}   // playing on: earlier steps no longer apply
+ if(!adv&&HIST.length)HIST[HIST.length-1]=h;else{HIST.push(h);if(HIST.length>HMAX){HIST.shift();NOWSTEPS.length=0;HSTEPS.length=0}}HFORCE=false}
 const hLive=()=>HPOS<0;
 const hNow=()=>HPOS<0?HIST.length-1:HPOS;
 // a real change while rewound: forget the frames after this one and carry on live from here
-function hBranch(){if(HPOS<0)return;HIST.length=HPOS+1;HPOS=-1}
-function hClear(){HIST.length=0;HPOS=-1;HCLOCK=0}
+function hBranch(){if(HPOS<0)return;HIST.length=HPOS+1;HPOS=-1;NOWSTEPS.length=0;HSTEPS.length=0}
+function hClear(){HIST.length=0;HPOS=-1;HCLOCK=0;NOWSTEPS.length=0;HSTEPS.length=0}
 // step back / forward by about one frame of the gait (1/24 of a cycle), or one recorded frame if he wasn't moving
+// steps back remember where they came from, so stepping forward retraces them exactly (back 5, forward 5 = same frame)
+// steps forward at "now" also remember the frame they started from (NOWSTEPS), so stepping back retraces them too,
+// including the first frame of an animation switch made while paused ("Switch: by frame")
+const HSTEPS=[],NOWSTEPS=[];
 function hStep(d){if(playing)$("play").onclick();
- if(d<0){if(!HIST.length)return;let i=hNow();const ph=HIST[i].phase;let j=i-1;
-  while(j>0&&ph-HIST[j].phase<1/FRAMES-1e-6&&HIST[i].t-HIST[j].t<0.5)j--;
-  if(j<0)return;HPOS=j;hRestore(HIST[j])}
- else if(HPOS>=0){let i=HPOS;const ph=HIST[i].phase;let j=i+1;
+ if(d<0){if(!HIST.length)return;if(HPOS<0)HSTEPS.length=0;let i=hNow();
+  let j;if(NOWSTEPS.length&&NOWSTEPS[NOWSTEPS.length-1][1]===i)j=NOWSTEPS.pop()[0];
+  else{NOWSTEPS.length=0;const ph=HIST[i].phase;j=i-1;while(j>0&&ph-HIST[j].phase<1/FRAMES-1e-6&&HIST[i].t-HIST[j].t<0.5)j--}
+  if(j<0)return;HSTEPS.push([j,i]);HPOS=j;hRestore(HIST[j])}
+ else if(HPOS>=0&&HSTEPS.length&&HSTEPS[HSTEPS.length-1][0]===HPOS){const i=HSTEPS.pop()[1];
+  if(i>=HIST.length-1){HPOS=-1;hRestore(HIST[HIST.length-1])}else{HPOS=i;hRestore(HIST[i])}}
+ else if(HPOS>=0){HSTEPS.length=0;let i=HPOS;const ph=HIST[i].phase;let j=i+1;
   while(j<HIST.length-1&&HIST[j].phase-ph<1/FRAMES-1e-6&&HIST[j].t-HIST[i].t<0.5)j++;
   if(j>=HIST.length-1){HPOS=-1;hRestore(HIST[HIST.length-1])}else{HPOS=j;hRestore(HIST[j])}}
- else{stepFrame(1);HFORCE=true}   // at "now": simulate one frame forward and record it
+ else{const i0=HIST.length-1;stepFrame(1);HFORCE=true;NOWSTEPS.push([i0,i0+1])}   // at "now": simulate one frame forward and record it
  showFrame();showStatus()}
 // ---------- loop ----------
 let last=performance.now();
