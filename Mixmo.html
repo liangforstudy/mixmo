@@ -51,8 +51,12 @@ html.game:not(.desk) #stickZone{display:block}
 #stickZone:not(.fresh) .zl{display:none}
 #stick{position:absolute;width:132px;height:132px;margin:-66px 0 0 -66px;border-radius:50%;border:2px solid var(--ink);background:rgba(251,246,234,.55);pointer-events:none;display:none}
 #stick.show{display:block}
+#emoteBtn{position:absolute;right:10px;top:10px;z-index:3;display:none;padding:0 12px}
+html.game #emoteBtn.show{display:block}
+#formsBox{margin:8px 16px}
+#formsBox .row{margin:4px 0}
 #stickKnob{position:absolute;left:50%;top:50%;width:56px;height:56px;margin:-28px 0 0 -28px;border-radius:50%;background:var(--ink);opacity:.85;pointer-events:none}
-#gameTip kbd{font:inherit;font-size:12px;border:1px solid var(--ink);border-radius:4px;padding:0 4px;background:var(--paper)}
+#gameTip kbd,#formsBox kbd{font:inherit;font-size:12px;border:1px solid var(--ink);border-radius:4px;padding:0 4px;background:var(--paper)}
 .devHead{font-size:18px;font-style:italic;margin:14px 16px 4px;border-top:2px solid var(--ink);padding-top:10px}   /* Dev mode: advanced settings hidden for players */
 .gaitMini{width:100%;display:block;position:sticky;top:0;z-index:2;background:#f8eed8;border-bottom:1px solid var(--ink);padding-bottom:2px}
 textarea{width:100%;font-size:16px;font-family:Menlo,monospace;height:120px;border:2px solid var(--ink);border-radius:10px;background:#fffaf0;color:var(--ink);padding:8px}
@@ -112,9 +116,15 @@ html.desk .sl .rs{min-height:22px;min-width:30px;padding:0 6px;font-size:14px}
 <div class="row" style="margin:8px 16px;flex-wrap:nowrap;gap:6px"><select id="charSel" aria-label="Character" class="pick" style="flex:0.8"></select><select id="modeSel" aria-label="Animation" class="pick anim"></select><button id="play" class="on">Pause</button></div>
 <div class="row anim" style="margin:0 16px 8px;flex-wrap:nowrap;gap:6px"><button class="tb" id="tL" aria-label="Turn left 90 degrees">&#8630; 90&deg;</button><button class="tb" id="tR" aria-label="Turn right 90 degrees">90&deg; &#8631;</button><button class="tb" id="tU" aria-label="Turn around">&#10226; 180&deg;</button><button class="tb" id="tS" aria-label="Spin on the spot">Spin</button><button class="tb" id="tF" aria-label="Walk over onto the other end" hidden>Over</button><button class="tb" id="tC" aria-label="Flip up onto the ceiling" hidden>Ceiling</button></div>
 <input type="checkbox" switch id="hapSw" tabindex="-1" aria-hidden="true" style="position:fixed;left:0;top:0;width:1px;height:1px;opacity:0;pointer-events:none;margin:0"><label for="hapSw" id="hapLb" aria-hidden="true" style="position:fixed;left:0;top:0;width:1px;height:1px;opacity:0;pointer-events:none;overflow:hidden"></label>
-<div id="view"><canvas id="cv"></canvas><canvas id="cv3"></canvas><div id="r3msg"></div><div id="stickZone" class="fresh" aria-label="Touch control area: tap and drag here to move"><div class="zl">Tap and drag here to move.</div><div id="stick"><div id="stickKnob"></div></div></div><div id="hint">1 finger / drag: orbit - 2 fingers / wheel: zoom - 2 fingers / right-drag: pan - double-tap: reset</div></div>
+<div id="view"><canvas id="cv"></canvas><canvas id="cv3"></canvas><div id="r3msg"></div><button id="emoteBtn" aria-label="Emote: T-pose">T-pose</button><div id="stickZone" class="fresh" aria-label="Touch control area: tap and drag here to move"><div class="zl">Tap and drag here to move.</div><div id="stick"><div id="stickKnob"></div></div></div><div id="hint">1 finger / drag: orbit - 2 fingers / wheel: zoom - 2 fingers / right-drag: pan - double-tap: reset</div></div>
 <div class="row anim" style="margin:6px 16px 0;flex-wrap:nowrap;align-items:center"><button id="prevF" aria-label="Previous frame">&#9664;</button><span id="scrubWrap"><input type="range" id="scrub" min="0" max="1" step="0.001" value="0"><span id="scrubMarks"></span></span><button id="nextF" aria-label="Next frame">&#9654;</button><span class="val" id="scrubV" hidden>0</span><button id="stepBlend" class="dev on" aria-label="How mode switches play while paused" style="padding:0 6px;font-size:13px;line-height:1.1">Switch:<br>by frame</button></div>
-<p id="gameTip" class="gameOnly"><b>Game.</b> <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> to run, hold <kbd>Shift</kbd> to walk; the arrow keys walk. On a phone, drag in the left half of the view: a joystick appears under your thumb; push a little to walk, all the way to run. Up = away from the camera. To look around, drag the right half on a phone, or anywhere with a mouse. <i>Psst: try spinning the joystick round.</i></p>
+<p id="gameTip" class="gameOnly"><b>Game.</b> <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> to run, hold <kbd>Shift</kbd> to walk; the arrow keys walk; on the robot, <kbd>Ctrl</kbd> = his in-between form. On a phone, drag in the left half of the view: a joystick appears under your thumb; push a little to walk, all the way to run. Up = away from the camera. To look around, drag the right half on a phone, or anywhere with a mouse. <i>Psst: try spinning the joystick round.</i></p>
+<fieldset id="formsBox" class="gameOnly" hidden><legend>Robot forms</legend>
+<div class="row" style="flex-wrap:nowrap;align-items:center"><span class="lbl">Walk:</span><div class="seg" id="fWalk"><button data-m="walk">On three</button><button data-m="walk2">On two, tail up</button></div></div>
+<div class="row" style="flex-wrap:nowrap;align-items:center"><span class="lbl">Between:</span><div class="seg" id="fMid"><button data-m="">Off</button><button data-m="dino">Dinosaur</button><button data-m="roo">Kangaroo</button></div></div>
+<div class="row" style="flex-wrap:nowrap;align-items:center"><span class="lbl">Run:</span><select id="fRun" class="pick" aria-label="Run style"></select></div>
+<p class="sub" style="margin:2px 0 0">Joystick: a small push walks, a medium one is the in-between form, all the way runs. Keys: walk and run; hold <kbd>Ctrl</kbd> for the in-between form (on Windows use it with the arrow keys: Ctrl+W closes the tab). T-pose: the button in the view while he stands still.</p>
+</fieldset>
 <div id="status" class="anim" aria-live="polite"><span id="stTag">LOOP</span><span id="stText">Walk</span></div>
 <div class="row" id="moodRow" style="margin:2px 16px 0;flex-wrap:nowrap;align-items:center"><span class="lbl">Tired</span><input type="range" id="mood" min="0" max="1" step="0.01" value="1" style="flex:1"><span class="lbl">Happy</span></div>
 </div><div id="split"></div><div id="bot">
@@ -1552,7 +1562,10 @@ function hStep(d){if(playing)$("play").onclick();
 // Directions are as seen from the camera: up = away from the camera. Ctrl does nothing.
 const GKEYS=new Set(),GSPRINT=new Set(["KeyW","KeyA","KeyS","KeyD"]),GWALK=new Set(["ArrowUp","ArrowDown","ArrowLeft","ArrowRight"]);
 const typingIn=t=>t&&(t.tagName==="INPUT"&&!/^(range|checkbox|radio|button)$/.test(t.type)||t.tagName==="TEXTAREA"||t.tagName==="SELECT"||t.isContentEditable);
-addEventListener("keydown",e=>{if(TIER!=="game"||typingIn(e.target)||e.ctrlKey||e.metaKey||e.altKey)return;
+addEventListener("keydown",e=>{if(TIER!=="game"||typingIn(e.target)||e.metaKey||e.altKey)return;
+ // Ctrl = the in-between form (dinosaur / kangaroo). Ctrl+A / S / D would select all / save / bookmark: blocked here.
+ // Ctrl+W closes the tab on Windows and pages can't stop that (fine on a Mac); Ctrl + arrow keys are safe.
+ if(e.code==="ControlLeft"||e.code==="ControlRight"){GKEYS.add(e.code);return}
  if(GSPRINT.has(e.code)||GWALK.has(e.code)||e.code==="ShiftLeft"||e.code==="ShiftRight"){GKEYS.add(e.code);e.preventDefault();if(HPOS>=0)hBranch();if(!playing)$("play").onclick()}});
 addEventListener("keyup",e=>{GKEYS.delete(e.code)});addEventListener("blur",()=>GKEYS.clear());
 document.addEventListener("visibilitychange",()=>{if(document.hidden)GKEYS.clear()});
@@ -1583,28 +1596,52 @@ function stickSpinStep(){const now=performance.now();
  if(!STICKSPIN&&now-STICK.last>400)STICK.turn=0;   // stopped circling a while ago: start counting afresh
  if(!STICKSPIN&&Math.abs(STICK.turn)>3*Math.PI&&!TURNM){STICK.turn=0;STICKSPIN=true;if(!SPIN)toggleSpin();else if(SPIN.stopH!==undefined)toggleSpin()}
  else if(STICKSPIN&&(!STICK.on||now-STICK.last>400)){STICKSPIN=false;if(SPIN&&SPIN.stopH===undefined)toggleSpin()}}
+// ---- Robot forms (Game): which of his animations walking, the in-between speed and running use; T-pose emote ----
+const FORMS={walk:"walk",mid:"dino",run:"run"};
+try{Object.assign(FORMS,JSON.parse(localStorage.getItem("mixmoForms")||"{}"))}catch(e){}
+const RUNS_R=["run","runTail","run4dog","run4","run5b","run5f","run5head","run6"];
+function formsUI(){const rob=CHAR==="robot";$("formsBox").hidden=!rob;
+ document.querySelectorAll("#fWalk button").forEach(b=>b.classList.toggle("on",b.dataset.m===FORMS.walk));
+ document.querySelectorAll("#fMid button").forEach(b=>b.classList.toggle("on",b.dataset.m===FORMS.mid));
+ const sel=$("fRun");if(!sel.options.length)for(const k of RUNS_R){const o=document.createElement("option");o.value=k;o.textContent=(MODES_R.find(m=>m[0]===k)||[k,k])[1];sel.appendChild(o)}
+ sel.value=FORMS.run}
+$("charSel").addEventListener("change",()=>{EMOTE=false;formsUI()});
+const formsSave=()=>{try{localStorage.setItem("mixmoForms",JSON.stringify(FORMS))}catch(e){}formsUI();GAMEMODE=null};
+document.querySelectorAll("#fWalk button").forEach(b=>b.onclick=()=>{FORMS.walk=b.dataset.m;formsSave()});
+document.querySelectorAll("#fMid button").forEach(b=>b.onclick=()=>{FORMS.mid=b.dataset.m;formsSave()});
+$("fRun").onchange=()=>{FORMS.run=$("fRun").value;formsSave()};
+// the game's speed tiers -> this character's animation
+const gameMode=sp=>{if(CHAR!=="robot")return sp==="mid"?"walk":sp==="emote"?"idle":sp;
+ return sp==="walk"?FORMS.walk:sp==="mid"?(FORMS.mid||FORMS.walk):sp==="run"?FORMS.run:sp==="emote"?"tpose":"idle"};
+let EMOTE=false;
+$("emoteBtn").addEventListener("pointerdown",e=>e.stopPropagation());$("emoteBtn").addEventListener("dblclick",e=>e.stopPropagation());
+$("emoteBtn").onclick=e=>{e.stopPropagation();EMOTE=!EMOTE;$("emoteBtn").classList.toggle("on",EMOTE);if(HPOS>=0)hBranch();if(!playing)$("play").onclick()};
+function emoteUI(standing){const show=TIER==="game"&&CHAR==="robot"&&(standing||EMOTE);const b=$("emoteBtn");
+ if(b.classList.contains("show")!==show)b.classList.toggle("show",show);if(b.classList.contains("on")!==EMOTE)b.classList.toggle("on",EMOTE)}
 function gameInput(){const k=c=>GKEYS.has(c);
  if(STICK.on){const m=Math.hypot(STICK.x,STICK.y);   // the stick wins over the keys while it's held
-  if(m<0.18)return{x:0,y:0,speed:"idle"};return{x:STICK.x/m,y:STICK.y/m,speed:m>=0.8?"run":"walk"}}
+  if(m<0.18)return{x:0,y:0,speed:"idle"};const mid=CHAR==="robot"&&FORMS.mid;
+  return{x:STICK.x/m,y:STICK.y/m,speed:m>=0.82?"run":mid&&m>=0.5?"mid":"walk"}}
  const x=(k("KeyD")||k("ArrowRight")?1:0)-(k("KeyA")||k("ArrowLeft")?1:0),y=(k("KeyW")||k("ArrowUp")?1:0)-(k("KeyS")||k("ArrowDown")?1:0);
- const wasd=["KeyW","KeyA","KeyS","KeyD"].some(k),shift=k("ShiftLeft")||k("ShiftRight");
- return{x,y,speed:!x&&!y?"idle":(wasd&&!shift?"run":"walk")}}
+ const wasd=["KeyW","KeyA","KeyS","KeyD"].some(k),shift=k("ShiftLeft")||k("ShiftRight"),ctrl=k("ControlLeft")||k("ControlRight");
+ return{x,y,speed:!x&&!y?"idle":ctrl&&CHAR==="robot"&&FORMS.mid?"mid":(wasd&&!shift?"run":"walk")}}
 function gameEnter(){GKEYS.clear();if(TIER!=="game")return;if(HPOS>=0)hBranch();if(TURNM||SPIN){TURNM=null;if(SPIN)spinEnd()}if(!playing)$("play").onclick()}
 let GAMEMODE=null;const GHIST=[];   // recent stick / key directions [time, angle], for spotting a flick
 function gameStep(dt){if(TIER==="game"&&playing&&HPOS<0)stickSpinStep();
  if(TIER!=="game"||!playing||HPOS>=0||TURNM||SPIN||FLIP)return;
- const g=gameInput(),want=g.speed;
+ const g=gameInput();if(g.speed!=="idle")EMOTE=false;emoteUI(g.speed==="idle");
+ const want=gameMode(g.speed==="idle"&&EMOTE?"emote":g.speed);
  if(want!==GAMEMODE||mode!==want){GAMEMODE=want;if(mode!==want&&MODES.some(m=>m[0]===want)){const sel=$("modeSel");sel.value=want;sel.onchange()}}
  // the keys as a direction on the ground, as seen from the camera (up = away from it)
  let rem=0;if(g.x||g.y){const fx=Math.sin(yaw),fz=-Math.cos(yaw),rx=Math.cos(yaw),rz=Math.sin(yaw),dx=g.y*fx+g.x*rx,dz=g.y*fz+g.x*rz;
-  rem=Math.atan2(dx,dz)-HEAD;rem=Math.atan2(Math.sin(rem),Math.cos(rem))}
+  rem=Math.atan2(dx,dz)-(HEAD+(DIR<0?Math.PI:0));rem=Math.atan2(Math.sin(rem),Math.cos(rem))}   // ends swapped: he travels backwards
  // a sudden reversal while walking or running plays the 180° turn (with the skid when running fast) towards the
  // new direction, instead of steering round in a curve
  // "sudden" = the stick / keys pointed the other way within the last 0.3 s (a flick), not a slow sweep round, and not
  // setting off from standing
  {const now=performance.now();if(g.x||g.y){const ia=Math.atan2(g.x,g.y);GHIST.push([now,ia]);while(GHIST.length&&now-GHIST[0][0]>300)GHIST.shift();
    const flick=GHIST.some(([t,a])=>Math.abs(Math.atan2(Math.sin(ia-a),Math.cos(ia-a)))>2.4);
-   if(flick&&Math.abs(rem)>2.0&&(mode==="walk"||mode==="run")&&cur.travel>=40){GHIST.length=0;OMEGA=0;HEAD_T=HEAD;startTurn("U",rem);return}}
+   if(flick&&Math.abs(rem)>2.0&&want!=="idle"&&want!=="tpose"&&cur.travel>=40){GHIST.length=0;OMEGA=0;HEAD_T=HEAD;startTurn("U",rem);return}}
   else while(GHIST.length&&now-GHIST[0][0]>300)GHIST.shift()}
  // the turn rate eases in and out (the footstep planner assumes it changes smoothly; a sudden change makes planted paws
  // jump): aim for a rate that shrinks as he nears the new direction, and change the rate by at most ACC per second
@@ -1823,7 +1860,7 @@ document.querySelectorAll("#r3Look [data-k]").forEach(b=>b.onclick=()=>{R3.look[
 // Three ways to use the app: Game (steer him), Animation player (pick animations), Dev (everything)
 let TIER="anim";try{TIER=localStorage.getItem("mixmoTier")||(localStorage.getItem("mixmoDev")==="on"?"dev":"anim")}catch(e){}
 if(!["game","anim","dev"].includes(TIER))TIER="anim";let DEV=TIER==="dev";
-function devUI(){DEV=TIER==="dev";const h=document.documentElement;h.classList.toggle("devmode",DEV);h.classList.toggle("game",TIER==="game");
+function devUI(){if(typeof formsUI==="function")formsUI();if(TIER!=="game"&&typeof EMOTE!=="undefined"){EMOTE=false;emoteUI(false)}DEV=TIER==="dev";const h=document.documentElement;h.classList.toggle("devmode",DEV);h.classList.toggle("game",TIER==="game");
  document.querySelectorAll("#tierSw button").forEach(b=>b.classList.toggle("on",b.dataset.t===TIER))}
 document.querySelectorAll("#tierSw button").forEach(b=>b.onclick=()=>{if(b.dataset.t===TIER)return;
  const row=$("devRow"),y0=row.getBoundingClientRect().top;   // options open (or close) above the switch;
