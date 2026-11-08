@@ -40,7 +40,8 @@ fieldset.collapsed::after{content:"";display:block;clear:both}
 input[type=range]{width:100%;height:44px;margin:0;accent-color:var(--accent);touch-action:pan-y}
 .val{font-size:14px;text-align:right;font-variant-numeric:tabular-nums}
 #gait{width:100%;height:84px;display:block}
-html:not(.devmode) .dev{display:none!important}   /* Dev mode: advanced settings hidden for players */
+html:not(.devmode) .dev{display:none!important}
+.devHead{font-size:18px;font-style:italic;margin:14px 16px 4px;border-top:2px solid var(--ink);padding-top:10px}   /* Dev mode: advanced settings hidden for players */
 .gaitMini{width:100%;display:block;position:sticky;top:0;z-index:2;background:#f8eed8;border-bottom:1px solid var(--ink);padding-bottom:2px}
 textarea{width:100%;font-size:16px;font-family:Menlo,monospace;height:120px;border:2px solid var(--ink);border-radius:10px;background:#fffaf0;color:var(--ink);padding:8px}
 #msg{margin:0 16px;min-height:20px;font-size:14px;color:var(--accent)}
@@ -128,6 +129,43 @@ html.desk .sl .rs{min-height:22px;min-width:30px;padding:0 6px;font-size:14px}
 <div class="grid2" id="standEnd"><button data-e="keep" class="on">Back end</button><button data-e="front">Front end</button><button data-e="A">End A</button><button data-e="B">End B</button></div>
 <p class="sub" style="margin:4px 0 0">Back end tips him back onto the end behind him. Front end rises forward over his front legs, so he ends up the other way up, looking exactly the same but with the paw colours swapped. End A / End B pick a paw colour, whichever end it is on.</p>
 </fieldset>
+
+<fieldset><legend>Terrain</legend>
+<div class="row" style="margin:6px 0"><div class="seg" id="terrain"><button data-t="flat" class="on">Flat</button><button data-t="hills">Hills</button><button data-t="bumpy">Bumpy</button><button data-t="steps">Steps</button></div></div>
+<div class="sl"><label>Height</label><input type="range" id="tH" min="0" max="40" step="0.5" value="12"><span class="val" id="tHV">12</span></div>
+<div class="sl"><label>Length / spacing</label><input type="range" id="tLen" min="20" max="400" step="5" value="160"><span class="val" id="tLenV">160</span></div>
+<div class="sl dev"><label>Lean into slopes (0-1)</label><input type="range" id="tLean" min="0" max="1.5" step="0.05" value="0.6"><span class="val" id="tLeanV">0.6</span></div>
+<div class="sl dev"><label>Thigh spring (low = soft and floaty, high = stiff)</label><input type="range" id="tSpring" min="5" max="400" step="5" value="150"><span class="val" id="tSpringV">150</span></div>
+<div class="sl dev"><label>Head steadiness (0 = rides the body, 1 = floats steady)</label><input type="range" id="tSteady" min="0" max="1" step="0.05" value="0.85"><span class="val" id="tSteadyV">0.85</span></div>
+<div class="row dev" style="margin:6px 0"><button id="tFeet" class="on">Feet follow ground</button><span class="lbl" style="margin-left:8px;font-size:13px">also plants paws on flat ground</span></div>
+</fieldset>
+
+
+
+
+
+
+
+
+
+
+
+<p id="msg"></p>
+<div class="row" style="align-items:center;flex-wrap:nowrap"><span class="lbl">Power saving:</span><div class="seg" id="powSw"><button data-p="off">Off</button><button data-p="on">On</button></div></div>
+<p class="sub" style="margin:2px 16px 6px">Draws at most 30 frames a second and stops redrawing while nothing moves. In 3D, shadows become soft spots. Works with 2D and 3D; 2D uses the least power.</p>
+<div class="row" style="align-items:center;flex-wrap:nowrap"><span class="lbl">Renderer:</span><div class="seg" id="rendSw"><button data-r="three">3D (three.js)</button><button data-r="canvas">2D</button></div></div>
+<fieldset id="r3Look" style="margin:8px 16px"><legend>3D look</legend>
+<div class="row" style="margin:6px 0"><span class="lbl" style="min-width:76px">Style</span><div class="seg"><button data-k="style" data-v="toon">Cartoon</button><button data-k="style" data-v="soft">Soft</button></div></div>
+<div class="row" style="margin:6px 0"><span class="lbl" style="min-width:76px">Limbs</span><div class="seg"><button data-k="limbs" data-v="smooth">Smooth</button><button data-k="limbs" data-v="capsule">Capsules</button></div></div>
+<div class="row" style="margin:6px 0"><span class="lbl" style="min-width:76px">Outlines</span><div class="seg"><button data-k="outline" data-v="on">On</button><button data-k="outline" data-v="off">Off</button></div></div>
+<div class="row" style="margin:6px 0"><span class="lbl" style="min-width:76px">Shadows</span><div class="seg"><button data-k="shadow" data-v="real">Real</button><button data-k="shadow" data-v="blob">Soft spots</button></div></div>
+<div class="row" style="margin:6px 0"><span class="lbl" style="min-width:76px">Ground</span><div class="seg"><button data-k="ground" data-v="solid">Solid</button><button data-k="ground" data-v="grid">Grid only</button></div></div>
+</fieldset>
+
+
+<div class="row" style="align-items:center;flex-wrap:nowrap"><span class="lbl">Interface:</span><div class="seg" id="uiSw"><button data-ui="auto">Auto</button><button data-ui="touch">Touch</button><button data-ui="desk">Desktop</button></div></div>
+<div id="devArea" class="dev">
+<h2 class="devHead">Dev mode</h2>
 <fieldset id="sergalParts" class="dev"><legend>Show parts</legend>
 <div class="sl"><label>Heads</label><input type="range" id="nHeads" min="0" max="2" step="1" value="2"><span class="val" id="nHeadsV">2</span></div>
 <div class="sl"><label>Arms</label><input type="range" id="nArms" min="0" max="4" step="1" value="4"><span class="val" id="nArmsV">4</span></div>
@@ -141,48 +179,24 @@ html.desk .sl .rs{min-height:22px;min-width:30px;padding:0 6px;font-size:14px}
 <div class="sl"><label>Squash the two heads into one</label><input type="range" id="hMerge" min="0" max="1" step="0.01" value="0"><span class="val" id="hMergeV">0</span></div>
 <p class="sub" style="margin:4px 0">Or in the view: press and hold, then drag. On the body, dragging right runs the whole cycle: a two-legged sergal splits his neck into two heads and grows his third leg (a stubby tail first), in the order chosen above, then unzips from the neck down into two sergals. Drag left to run it backwards. Hold on the heads to squash just the heads.</p>
 </fieldset>
-<fieldset><legend>Terrain</legend>
-<div class="row" style="margin:6px 0"><div class="seg" id="terrain"><button data-t="flat" class="on">Flat</button><button data-t="hills">Hills</button><button data-t="bumpy">Bumpy</button><button data-t="steps">Steps</button></div></div>
-<div class="sl"><label>Height</label><input type="range" id="tH" min="0" max="40" step="0.5" value="12"><span class="val" id="tHV">12</span></div>
-<div class="sl"><label>Length / spacing</label><input type="range" id="tLen" min="20" max="400" step="5" value="160"><span class="val" id="tLenV">160</span></div>
-<div class="sl dev"><label>Lean into slopes (0-1)</label><input type="range" id="tLean" min="0" max="1.5" step="0.05" value="0.6"><span class="val" id="tLeanV">0.6</span></div>
-<div class="sl dev"><label>Thigh spring (low = soft and floaty, high = stiff)</label><input type="range" id="tSpring" min="5" max="400" step="5" value="150"><span class="val" id="tSpringV">150</span></div>
-<div class="sl dev"><label>Head steadiness (0 = rides the body, 1 = floats steady)</label><input type="range" id="tSteady" min="0" max="1" step="0.05" value="0.85"><span class="val" id="tSteadyV">0.85</span></div>
-<div class="row dev" style="margin:6px 0"><button id="tFeet" class="on">Feet follow ground</button><span class="lbl" style="margin-left:8px;font-size:13px">also plants paws on flat ground</span></div>
-</fieldset>
 <fieldset id="attach" class="sergalOnly dev"><legend>Where each leg joins the body</legend></fieldset>
-
 <div class="row dev">
 <button id="colors">Leg colours</button>
 </div>
-
-<fieldset class="dev"><legend>Footfall chart</legend>
+<fieldset><legend>Footfall chart</legend>
 <canvas id="gait"></canvas>
 <div class="sl"><label>Blend time between modes (s)</label><input type="range" id="blend" min="0" max="2" step="0.05" value="0.6"><span class="val" id="blendV">0.6</span></div>
 <div class="crow"><label>Morph part markers<input type="color" id="mkCol" value="#3a2a1c"></label><label>Hex code<input type="text" id="mkHex" value="#3a2a1c" maxlength="9" spellcheck="false" style="font-size:16px;height:44px;border:2px solid var(--ink);border-radius:10px;padding:0 8px;background:#fffaf0;color:var(--ink)"></label></div>
 </fieldset>
-
 <div class="row dev" style="flex-wrap:nowrap"><span class="lbl">Editing:</span><select id="editSel" aria-label="Animation to edit" class="pick"></select></div>
 <div class="row dev" id="emoodRow"><span class="lbl">Arms, heads &amp; tails for:</span><div class="seg" id="emoods"><button data-mo="t">Tired</button><button data-mo="h" class="on">Happy</button></div></div>
-<div id="sliders" class="dev"></div>
-
-<fieldset class="dev"><legend>Save &amp; load</legend>
+<div id="sliders"></div>
+<fieldset><legend>Save &amp; load</legend>
 <p class="sub" style="margin:4px 0 8px">Copies the whole character: body shape, limb layout, robot look, and every mode's settings. Older settings-only text still loads.</p>
 <textarea id="json" spellcheck="false"></textarea>
 <div class="row" style="margin:8px 0 0">
 <button id="copy">Copy</button><button id="load">Apply text</button><button id="reset">Reset this mode</button>
 </div>
-</fieldset>
-<p id="msg"></p>
-<div class="row" style="align-items:center;flex-wrap:nowrap"><span class="lbl">Power saving:</span><div class="seg" id="powSw"><button data-p="off">Off</button><button data-p="on">On</button></div></div>
-<p class="sub" style="margin:2px 16px 6px">Draws at most 30 frames a second and stops redrawing while nothing moves. In 3D, shadows become soft spots. Works with 2D and 3D; 2D uses the least power.</p>
-<div class="row" style="align-items:center;flex-wrap:nowrap"><span class="lbl">Renderer:</span><div class="seg" id="rendSw"><button data-r="three">3D (three.js)</button><button data-r="canvas">2D</button></div></div>
-<fieldset id="r3Look" style="margin:8px 16px"><legend>3D look</legend>
-<div class="row" style="margin:6px 0"><span class="lbl" style="min-width:76px">Style</span><div class="seg"><button data-k="style" data-v="toon">Cartoon</button><button data-k="style" data-v="soft">Soft</button></div></div>
-<div class="row" style="margin:6px 0"><span class="lbl" style="min-width:76px">Limbs</span><div class="seg"><button data-k="limbs" data-v="smooth">Smooth</button><button data-k="limbs" data-v="capsule">Capsules</button></div></div>
-<div class="row" style="margin:6px 0"><span class="lbl" style="min-width:76px">Outlines</span><div class="seg"><button data-k="outline" data-v="on">On</button><button data-k="outline" data-v="off">Off</button></div></div>
-<div class="row" style="margin:6px 0"><span class="lbl" style="min-width:76px">Shadows</span><div class="seg"><button data-k="shadow" data-v="real">Real</button><button data-k="shadow" data-v="blob">Soft spots</button></div></div>
-<div class="row" style="margin:6px 0"><span class="lbl" style="min-width:76px">Ground</span><div class="seg"><button data-k="ground" data-v="solid">Solid</button><button data-k="ground" data-v="grid">Grid only</button></div></div>
 </fieldset>
 <fieldset id="pickBox" class="dev" style="margin:8px 16px"><legend>2D debug: what's hiding it?</legend>
 <p class="sub" style="margin:4px 0">Turn on, then tap a shape in the view (2D renderer). It gets a dashed red outline, and as you move the camera this lists what is drawn on top of it.</p>
@@ -193,8 +207,8 @@ html.desk .sl .rs{min-height:22px;min-width:30px;padding:0 6px;font-size:14px}
 <fieldset id="camBox" class="dev" style="margin:8px 16px"><legend>3D debug, camera edition</legend>
 <p class="sub camOut" style="margin:4px 0;opacity:1;white-space:pre-line"></p>
 </fieldset>
-<div class="row" style="align-items:center;flex-wrap:nowrap"><span class="lbl">Interface:</span><div class="seg" id="uiSw"><button data-ui="auto">Auto</button><button data-ui="touch">Touch</button><button data-ui="desk">Desktop</button></div></div>
-<div class="row" style="align-items:center;flex-wrap:nowrap"><span class="lbl">Dev mode:</span><div class="seg" id="devSw"><button data-d="off">Off</button><button data-d="on">On</button></div></div>
+</div>
+<div class="row" id="devRow" style="align-items:center;flex-wrap:nowrap"><span class="lbl">Dev mode:</span><div class="seg" id="devSw"><button data-d="off">Off</button><button data-d="on">On</button></div></div>
 <p class="sub" style="margin:2px 16px 6px">Shows the advanced settings: gait sliders, leg placement, the footfall chart, sergal parts, save &amp; load, bone and debug tools.</p>
 <fieldset id="fresh" style="margin:8px 16px"><legend>Start fresh</legend>
 <p class="sub" style="margin:4px 0">Forget everything this app has saved in this browser (drawers, layout, renderer, 3D look and other choices) and reload, as if opening it for the first time.</p>
@@ -1375,7 +1389,8 @@ function render(){
 // change, so they are drawn once into a cached picture; each frame just copies it and draws the moving playhead
 // Size and visibility of the two gait charts are remembered and only re-measured when they change (ResizeObserver):
 // asking the page for them every frame forced it to redo its layout each time (the text above had just changed).
-const GSZ=new WeakMap(),GRO=typeof ResizeObserver!=="undefined"?new ResizeObserver(es=>{for(const e of es)GSZ.set(e.target,{w:e.target.clientWidth,vis:!!e.target.offsetParent})}):null;
+const GSZ=new WeakMap(),GRO=typeof ResizeObserver!=="undefined"?new ResizeObserver(es=>{for(const e of es){const w=Math.round(e.contentRect.width);GSZ.set(e.target,{w,vis:w>0})}
+ PDIRTY++;try{drawGait()}catch(_){}}):null;   // shown, hidden or resized: redraw the chart now (a paused, power-saving view wouldn't)
 let GMINI=null;
 function drawGait(){drawGaitOn($("gait"),22);GMINI=GMINI||document.querySelector(".gaitMini");if(GMINI)drawGaitOn(GMINI,11)}
 function drawGaitOn(g,rh){
@@ -1421,10 +1436,12 @@ function toggleSpin(now){if(SPIN){
  const rmax=CHAR==="robot"?Math.max(15,...LASTHIPS.map(a=>Math.hypot(a[0],a[2]-pz)+25)):15;
  SPIN={p0:phase,h0:HEAD,len:Math.max(1.1*ts,2*Math.PI*rmax/SPINSTEP),ts,pz,W:[POS[0]+Math.sin(HEAD)*pz,POS[1]+Math.cos(HEAD)*pz]};$("tS").classList.add("on");turnStep()}
 function startTurn(kind){
+ if(TURNM)return;   // a turn is playing: let it finish (pressing Spin mid-turn used to make him jump at the end)
  if(kind==="S"){toggleSpin();return}
- if(TURNM)return;
- if(SPIN)toggleSpin(true);   // a 90/180 turn stops the spin first (at once)
  const lying=CHAR==="robot"&&LYING.has(mode),bodyK=Math.max(0.6,Math.min(2.2,BODY_L/100));   // body length 100 = normal
+ // swapping ends doesn't turn the body, so it can't square up a spin cut short: let the spin wind down first, then swap
+ if(SPIN&&kind==="U"&&lying&&(LYTURN==="swap"||LYTURN==="swapKeep")){if(SPIN.stopH===undefined)toggleSpin();SPIN.then="U";return}
+ if(SPIN)toggleSpin(true);   // a 90/180 turn stops the spin first (at once); the turn then squares him up
  if(kind==="U"&&lying&&(LYTURN==="swap"||LYTURN==="swapKeep")){LIMBSW=LYTURN==="swap";   // lying flat the body works from either end: swap which end leads, don't spin round
   const ts=Math.max(cur.speed,2.2);TURNM={kind:"U6",label:"Turn around 180° (swap ends)",skidSw:cur.travel>100,p0:phase,len:1.1*Math.sqrt(bodyK)*ts,h0:HEAD,dh:0,skid:false,ts,d0:DIR};turnStep();return}   // let the current turn finish
  const fast=cur.travel>100,moving=cur.travel>=40,ts=Math.max(cur.speed,moving?1.2:2.2);
@@ -1434,6 +1451,8 @@ function startTurn(kind){
  else if(kind==="U"&&lying){dh=Math.PI;dur=1.8*bodyK}   // turn round lying flat: slower, and slower still for a long body
  else if(kind==="U"){dh=Math.PI;if(fast){skid=true;dur=1.7}else dur=1.1}
  else{dh=2*Math.PI;dur=1.1}
+ // always end facing one of the four main directions: from an odd angle (a spin cut short) aim for the nearest one
+ {const q=Math.PI/2,tg=Math.round((HEAD+dh)/q)*q;if(kind!=="S"&&Math.abs(tg-HEAD)>1e-6)dh=tg-HEAD}
  TURNM={kind,label:{L:"Turn left 90°",R:"Turn right 90°",U:"Turn around 180°",S:"Spin"}[kind],p0:phase,len:dur*ts,h0:HEAD,dh,skid,ts};
  HEAD_T=HEAD+dh;turnStep()}
 function turnShape(T,t){   // -> [heading fraction, travel factor, lean back, sub-state]
@@ -1447,7 +1466,8 @@ function turnShape(T,t){   // -> [heading fraction, travel factor, lean back, su
 function turnStep(){
  if(!TURNM&&SPIN){const t=(phase-SPIN.p0)/SPIN.len;HEAD=SPIN.h0+2*Math.PI*t;HEAD_T=HEAD;TRAVK=0;BOOST=SPIN.ts;
   if(SPIN.stopH!==undefined&&HEAD>=SPIN.stopH-1e-9){HEAD=SPIN.stopH;   // reached the main direction: stop, square on
-   POS[0]=SPIN.W[0]-Math.sin(HEAD)*SPIN.pz;POS[1]=SPIN.W[1]-Math.cos(HEAD)*SPIN.pz;spinEnd();TURN={st:null,t:0};return}
+   POS[0]=SPIN.W[0]-Math.sin(HEAD)*SPIN.pz;POS[1]=SPIN.W[1]-Math.cos(HEAD)*SPIN.pz;const then=SPIN.then;spinEnd();TURN={st:null,t:0};
+   if(then)startTurn(then);return}   // a 180 pressed during the wind-down (swap ends) plays now
   // pivot round the middle of the body, not the hips: the middle stays put in the world
   POS[0]=SPIN.W[0]-Math.sin(HEAD)*SPIN.pz;POS[1]=SPIN.W[1]-Math.cos(HEAD)*SPIN.pz;
   OMEGA=2*Math.PI/(SPIN.len/SPIN.ts);TURN={st:null,t:0};return}
@@ -1720,7 +1740,14 @@ document.querySelectorAll("#r3Look [data-k]").forEach(b=>b.onclick=()=>{R3.look[
 // Dev mode: players see the view, animations, terrain, looks, power saving and the timeline; the rest is for the author
 let DEV=false;try{DEV=localStorage.getItem("mixmoDev")==="on"}catch(e){}
 function devUI(){document.documentElement.classList.toggle("devmode",DEV);document.querySelectorAll("#devSw button").forEach(b=>b.classList.toggle("on",(b.dataset.d==="on")===DEV))}
-document.querySelectorAll("#devSw button").forEach(b=>b.onclick=()=>{DEV=b.dataset.d==="on";try{localStorage.setItem("mixmoDev",DEV?"on":"off")}catch(e){}devUI()});devUI();
+document.querySelectorAll("#devSw button").forEach(b=>b.onclick=()=>{if((b.dataset.d==="on")===DEV)return;
+ const row=$("devRow"),y0=row.getBoundingClientRect().top;   // the dev options open (or close) above the switch;
+ let sc=row.parentElement;while(sc&&sc!==document.body&&!/(auto|scroll)/.test(getComputedStyle(sc).overflowY))sc=sc.parentElement;
+ if(!sc||sc===document.body)sc=document.scrollingElement;   // whichever panel scrolls in this layout
+ DEV=b.dataset.d==="on";try{localStorage.setItem("mixmoDev",DEV?"on":"off")}catch(e){}devUI();   // keep the switch where it was on screen
+ const keep=()=>{sc.scrollTop+=row.getBoundingClientRect().top-y0};keep();
+ requestAnimationFrame(()=>{keep();requestAnimationFrame(keep)});   // again once the chart has set its height
+ GSZ.delete($("gait"));if(GMINI)GSZ.delete(GMINI)});devUI();
 function powUI(){document.querySelectorAll("#powSw button").forEach(b=>b.classList.toggle("on",(b.dataset.p==="on")===POWER))}
 document.querySelectorAll("#powSw button").forEach(b=>b.onclick=()=>{POWER=b.dataset.p==="on";try{localStorage.setItem("mixmoPower",POWER?"on":"off")}catch(e){}
  r3applyLook();PSIG="";powUI()});powUI();
