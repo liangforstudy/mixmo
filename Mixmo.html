@@ -117,8 +117,8 @@ html.desk .sl .rs{min-height:22px;min-width:30px;padding:0 6px;font-size:14px}
 <div class="row anim" style="margin:0 16px 8px;flex-wrap:nowrap;gap:6px"><button class="tb" id="tL" aria-label="Turn left 90 degrees">&#8630; 90&deg;</button><button class="tb" id="tR" aria-label="Turn right 90 degrees">90&deg; &#8631;</button><button class="tb" id="tU" aria-label="Turn around">&#10226; 180&deg;</button><button class="tb" id="tS" aria-label="Spin on the spot">Spin</button><button class="tb" id="tF" aria-label="Walk over onto the other end" hidden>Over</button><button class="tb" id="tC" aria-label="Flip up onto the ceiling" hidden>Ceiling</button></div>
 <input type="checkbox" switch id="hapSw" tabindex="-1" aria-hidden="true" style="position:fixed;left:0;top:0;width:1px;height:1px;opacity:0;pointer-events:none;margin:0"><label for="hapSw" id="hapLb" aria-hidden="true" style="position:fixed;left:0;top:0;width:1px;height:1px;opacity:0;pointer-events:none;overflow:hidden"></label>
 <div id="view"><canvas id="cv"></canvas><canvas id="cv3"></canvas><div id="r3msg"></div><button id="emoteBtn" aria-label="Emote: T-pose">T-pose</button><div id="stickZone" class="fresh" aria-label="Touch control area: tap and drag here to move"><div class="zl">Tap and drag here to move.</div><div id="stick"><div id="stickKnob"></div></div></div><div id="hint">1 finger / drag: orbit - 2 fingers / wheel: zoom - 2 fingers / right-drag: pan - double-tap: reset</div></div>
-<div class="row anim" style="margin:6px 16px 0;flex-wrap:nowrap;align-items:center"><button id="prevF" aria-label="Previous frame">&#9664;</button><span id="scrubWrap"><input type="range" id="scrub" min="0" max="1" step="0.001" value="0"><span id="scrubMarks"></span></span><button id="nextF" aria-label="Next frame">&#9654;</button><span class="val" id="scrubV" hidden>0</span><button id="stepBlend" class="dev on" aria-label="How mode switches play while paused" style="padding:0 6px;font-size:13px;line-height:1.1">Switch:<br>by frame</button></div>
-<div id="status" class="anim" aria-live="polite"><span id="stTag">LOOP</span><span id="stText">Walk</span></div>
+<div class="row" style="margin:6px 16px 0;flex-wrap:nowrap;align-items:center"><button id="prevF" aria-label="Previous frame">&#9664;</button><span id="scrubWrap"><input type="range" id="scrub" min="0" max="1" step="0.001" value="0"><span id="scrubMarks"></span></span><button id="nextF" aria-label="Next frame">&#9654;</button><span class="val" id="scrubV" hidden>0</span><button id="stepBlend" class="dev on" aria-label="How mode switches play while paused" style="padding:0 6px;font-size:13px;line-height:1.1">Switch:<br>by frame</button></div>
+<div id="status" aria-live="polite"><span id="stTag">LOOP</span><span id="stText">Walk</span></div>
 <div class="row" id="moodRow" style="margin:2px 16px 0;flex-wrap:nowrap;align-items:center"><span class="lbl">Tired</span><input type="range" id="mood" min="0" max="1" step="0.01" value="1" style="flex:1"><span class="lbl">Happy</span></div>
 </div><div id="split"></div><div id="bot">
 <h1>The Curious Gait of a Three-Legged Sergal</h1>
@@ -1563,7 +1563,7 @@ function hStep(d){if(playing)$("play").onclick();
 // Directions are as seen from the camera: up = away from the camera. Ctrl does nothing.
 const GKEYS=new Set(),GSPRINT=new Set(["KeyW","KeyA","KeyS","KeyD"]),GWALK=new Set(["ArrowUp","ArrowDown","ArrowLeft","ArrowRight"]);
 const typingIn=t=>t&&(t.tagName==="INPUT"&&!/^(range|checkbox|radio|button)$/.test(t.type)||t.tagName==="TEXTAREA"||t.tagName==="SELECT"||t.isContentEditable);
-addEventListener("keydown",e=>{if(TIER!=="game"||typingIn(e.target)||e.metaKey||e.altKey)return;
+addEventListener("keydown",e=>{if(TIER!=="game"||typingIn(e.target)||e.metaKey||e.altKey||scrubDrag)return;   // dragging the scrubber wins over the game controls
  // Ctrl = the in-between form (dinosaur / kangaroo). Ctrl+A / S / D would select all / save / bookmark: blocked here.
  // Ctrl+W closes the tab on Windows and pages can't stop that (fine on a Mac); Ctrl + arrow keys are safe.
  if(e.code==="ControlLeft"||e.code==="ControlRight"){GKEYS.add(e.code);return}
@@ -1584,7 +1584,7 @@ const STICK={x:0,y:0,on:false,id:null,ang:null,turn:0,last:0,cx:0,cy:0};
   if(m>0.3){const a=Math.atan2(STICK.y,STICK.x);if(STICK.ang!==null){let d=a-STICK.ang;d=Math.atan2(Math.sin(d),Math.cos(d));
     if(Math.sign(d)!==Math.sign(STICK.turn)&&Math.abs(STICK.turn)>0.5)STICK.turn*=0.3;STICK.turn+=d}STICK.ang=a;STICK.last=now}
   else{STICK.ang=null;if(now-STICK.last>400)STICK.turn=0}};
- zn.addEventListener("pointerdown",e=>{if(STICK.id!==null)return;STICK.id=e.pointerId;STICK.on=true;try{zn.setPointerCapture(e.pointerId)}catch(_){}
+ zn.addEventListener("pointerdown",e=>{if(STICK.id!==null||scrubDrag)return;STICK.id=e.pointerId;STICK.on=true;try{zn.setPointerCapture(e.pointerId)}catch(_){}
   zn.classList.remove("fresh");const r=zn.getBoundingClientRect();STICK.cx=e.clientX;STICK.cy=e.clientY;
   st.style.left=(e.clientX-r.left)+"px";st.style.top=(e.clientY-r.top)+"px";st.classList.add("show");
   if(HPOS>=0)hBranch();if(!playing)$("play").onclick();set(e)});
@@ -1628,7 +1628,7 @@ function gameInput(){const k=c=>GKEYS.has(c);
  return{x,y,speed:!x&&!y?"idle":ctrl&&CHAR==="robot"&&FORMS.mid?"mid":(wasd&&!shift?"run":"walk")}}
 function gameEnter(){GKEYS.clear();if(TIER!=="game")return;if(HPOS>=0)hBranch();if(TURNM||SPIN){TURNM=null;if(SPIN)spinEnd()}if(!playing)$("play").onclick()}
 let GAMEMODE=null;const GHIST=[];   // recent stick / key directions [time, angle], for spotting a flick
-function gameStep(dt){if(TIER==="game"&&playing&&HPOS<0)stickSpinStep();
+function gameStep(dt){if(scrubDrag)return;if(TIER==="game"&&playing&&HPOS<0)stickSpinStep();
  if(TIER!=="game"||!playing||HPOS>=0||SPIN||FLIP)return;   // spinning: speed stays as it was (the stick is out while circling)
  const g=gameInput();if(g.speed!=="idle")EMOTE=false;emoteUI(g.speed==="idle"&&!TURNM);
  const want=gameMode(g.speed==="idle"&&EMOTE?"emote":g.speed);
