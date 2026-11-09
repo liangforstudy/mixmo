@@ -369,7 +369,7 @@ function segUI(){
 }
 function characterFile(){const D=charDef(),clean=a=>a.map(({ik,...rest})=>rest);
  const f={format:"tripod-character",version:1,character:CHAR,name:D.name,limbs:clean(D.limbs),modes:P};
- if(CHAR==="sergal"){f.shape=SERGAL_SHAPE;f.attach=ATT}
+ if(CHAR!=="robot"){f.shape=SERGAL_SHAPE;f.attach=CHAR==="sergal"?ATT:Object.fromEntries(LEGS2.map(L=>[L.k,L.att]))}
  else{f.shape={body:{len:BODY_L,radius:BODY_R}};f.look={...RLOOK}}
  return f}
 function syncJSON(){if(typeof CHARACTERS==="undefined"){$("json").value=JSON.stringify(P,null,1);return}$("json").value=JSON.stringify(characterFile(),null,1)}
@@ -751,7 +751,7 @@ function buildRig(p,ph){
  const GW=GROWE<0.999?GROWE:1,GT2=GW<1?Math.min(1,GW/0.35):1,GLEG=GW<1?Math.max(0,(GW-0.35)/0.65):1;
  const GL=TAILE>0.001?Math.min(GLEG,1-0.5*ease(TAILE)):GLEG;   // GL: the third leg's own growth (0.5 = a full-length tail)
  // splitting starts at the neck: shoulders/heads/arms separate first (SPLt), hips/legs/tails last (SPLb)
- const SPLR=GL<1?0:(SPLITE>0.001?ease(SPLITE):0),SPL=ARMOPT===1?SPLR:Math.min(1,SPLR/0.8),ARMT=ARMOPT===1?1:Math.max(0,(SPLR-0.8)/0.2),SPLt=Math.min(1,SPL/0.6),SPLb=Math.max(0,(SPL-0.3)/0.7),legSet=SPL?splitLegs(SPLb):LEGS;
+ const SPLR=GL<1?0:(SPLITE>0.001?ease(SPLITE):0),SPL=ARMOPT===1?SPLR:Math.min(1,SPLR/0.8),ARMT=ARMOPT===1?1:Math.max(0,(SPLR-0.8)/0.2),SPLt=Math.min(1,SPL/0.6),SPLb=Math.max(0,(SPL-0.3)/0.7),legSet=SPL?splitLegs(SPLb):CHAR==="sergal2"?LEGS2:LEGS;
  for(const L of legSet){
   const sx=L.k.slice(2),y=L.yaw*R,o=[Math.sin(y),0,Math.cos(y)],sp=Math.tan(p.splay*R);
   // the middle-leg copy takes on its partner leg's settings as the halves separate
@@ -973,10 +973,31 @@ const bottomEnd=()=>SWAP?"B":"A";
 // ---------- character registry ----------
 // Everything that makes a character a character, in one place. The editor and the main loop only talk
 // to CHARACTERS[CHAR]; adding a character means adding an entry here (step 1 of the roadmap).
+// ---------- regular sergal: one head, two legs, two arms, one tail ----------
+// Reuses the sergal builder: his own two hips (under the pelvis, splayed sideways) and settings, and
+// the builder is told to draw the merged form (one head, upper arms only, one centred tail).
+const LEGS2=[{n:"Left",yaw:90,k:"phBL",c:"#3f6f8f",att:{x:7,y:0,z:1.5}},{n:"Right",yaw:270,k:"phBR",c:"#5d7f3a",att:{x:-7,y:0,z:1.5}}];
+const DEF2=JSON.parse(JSON.stringify(DEF));delete DEF2.idleTail;
+for(const m in DEF2)Object.assign(DEF2[m],{phBL:0,phBR:0.5,splay:4});
+Object.assign(DEF2.walk,{lean:8,uSwing:24,uSwing_t:9,thigh:16});
+Object.assign(DEF2.run,{lean:20,uSwing:40,uSwing_t:14});
+Object.assign(DEF2.gallop,{phBL:0,phBR:0.1});
+const PS2=JSON.parse(JSON.stringify(DEF2));
+const MODES_S2=[["idle","Idle"],["walk","Walk"],["run","Run (upright)"],["gallop","Run on all fours"]];
+const META2=META.filter(([g])=>!["Lower arms (bottom pair)","Pair sync"].includes(g)).map(([g,l])=>{
+ const ren={"Upper arms (top pair)":"Arms","Two heads":"Head","Lion tails":"Tail","Leg rest pose (per leg)":"Leg rest pose"}[g]||g;
+ l=l.filter(([k])=>!["phF","neck","rotF","thF","knF","hkF"].includes(k)).map(x=>x[0]==="splay"?[x[0],"Leg splay (deg)",...x.slice(2)]:x);
+ return[ren,l]});
+function buildSergal2(p,ph){const s=[GROWE,HMERGE,SPLITE,TAILE,SHOW.nArms,SHOW.nHeads,SHOW.nTails];
+ GROWE=0;HMERGE=1;SPLITE=0;TAILE=0;SHOW.nArms=2;SHOW.nHeads=2;SHOW.nTails=1;
+ try{buildRig(p,ph)}finally{[GROWE,HMERGE,SPLITE,TAILE,SHOW.nArms,SHOW.nHeads,SHOW.nTails]=s}}
 const CHARACTERS={
- sergal:{name:"Sergal",shape:SERGAL_SHAPE,attach:ATT,limbs:LEGS,sliders:META,defaults:DEF,params:PS,modes:MODES_S,build:(p,ph)=>buildRig(p,ph),
-  similar:{idle:"idle",tpose:"idle",walk:"walk",walk2:"walk",run:"run",runTail:"run",dino:"run",roo:"run",run6:"gallop",run5b:"gallop",run5f:"gallop",run4:"gallop",run4dog:"gallop",run5head:"gallop"},
+ sergal:{name:"Sergal (OC)",shape:SERGAL_SHAPE,attach:ATT,limbs:LEGS,sliders:META,defaults:DEF,params:PS,modes:MODES_S,build:(p,ph)=>buildRig(p,ph),
+  similar:{idle:"idle",idleTail:"idleTail",gallop:"gallop",tpose:"idle",walk:"walk",walk2:"walk",run:"run",runTail:"run",dino:"run",roo:"run",run6:"gallop",run5b:"gallop",run5f:"gallop",run4:"gallop",run4dog:"gallop",run5head:"gallop"},
   panels:{show:["sergalParts","attach","moodRow","emoodRow"],hide:["robotLook","tF","tC"]}},
+ sergal2:{name:"Sergal (regular)",shape:SERGAL_SHAPE,limbs:LEGS2,sliders:META2,defaults:DEF2,params:PS2,modes:MODES_S2,build:buildSergal2,
+  similar:{idle:"idle",idleTail:"idle",tpose:"idle",walk:"walk",walk2:"walk",run:"run",runTail:"run",dino:"run",roo:"run",gallop:"gallop",run6:"gallop",run5b:"gallop",run5f:"gallop",run4:"gallop",run4dog:"gallop",run5head:"gallop"},
+  panels:{show:["moodRow","emoodRow"],hide:["sergalParts","attach","robotLook","tF","tC"]}},
  robot:{name:"Robot",shape:{get body(){return{len:BODY_L,radius:BODY_R}},look:RLOOK,skins:SKINPAL},limbs:RLIMBS,sliders:META_R,defaults:DEF_R,params:PR,modes:MODES_R,build:(p,ph)=>buildRobot(p,ph),
   similar:{idle:"idle",idleTail:"idle",walk:"walk",run:"run",gallop:"run6"},
   panels:{show:["robotLook","tF","tC"],hide:["sergalParts","attach","moodRow","emoodRow"]}}};
@@ -986,7 +1007,7 @@ $("charSel").onchange=()=>{CHAR=$("charSel").value;const D=charDef();
  P=D.params;METAC=D.sliders;DEFC=D.defaults;MODES=D.modes;fillModeMenus();
  // keep doing the same kind of thing when switching characters
  const nm=D.similar[mode]||"idle";mode=editMode=nm;BLENDFROM=null;from={...P[nm]};cur={...P[nm]};blendU=1;SPR.init=false;
- for(const L of [...LEGS,...RLIMBS])L.ik=null;
+ for(const L of [...LEGS,...RLIMBS,...LEGS2])L.ik=null;
  for(const id of D.panels.show)$(id).hidden=false;for(const id of D.panels.hide)$(id).hidden=true;FLIP=null;
  segUI();buildSliders();applyCollapsed();syncJSON()};
 // body length moves the top cluster of limbs with the end of the body
@@ -1519,7 +1540,7 @@ function turnStep(){
 // drops the frames after that point and starts a new future from there.
 const HMAX=1800,HIST=[];let HPOS=-1,HFORCE=false,HCLOCK=0;   // HPOS -1 = live (showing the newest frame)
 const hcl=o=>o==null?o:JSON.parse(JSON.stringify(o));
-const hLimbs=()=>[...LEGS,...RLIMBS,...SPLIT_LEGS];
+const hLimbs=()=>[...LEGS,...RLIMBS,...SPLIT_LEGS,...LEGS2];
 function hSnap(){return{t:HCLOCK,mode,blendU,phase,groundOff,DIR,HEAD,HEAD_T,OMEGA,POS:[...POS],TRAVK,SKIDLEAN,BOOST,TURN:hcl(TURN),
  BLENDFROM,BLENDP0,BLENDTOT,TURNREC:hcl(TURNREC),SPLIT,SPLITE,HMERGE,GROW,GROWE,TAILE,FLIP:hcl(FLIP),SWAP,GECKO,CEIL,LIMBSW,
  WALKOVER:hcl(WALKOVER),CAMY,TURNM:hcl(TURNM),SPIN:hcl(SPIN),cur:{...cur},from:{...from},SPR:{...SPR},RAW:{...RAW},HRAW:[...HRAW],HS:hcl(HS),
