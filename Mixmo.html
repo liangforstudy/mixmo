@@ -1977,8 +1977,9 @@ function mdlMotionSetup(rig,root,box,T){const m=rig.map;
   mv.ld.set(b,d||new T.Vector3(0,1,0))};
  for(const sd of ["L","R"]){const th=m["thigh"+sd],sh=m["shin"+sd],ft=m["foot"+sd],to=m["toes"+sd];
   setLd(th,sh);setLd(sh,ft);const A=lp(th),K=lp(sh),F=lp(ft),Tt=to?lp(to):null;
-  mv.legs[sd]={th,sh,ft,l1:A.distanceTo(K),l2:K.distanceTo(F),ankleH:F.y-box.min.y,
-   toe:Tt?new T.Vector3(Tt.x-F.x,0,Tt.z-F.z):new T.Vector3(),hipH:A.y-box.min.y};
+  // foot: from the ankle forward to the ball of the foot (the toes bone; without one, an estimate of 30% of the shin)
+  mv.legs[sd]={th,sh,ft,to,l1:A.distanceTo(K),l2:K.distanceTo(F),ankleH:F.y-box.min.y,
+   toe:Tt?new T.Vector3(Tt.x-F.x,0,Tt.z-F.z):new T.Vector3(0,0,0.3*K.distanceTo(F)),hipH:A.y-box.min.y};
   const ua=m["upperArm"+sd],fa=m["forearm"+sd],hd=m["hand"+sd];
   if(ua&&fa){setLd(ua,fa);setLd(fa,hd,ua);mv.arms[sd]={ua,fa}}}
  if(m.neck&&m.head)setLd(m.neck,m.head);
@@ -2007,9 +2008,18 @@ function mdlDrive(M){const T=R3.T,mv=M.mv,m=M.rig,root=M.root,g=M.grp,Rr=REC;
  {const hl=Rr.legs.phBL.hip,hr=Rr.legs.phBR.hip,tgt=V([(hl[0]+hr[0])/2,(hl[1]+hr[1])/2,(hl[2]+hr[2])/2]);
   const a=mv.legs.L.th.getWorldPosition(new T.Vector3()),b=mv.legs.R.th.getWorldPosition(new T.Vector3()),cur=a.add(b).multiplyScalar(0.5);
   const hw=m.hips.getWorldPosition(new T.Vector3()).add(tgt.sub(cur));m.hips.position.copy(m.hips.parent.worldToLocal(hw));m.hips.updateMatrixWorld(true)}
+ // footprint: the ball of the foot sits on his paw; the foot pivots on it. Heel lift: as the foot falls behind the
+ // hip (late in the step and just after lift-off) the heel rises, up to 35 degrees; toe swing: in the air the foot
+ // hangs toes-down, up to 30 degrees, levelling again as it comes down. (Feet used to stay flat all the time.)
+ const xw=new T.Vector3(1,0,0).applyQuaternion(rootQ),fwd=new T.Vector3(0,0,1).applyQuaternion(rootQ);
+ const foot=(L,his)=>{const ball=V(his.pts[2]).add(new T.Vector3(0,L.ankleH*s-3.2,0)),reach=(L.l1+L.l2)*s;
+  const hp=V(his.hip),behind=hp.clone().sub(ball).dot(fwd)/reach,gw=groundW(his.pts[2][0]+POS[0],his.pts[2][2]+POS[1]),up=Math.max(0,his.pts[2][1]-gw-3.2);
+  const cl=v=>Math.max(0,Math.min(1,v)),heel=35*R*cl((behind-0.2)/0.35),swing=30*R*cl(up/(0.18*reach)),th=Math.max(heel,swing);
+  const back=L.toe.clone().multiplyScalar(-s).applyQuaternion(rootQ).applyAxisAngle(xw,th);
+  return{T:ball.add(back),th,swing}};
  // a leg too short for its footprint: lower the hips until it reaches (as he crouches), instead of the foot slipping
  {let low=0;for(const [sd,k] of [["L","phBL"],["R","phBR"]]){const L=mv.legs[sd],his=Rr.legs[k];if(!his)continue;
-   const A=L.th.getWorldPosition(new T.Vector3()),Tg=V(his.pts[2]).add(new T.Vector3(0,L.ankleH*s-3.2,0)).sub(L.toe.clone().multiplyScalar(s).applyQuaternion(rootQ));
+   const A=L.th.getWorldPosition(new T.Vector3()),Tg=foot(L,his).T;
    const reach=(L.l1+L.l2)*s*0.995,hd=Math.hypot(A.x-Tg.x,A.z-Tg.z);if(hd<reach)low=Math.max(low,(A.y-Tg.y)-Math.sqrt(reach*reach-hd*hd))}
   if(low>0){const hw=m.hips.getWorldPosition(new T.Vector3());hw.y-=low;m.hips.position.copy(m.hips.parent.worldToLocal(hw));m.hips.updateMatrixWorld(true)}}
  if(m.spine)setW(m.spine,part(Rb,0.75).multiply(restW(m.spine)));
@@ -2017,18 +2027,22 @@ function mdlDrive(M){const T=R3.T,mv=M.mv,m=M.rig,root=M.root,g=M.grp,Rr=REC;
  if(m.chest2)setW(m.chest2,Rb.clone().multiply(restW(m.chest2)));
  // legs: reach his footprints with the model's own leg lengths; knee bends towards his knee
  for(const [sd,k] of [["L","phBL"],["R","phBR"]]){const L=mv.legs[sd],his=Rr.legs[k];if(!his)continue;
-  const A=L.th.getWorldPosition(new T.Vector3()),paw=V(his.pts[2]),pole=V(his.pts[0]);
-  const Tg=paw.clone().add(new T.Vector3(0,L.ankleH*s-3.2,0)).sub(L.toe.clone().multiplyScalar(s).applyQuaternion(rootQ));
+  const A=L.th.getWorldPosition(new T.Vector3()),pole=V(his.pts[0]),FT=foot(L,his),Tg=FT.T;
   const l1=L.l1*s,l2=L.l2*s,dv=Tg.clone().sub(A),d=Math.max(Math.abs(l1-l2)+1e-3,Math.min(l1+l2-1e-3,dv.length())),n=dv.normalize();
   const a=(l1*l1-l2*l2+d*d)/(2*d),h=Math.sqrt(Math.max(0,l1*l1-a*a));
   const pp=pole.sub(A),perp=pp.sub(n.clone().multiplyScalar(pp.dot(n)));if(perp.lengthSq()<1e-6)perp.set(0,0,1).applyQuaternion(Qc);perp.normalize();
   const K=A.clone().add(n.clone().multiplyScalar(a)).add(perp.multiplyScalar(h)),Tr=A.clone().add(n.clone().multiplyScalar(d));
   aim(L.th,K.clone().sub(A));aim(L.sh,Tr.sub(L.sh.getWorldPosition(new T.Vector3())));
-  setW(L.ft,Qc.clone().multiply(Qci).multiply(restW(L.ft)))}   // feet stay level, turned his way
+  setW(L.ft,new T.Quaternion().setFromAxisAngle(xw,FT.th).multiply(restW(L.ft)));   // foot pitched about the ball
+  if(L.to)setW(L.to,new T.Quaternion().setFromAxisAngle(xw,FT.swing).multiply(restW(L.to)))}   // toes stay flat while the heel lifts
  // arms: from the T-pose to the way his arms point
  for(const [sd,side] of [["L",1],["R",-1]]){const A=mv.arms[sd],his=Rr.arms[side];if(!A||!his)continue;aim(A.ua,D(his.sh,his.el));aim(A.fa,D(his.el,his.ha))}
  // neck and head
- if(Rr.head){if(m.neck&&mv.ld.has(m.neck))aim(m.neck,D(Rr.head.base,Rr.head.top));
+ // neck: turned by how far his neck has moved from where it rests on his body, so each model keeps its own posture
+ // (copying his angle itself pushed the Female sergal's upright neck 10 degrees forward)
+ if(Rr.head){if(m.neck){const fr=frame(D(Rr.body.o,Rr.body.up),D(Rr.body.o,Rr.body.fw)),rest=new T.Vector3(0,1,0.15).normalize().applyQuaternion(fr),
+   now=D(Rr.head.base,Rr.head.top).normalize(),pq=m.neck.parent.getWorldQuaternion(new T.Quaternion());
+   setW(m.neck,new T.Quaternion().setFromUnitVectors(rest,now).multiply(pq.multiply(m.neck.quaternion)))}
   if(m.head)setW(m.head,frame(D(Rr.head.o,Rr.head.up),D(Rr.head.o,Rr.head.fw)).multiply(Qci).multiply(restW(m.head)))}
  // tail: his tail's curve laid along its tail bones
  if(mv.tail&&Rr.tail&&Rr.tail.length>1){const P=Rr.tail,cum=[0];for(let i=1;i<P.length;i++)cum.push(cum[i-1]+Math.hypot(...sub3(P[i],P[i-1])));const Lt=cum[cum.length-1]||1;
