@@ -43,7 +43,7 @@ input[type=range]{width:100%;height:44px;margin:0;accent-color:var(--accent);tou
 html:not(.devmode) .dev{display:none!important}
 html.game .anim{display:none!important}   /* Game: the animation tools are hidden */
 html:not(.game) .gameOnly{display:none!important}
-#gameTip{margin:6px 16px 0;font-size:14px;line-height:1.35}
+#gameTip{margin:10px 16px 0;font-size:14px;line-height:1.35}
 #stickZone{position:absolute;left:0;top:0;bottom:0;width:50%;z-index:2;touch-action:none;display:none;border-radius:11px 0 0 11px}
 html.game:not(.desk) #stickZone{display:block}
 #stickZone.fresh{background:rgba(251,246,234,.45);border-right:2px dashed var(--ink)}
@@ -118,6 +118,11 @@ html.desk .sl .rs{min-height:22px;min-width:30px;padding:0 6px;font-size:14px}
 <input type="checkbox" switch id="hapSw" tabindex="-1" aria-hidden="true" style="position:fixed;left:0;top:0;width:1px;height:1px;opacity:0;pointer-events:none;margin:0"><label for="hapSw" id="hapLb" aria-hidden="true" style="position:fixed;left:0;top:0;width:1px;height:1px;opacity:0;pointer-events:none;overflow:hidden"></label>
 <div id="view"><canvas id="cv"></canvas><canvas id="cv3"></canvas><div id="r3msg"></div><button id="emoteBtn" aria-label="Emote: T-pose">T-pose</button><div id="stickZone" class="fresh" aria-label="Touch control area: tap and drag here to move"><div class="zl">Tap and drag here to move.</div><div id="stick"><div id="stickKnob"></div></div></div><div id="hint">1 finger / drag: orbit - 2 fingers / wheel: zoom - 2 fingers / right-drag: pan - double-tap: reset</div></div>
 <div class="row anim" style="margin:6px 16px 0;flex-wrap:nowrap;align-items:center"><button id="prevF" aria-label="Previous frame">&#9664;</button><span id="scrubWrap"><input type="range" id="scrub" min="0" max="1" step="0.001" value="0"><span id="scrubMarks"></span></span><button id="nextF" aria-label="Next frame">&#9654;</button><span class="val" id="scrubV" hidden>0</span><button id="stepBlend" class="dev on" aria-label="How mode switches play while paused" style="padding:0 6px;font-size:13px;line-height:1.1">Switch:<br>by frame</button></div>
+<div id="status" class="anim" aria-live="polite"><span id="stTag">LOOP</span><span id="stText">Walk</span></div>
+<div class="row" id="moodRow" style="margin:2px 16px 0;flex-wrap:nowrap;align-items:center"><span class="lbl">Tired</span><input type="range" id="mood" min="0" max="1" step="0.01" value="1" style="flex:1"><span class="lbl">Happy</span></div>
+</div><div id="split"></div><div id="bot">
+<h1>The Curious Gait of a Three-Legged Sergal</h1>
+<p class="sub">Drag to turn him about, pinch to look closer, slide two fingers to move the view.</p>
 <p id="gameTip" class="gameOnly"><b>Game.</b> <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> to run, hold <kbd>Shift</kbd> to walk; the arrow keys walk; on the robot, <kbd>Ctrl</kbd> = his in-between form. On a phone, drag in the left half of the view: a joystick appears under your thumb; push a little to walk, all the way to run. Up = away from the camera. To look around, drag the right half on a phone, or anywhere with a mouse. <i>Psst: try spinning the joystick round.</i></p>
 <fieldset id="formsBox" class="gameOnly" hidden><legend>Robot forms</legend>
 <div class="row" style="flex-wrap:nowrap;align-items:center"><span class="lbl">Walk:</span><div class="seg" id="fWalk"><button data-m="walk">On three</button><button data-m="walk2">On two, tail up</button></div></div>
@@ -125,11 +130,6 @@ html.desk .sl .rs{min-height:22px;min-width:30px;padding:0 6px;font-size:14px}
 <div class="row" style="flex-wrap:nowrap;align-items:center"><span class="lbl">Run:</span><select id="fRun" class="pick" aria-label="Run style"></select></div>
 <p class="sub" style="margin:2px 0 0">Joystick: a small push walks, a medium one is the in-between form, all the way runs. Keys: walk and run; hold <kbd>Ctrl</kbd> for the in-between form (on Windows use it with the arrow keys: Ctrl+W closes the tab). T-pose: the button in the view while he stands still.</p>
 </fieldset>
-<div id="status" class="anim" aria-live="polite"><span id="stTag">LOOP</span><span id="stText">Walk</span></div>
-<div class="row" id="moodRow" style="margin:2px 16px 0;flex-wrap:nowrap;align-items:center"><span class="lbl">Tired</span><input type="range" id="mood" min="0" max="1" step="0.01" value="1" style="flex:1"><span class="lbl">Happy</span></div>
-</div><div id="split"></div><div id="bot">
-<h1>The Curious Gait of a Three-Legged Sergal</h1>
-<p class="sub">Drag to turn him about, pinch to look closer, slide two fingers to move the view.</p>
 <fieldset id="robotLook" hidden><legend>Robot look</legend>
 <div class="sl dev"><label>Bone stretch allowed</label><input type="range" id="boneTol" min="0" max="0.3" step="0.01" value="0"><span class="val" id="boneTolV">0%</span></div><div class="row dev" style="margin:6px 0"><button id="boneShow">Bone check</button></div>
 <div class="sl"><label>Shape (0 = boxes, 1 = cylinders)</label><input type="range" id="rMorph" min="0" max="1" step="0.05" value="0.35"><span class="val" id="rMorphV">0.35</span></div>
@@ -1379,6 +1379,7 @@ function render(){
  ctx.setTransform(DPR,0,0,DPR,0,0);ctx.clearRect(0,0,W,Hh);
  drawGround();
  DRAWN.length=0;camReport();
+ if(W<8||Hh<8)return;   // the view is folded away or squeezed to nothing: nothing to draw (three.js fails on it)
  if(r3on()){ctx.clearRect(0,0,W,Hh);r3render();return}
  for(const s of prims.filter(q=>q.t===2)){const c=proj(s.a);ctx.fillStyle="rgba(58,42,28,.15)";ctx.beginPath();ctx.ellipse(c.x,c.y,s.r*c.s,s.r*c.s*0.4,0,0,7);ctx.fill()}
  const list=[];prims.forEach((q,i)=>{if(q.t===2)return;
@@ -1628,10 +1629,13 @@ function gameInput(){const k=c=>GKEYS.has(c);
 function gameEnter(){GKEYS.clear();if(TIER!=="game")return;if(HPOS>=0)hBranch();if(TURNM||SPIN){TURNM=null;if(SPIN)spinEnd()}if(!playing)$("play").onclick()}
 let GAMEMODE=null;const GHIST=[];   // recent stick / key directions [time, angle], for spotting a flick
 function gameStep(dt){if(TIER==="game"&&playing&&HPOS<0)stickSpinStep();
- if(TIER!=="game"||!playing||HPOS>=0||TURNM||SPIN||FLIP)return;
- const g=gameInput();if(g.speed!=="idle")EMOTE=false;emoteUI(g.speed==="idle");
+ if(TIER!=="game"||!playing||HPOS>=0||SPIN||FLIP)return;   // spinning: speed stays as it was (the stick is out while circling)
+ const g=gameInput();if(g.speed!=="idle")EMOTE=false;emoteUI(g.speed==="idle"&&!TURNM);
  const want=gameMode(g.speed==="idle"&&EMOTE?"emote":g.speed);
+ // speed follows the input even during a 180 turn: let go mid-turn and he slows down through it, instead of finishing
+ // at a run and only then jogging to a stop
  if(want!==GAMEMODE||mode!==want){GAMEMODE=want;if(mode!==want&&MODES.some(m=>m[0]===want)){const sel=$("modeSel");sel.value=want;sel.onchange()}}
+ if(TURNM)return;   // steering waits for the turn to finish
  // the keys as a direction on the ground, as seen from the camera (up = away from it)
  let rem=0;if(g.x||g.y){const fx=Math.sin(yaw),fz=-Math.cos(yaw),rx=Math.cos(yaw),rz=Math.sin(yaw),dx=g.y*fx+g.x*rx,dz=g.y*fz+g.x*rz;
   rem=Math.atan2(dx,dz)-(HEAD+(DIR<0?Math.PI:0));rem=Math.atan2(Math.sin(rem),Math.cos(rem))}   // ends swapped: he travels backwards
