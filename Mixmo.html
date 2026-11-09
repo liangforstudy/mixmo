@@ -184,6 +184,19 @@ html.desk .sl .rs{min-height:22px;min-width:30px;padding:0 6px;font-size:14px}
 <div class="row" style="margin:6px 0"><span class="lbl" style="min-width:76px">Shadows</span><div class="seg"><button data-k="shadow" data-v="real">Real</button><button data-k="shadow" data-v="blob">Soft spots</button></div></div>
 <div class="row" style="margin:6px 0"><span class="lbl" style="min-width:76px">Ground</span><div class="seg"><button data-k="ground" data-v="solid">Solid</button><button data-k="ground" data-v="grid">Grid only</button></div></div>
 </fieldset>
+<fieldset id="mdlBox" style="margin:8px 16px"><legend>Import a model (.glb)</legend>
+<p class="sub" style="margin:4px 0 8px">Load a GLB file (on a phone, from Files). It stands in the 3D view next to him; walking with the app's gaits comes next. The file stays on this device and is gone when the page reloads.</p>
+<div class="row" style="margin:6px 0;gap:8px"><button id="mdlPick" type="button">Choose a .glb file</button><button id="mdlDel" type="button" hidden>Remove</button>
+<input type="file" id="mdlFile" accept=".glb,.gltf,model/gltf-binary,model/gltf+json" style="position:absolute;width:1px;height:1px;opacity:0;pointer-events:none" tabindex="-1" aria-hidden="true"></div>
+<p class="sub" id="mdlMsg" style="margin:4px 0"></p>
+<div class="row" id="mdl3d" style="margin:4px 0" hidden><button id="mdlTo3d" type="button">Switch to 3D</button></div>
+<div id="mdlOpts" hidden>
+<div class="row" style="margin:6px 0"><span class="lbl" style="min-width:76px">Where</span><div class="seg" id="mdlPlace"><button data-p="beside" class="on">Beside him</button><button data-p="in">In his place</button></div></div>
+<div class="row anim" style="margin:6px 0"><span class="lbl" style="min-width:76px">Bones</span><div class="seg" id="mdlBones"><button data-b="off" class="on">Hidden</button><button data-b="on">Shown</button></div></div>
+<div class="sl"><label>Size (% of his height)</label><input type="range" id="mdlSize" min="25" max="200" step="5" value="100"><span class="val" id="mdlSizeV">100</span></div>
+<div id="mdlInfo" style="font-size:14px;line-height:1.45"></div>
+</div>
+</fieldset>
 
 
 <div class="row" style="align-items:center;flex-wrap:nowrap"><span class="lbl">Interface:</span><div class="seg" id="uiSw"><button data-ui="auto">Auto</button><button data-ui="touch">Touch</button><button data-ui="desk">Desktop</button></div></div>
@@ -1720,7 +1733,7 @@ function frame(t){
 // ---------- three.js renderer (draws the same prims as the canvas renderer; loaded from jsDelivr) ----------
 // Pick with the Renderer switch. If three.js can't load (offline, blocked), the built-in canvas renderer keeps running.
 // The "3D look" switches only change how things are drawn, never the poses.
-const R3={url:"https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",T:null,ok:false,failed:false,loading:null,want:"three",
+const R3={url:"https://cdn.jsdelivr.net/npm/three@0.170.0/+esm",glUrl:"https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/loaders/GLTFLoader.js/+esm",T:null,ok:false,failed:false,loading:null,want:"three",
  look:{style:"toon",limbs:"smooth",outline:"on",shadow:"real",ground:"solid"}};
 try{const v=localStorage.getItem("mixmoRenderer");if(v==="canvas"||v==="three")R3.want=v}catch(e){}
 try{const v=JSON.parse(localStorage.getItem("mixmoLook3D")||"null");if(v&&typeof v==="object")for(const k in R3.look)if(typeof v[k]==="string")R3.look[k]=v[k]}catch(e){}
@@ -1840,6 +1853,7 @@ function r3render(){const T=R3.T,R=R3,OUT=0.7,L=R.look;
  const back=v=>rotY(rotX(v,-pitch),-yaw),cp=back([0,0,D]),up=back([0,1,0]);
  R.cam.position.set(cp[0],cp[1]+camY,cp[2]);R.cam.up.set(up[0],up[1],up[2]);R.cam.lookAt(0,camY,0);
  R.cam.fov=2*Math.atan(h/(2*s0*D))*180/Math.PI;R.cam.aspect=w/h;R.cam.setViewOffset(w,h,-panX,-panY,w,h);R.cam.updateProjectionMatrix();
+ if(MDL.grp)mdlPlace();
  // ground disc follows the terrain under him
  {const gp=R.grG.attributes.position.array,b=R.grBase;for(let i=0;i<gp.length;i+=3){const x=b[i],z=b[i+2];gp[i]=x;gp[i+1]=groundW(POS[0]+x,POS[1]+z)-0.3;gp[i+2]=z}
   R.grG.attributes.position.needsUpdate=true;R.grG.computeVertexNormals()}
@@ -1857,7 +1871,7 @@ function r3render(){const T=R3.T,R=R3,OUT=0.7,L=R.look;
  const ball=(a,r,col)=>{if(nb>=R.N*3)return;V.set(a[0],a[1],a[2]);S.set(r,r,r);M.compose(V,Q.identity(),S);R.balls.setMatrixAt(nb,M);R.balls.setColorAt(nb,col);
   S.set(r+OUT,r+OUT,r+OUT);M.compose(V,Q,S);R.ballsO.setMatrixAt(nb,M);nb++};
  const smooth=L.limbs==="smooth",chains=[];let ch=null;
- for(const q of prims){
+ for(const q of (MDL.grp&&MDL.place==="in"?[]:prims)){
   if(q.t===2){if(ns<64){V.set(q.a[0],q.a[1]+0.15,q.a[2]);S.set(q.r,1,q.r);M.compose(V,Q.identity(),S);R.shadows.setMatrixAt(ns++,M)}continue}
   const col=r3color(q.col||"#888");
   if(q.t===5){ch=null;const P=q.pts;if(P.length<3)continue;const f=q.fn||[0,1,0];
@@ -1886,6 +1900,131 @@ function r3ui(){document.querySelectorAll("#rendSw button").forEach(b=>b.classLi
  document.querySelectorAll("#r3Look [data-k]").forEach(b=>b.classList.toggle("on",R3.look[b.dataset.k]===b.dataset.v))}
 document.querySelectorAll("#rendSw button").forEach(b=>b.onclick=()=>{R3.want=b.dataset.r;try{localStorage.setItem("mixmoRenderer",R3.want)}catch(e){}
  if(R3.want==="three"&&!R3.ok)r3load();else if(R3.want==="canvas")r3msg("");r3ui()});
+// ---------- GLB model import, step 1: load it, show it, read its rig (walking with the app's gaits comes next) ----------
+// The model stands in the 3D view. Rigs the app knows (presets) are recognised by their bone names; any other rig gets
+// a best guess. Bone names are compared loosely: Blender's glTF suffixes ("_090_98"), case, spaces, dots and the
+// characters three.js strips from node names are ignored, so "thigh.L_090_98" and "thighL_090_98" both read "thighl".
+const MDL={grp:null,root:null,helper:null,place:"beside",bones:false,size:1,base:1,wx:0,wz:0,head:0,busy:false,info:null};
+const MDL_H=156;   // the regular sergal's standing height, ears included: a model is scaled to this
+const boneKey=n=>String(n).replace(/(_\d+)+$/,"").toLowerCase().replace(/[^a-z0-9]/g,"");
+const MD_SIDES=(m,l,r)=>{const o={};for(const [k,v] of Object.entries(m)){o[k+"L"]=l(v);o[k+"R"]=r(v)}return o};
+const MPRESETS=[
+ {id:"ballerfox",name:"Baller Fox",need:["hips","headbone","thighl","shinl","footl","tailroot","lowerchest"],
+  map:{hips:"hips",spine:"spine",chest:"lowerchest",chest2:"upperchest",neck:"neck",head:"headbone",jaw:"jaw",
+   ...MD_SIDES({shoulder:"shoulder",upperArm:"upperarm",forearm:"forearm",hand:"hand",thigh:"thigh",shin:"shin",foot:"foot"},v=>v+"l",v=>v+"r"),
+   tail:["tailroot",...Array.from({length:10},(_,i)=>"tail"+(i+1))]},
+  notes:"The rig's legs are hip, knee and an ankle at the ground, with the foot bone along the ground; the mesh stands on its toes, so the raised hock sits inside the shin bone. Arms in a T-pose. For spring bones later: hair (17 bones), ears (2 x 4), tail (11)."},
+ {id:"femsergal",name:"Female sergal",need:["hips","llegupper","lleglower","lfoot","ltoes","tail1","tailend","chest"],
+  map:{hips:"hips",spine:"spine",chest:"chest",neck:"neck",head:"head",
+   ...MD_SIDES({shoulder:"shoulder",upperArm:"armupper",forearm:"armlower",hand:"hand",thigh:"legupper",shin:"leglower",foot:"foot",toes:"toes"},v=>"l"+v,v=>"r"+v),
+   tail:["tail1","tail2","tail2001","tail2002","tail2003","tail2004","tailend"]},
+  notes:"The rig's legs are hip, knee, an ankle just above the ground, then toes. Arms in a T-pose. Has face shapes. For spring bones later: hair and ears."},
+ {id:"fox015",name:"Fox sculpt (fox_015)",need:["hips","thighl","shinl","footl","spine"],
+  map:{hips:"hips",spine:"spine",...MD_SIDES({thigh:"thigh",shin:"shin",foot:"foot"},v=>v+"l",v=>v+"r")},
+  notes:"Work in progress: legs and spine only (no head, arm or tail bones yet). Flat feet, heel on the ground."}];
+const MD_PARTS=[["hips","Hips"],["spine","Spine"],["chest","Chest"],["neck","Neck"],["head","Head"],["thighL","Left thigh"],["shinL","Left shin"],["footL","Left foot"],["toesL","Left toes"],
+ ["thighR","Right thigh"],["shinR","Right shin"],["footR","Right foot"],["toesR","Right toes"],["upperArmL","Left upper arm"],["forearmL","Left forearm"],["handL","Left hand"],
+ ["upperArmR","Right upper arm"],["forearmR","Right forearm"],["handR","Right hand"],["tail","Tail"]];
+// any other rig: guess each part from common naming styles (Blender, Mixamo, VRM, Unity humanoid)
+function mdlGuess(bones){const side=n=>{const s=String(n);
+  if(/left/i.test(s)||/(^|[\s._:-])L(\d*)([\s._:-]|$)/.test(s)||/^l[A-Z]/.test(s)||/[._-]l$/i.test(s))return"L";
+  if(/right/i.test(s)||/(^|[\s._:-])R(\d*)([\s._:-]|$)/.test(s)||/^r[A-Z]/.test(s)||/[._-]r$/i.test(s))return"R";return""};
+ const core=n=>boneKey(String(n).replace(/left|right/ig,"").replace(/(^|[\s._:-])[LR](?=[\s._:-]|\d|$)/g,"$1").replace(/^[lr](?=[A-Z])/,"").replace(/[._-][lr]$/i,"")).replace(/^(mixamorig\d*|jbip[lrc]?|bip0?1?|def|org|ccbase|armature)/,"");
+ const R=[["hips",/^(hips?|pelvis)$/],["spine",/^spine0?1?$/],["chest",/chest|^spine0?2$/],["neck",/^neck/],["head",/^head(bone)?$/],
+  ["thigh",/thigh|upleg|upperleg|legupper|femur/],["shin",/shin|calf|lowerleg|leglower|^leg$|knee/],["foot",/foot|ankle/],["toes",/toe/],
+  ["upperArm",/upperarm|armupper|^arm$/],["forearm",/forearm|lowerarm|armlower|elbow/],["hand",/^hand$|wrist$/]];
+ const out={};for(const b of bones){const sd=side(b.name),c=core(b.name);
+  for(const [part,re] of R){if(!re.test(c))continue;const k=["hips","spine","chest","neck","head"].includes(part)?part:sd?part+sd:null;if(k&&!out[k])out[k]=b;break}}
+ const tl=bones.filter(b=>/^tail/.test(boneKey(b.name)));if(tl.length)out.tail=tl;return out}
+function mdlRig(bones){const byKey=new Map();for(const b of bones){const k=boneKey(b.name);if(!byKey.has(k))byKey.set(k,b)}
+ for(const P of MPRESETS)if(P.need.every(k=>byKey.has(k))){const out={};
+  for(const [part,k] of Object.entries(P.map)){if(Array.isArray(k)){const l=k.map(x=>byKey.get(x)).filter(Boolean);if(l.length)out[part]=l}else if(byKey.has(k))out[part]=byKey.get(k)}
+  return{preset:P,map:out}}
+ return{preset:null,map:mdlGuess(bones)}}
+function mdlPlace(){const g=MDL.grp,s=MDL.base*MDL.size;g.scale.setScalar(s);
+ if(MDL.place==="in"){g.position.set(0,groundW(POS[0],POS[1]),0);g.rotation.y=HEAD}
+ else{g.position.set(MDL.wx-POS[0],groundW(MDL.wx,MDL.wz),MDL.wz-POS[1]);g.rotation.y=MDL.head}
+ const H=MDL.helper;if(H){H.visible=MDL.bones;
+  if(H.visible){g.updateMatrixWorld(true);const a=H.geometry.attributes.position,v=new R3.T.Vector3();let i=0;
+   for(const [b,p] of H.userData.pairs){b.getWorldPosition(v);a.setXYZ(i++,v.x,v.y,v.z);p.getWorldPosition(v);a.setXYZ(i++,v.x,v.y,v.z)}a.needsUpdate=true}}}
+function mdlMsg(t){$("mdlMsg").textContent=t||""}
+function mdlUI(){const has=!!MDL.grp;$("mdlOpts").hidden=!has;$("mdlDel").hidden=!has;$("mdlPick").disabled=MDL.busy;
+ $("mdlPick").textContent=has?"Choose another .glb file":"Choose a .glb file";$("mdl3d").hidden=!(has&&!r3on());
+ document.querySelectorAll("#mdlPlace button").forEach(b=>b.classList.toggle("on",b.dataset.p===MDL.place));
+ document.querySelectorAll("#mdlBones button").forEach(b=>b.classList.toggle("on",(b.dataset.b==="on")===MDL.bones))}
+function mdlRemove(){const g=MDL.grp;if(!g)return;R3.sc.remove(g);if(MDL.helper){R3.sc.remove(MDL.helper);MDL.helper.geometry.dispose();MDL.helper.material.dispose()}
+ g.traverse(o=>{if(o.geometry)o.geometry.dispose();for(const m of [].concat(o.material||[])){for(const k in m){const v=m[k];if(v&&v.isTexture)v.dispose()}m.dispose()}});
+ MDL.grp=MDL.root=MDL.helper=MDL.info=null;$("mdlInfo").innerHTML="";PDIRTY++}
+const esc=t=>String(t).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+async function mdlLoad(file){if(MDL.busy)return;MDL.busy=true;mdlUI();
+ const mb=file.size/1048576;mdlMsg("Reading "+file.name+" ("+mb.toFixed(1)+" MB)..."+(mb>60?" A big file: this can take a while, and may be too much for a phone.":""));
+ try{
+  if(!R3.T){mdlMsg("Loading the 3D renderer (three.js)...");await r3load();if(!R3.T)throw{user:"Couldn't download three.js (offline or blocked), so the model can't be shown. Everything else works as normal."}}
+  if(!R3.GLTF){mdlMsg("Downloading the GLB reader...");try{R3.GLTF=(await import(R3.glUrl)).GLTFLoader}catch(e){throw{user:"Couldn't download the GLB reader (offline or blocked). Everything else works as normal."}}}
+  const buf=await file.arrayBuffer();mdlMsg("Unpacking "+file.name+"...");
+  const gltf=await new Promise((ok,no)=>new R3.GLTF().parse(buf,"",ok,no)).catch(e=>{const m=String(e&&e.message||e);
+   throw{user:/Failed to load buffer|Failed to fetch|\.bin/i.test(m)?"This .gltf points to separate files, which can't be opened from here. Export it as glTF Binary (.glb) instead.":"This file couldn't be read as a GLB ("+m.slice(0,120)+")."}});
+  mdlRemove();mdlShow(gltf,file);mdlMsg("");
+ }catch(e){mdlMsg(e&&e.user?e.user:"Something went wrong loading the model: "+String(e&&e.message||e).slice(0,160));if(!(e&&e.user))console.error(e)}
+ MDL.busy=false;mdlUI();PDIRTY++}
+function mdlShow(gltf,file){const T=R3.T,root=gltf.scene;
+ // counts
+ let meshes=0,tris=0,shapes=new Set();const mats=new Set(),bones=[],seen=new Set();
+ root.traverse(o=>{if(o.isMesh){meshes++;const g=o.geometry;tris+=(g.index?g.index.count:g.attributes.position.count)/3;
+   for(const m of [].concat(o.material))mats.add(m);if(o.morphTargetDictionary)for(const k in o.morphTargetDictionary)shapes.add(k);
+   o.castShadow=true;o.receiveShadow=false;if(o.isSkinnedMesh){o.frustumCulled=false;for(const b of o.skeleton.bones)if(!seen.has(b)){seen.add(b);bones.push(b)}}}});
+ if(!bones.length)root.traverse(o=>{if(o.isBone&&!seen.has(o)){seen.add(o);bones.push(o)}});
+ // size: feet on the ground, centred, scaled to his height
+ root.updateMatrixWorld(true);const box=new T.Box3().setFromObject(root),sz=box.getSize(new T.Vector3()),c=box.getCenter(new T.Vector3());
+ const h=sz.y>1e-6?sz.y:1;root.position.set(-c.x,-box.min.y,-c.z);
+ const g=new T.Group();g.add(root);MDL.grp=g;MDL.root=root;MDL.base=MDL_H/h;
+ const rt=rotY([-120,0,0],HEAD);MDL.wx=POS[0]+rt[0];MDL.wz=POS[1]+rt[2];MDL.head=HEAD;   // on his right, facing his way
+ // bone overlay: a line from each bone to its parent. Blender's glTF importer leaves zero-size "..._end" tip bones that
+ // can sit at the origin, so they are skipped (otherwise lines fan out from the feet)
+ {const pairs=bones.filter(b=>b.parent&&b.parent.isBone&&!/_end(_\d+)*$/i.test(b.name)).map(b=>[b,b.parent]);
+  if(pairs.length){const geo=new T.BufferGeometry();geo.setAttribute("position",new T.BufferAttribute(new Float32Array(pairs.length*6),3));
+   MDL.helper=new T.LineSegments(geo,new T.LineBasicMaterial({color:0x1f6fe0,depthTest:false,transparent:true,opacity:.9}));
+   MDL.helper.renderOrder=10;MDL.helper.frustumCulled=false;MDL.helper.userData.pairs=pairs;R3.sc.add(MDL.helper)}}
+ R3.sc.add(g);mdlPlace();g.updateMatrixWorld(true);
+ // rig
+ const rig=bones.length?mdlRig(bones):null;
+ const wp=b=>root.worldToLocal(b.getWorldPosition(new T.Vector3())),f2=v=>(+v).toFixed(2);
+ // turning point: between the feet (ankles and toes), not the middle of the bounding box, which a tail pulls backwards;
+ // without feet, under the hips; without a rig, the box centre
+ if(rig){const fb=["footL","footR","toesL","toesR"].map(k=>rig.map[k]).filter(Boolean),src=fb.length>=2?fb:rig.map.hips?[rig.map.hips]:[];
+  if(src.length){const m=new T.Vector3();for(const b of src)m.add(wp(b));m.multiplyScalar(1/src.length);root.position.x=-m.x;root.position.z=-m.z;g.updateMatrixWorld(true)}}
+ let legs="";
+ if(rig&&rig.map.thighL&&rig.map.shinL&&rig.map.footL){const a=wp(rig.map.thighL),k=wp(rig.map.shinL),f=wp(rig.map.footL),hip=a.y-box.min.y,toe=rig.map.toesL?wp(rig.map.toesL):null;
+  const pc=v=>Math.round(v/hip*100)+"%";legs="Left leg: hip height "+f2(hip)+" ("+Math.round(hip/h*100)+"% of the height); thigh "+f2(a.distanceTo(k))+" ("+pc(a.distanceTo(k))+" of hip height), shin "+f2(k.distanceTo(f))+" ("+pc(k.distanceTo(f))+")"+(toe?", foot "+f2(f.distanceTo(toe))+" ("+pc(f.distanceTo(toe))+")":"")+"; ankle "+f2(f.y-box.min.y)+" above the ground. (His legs: hip 78, thigh 30, shin 30, foot 22.)"}
+ // lying down? (hips to head, or to the chest, should point up). Seen with a Blender export whose rest pose lies down
+ let lying="";{const top=rig&&(rig.map.head||rig.map.neck||rig.map.chest);
+  if(rig&&rig.map.hips&&top){const v=wp(top).sub(wp(rig.map.hips));if(v.length()>1e-6&&Math.abs(v.y)<0.5*v.length())lying="It looks like it's lying down. If it stands up in Blender, export again with Armature > \"Use Rest Position\" turned off: its standing pose is a pose, and its rest pose lies down."}}
+ const nm=b=>b?esc(b.name):"<span style=\"opacity:.55\">not found</span>";
+ const rows=rig?MD_PARTS.map(([k,l])=>{const v=rig.map[k];return"<tr><td style=\"padding-right:10px\">"+l+"</td><td>"+(Array.isArray(v)?v.length+" bones ("+esc(v[0].name)+" ... "+esc(v[v.length-1].name)+")":nm(v))+"</td></tr>"}).join(""):"";
+ const depth=b=>{let d=0;for(let p=b.parent;p&&p.isBone;p=p.parent)d++;return d};
+ const tex=gltf.parser&&gltf.parser.json&&gltf.parser.json.textures?gltf.parser.json.textures.length:0;
+ $("mdlInfo").innerHTML="<p style=\"margin:8px 0 4px\"><b>"+esc(file.name)+"</b> ("+(file.size/1048576).toFixed(1)+" MB)</p>"+
+  (lying?"<p style=\"margin:4px 0;color:var(--accent)\"><b>"+esc(lying)+"</b></p>":"")+"<div class=\"anim\"><p style=\"margin:2px 0\">"+meshes+" mesh"+(meshes===1?"":"es")+", "+Math.round(tris).toLocaleString()+" triangles, "+mats.size+" material"+(mats.size===1?"":"s")+", "+tex+" texture"+(tex===1?"":"s")+"; "+
+  bones.length+" bones; "+shapes.size+" face / shape keys; "+gltf.animations.length+" animation"+(gltf.animations.length===1?"":"s")+".</p>"+
+  "<p style=\"margin:2px 0\">Height "+f2(h)+" in the file's units"+(h>0.3&&h<4?" (metres, if it came from Blender)":"")+"; shown at his height ("+MDL_H+").</p>"+
+  (rig?"<p style=\"margin:8px 0 2px\"><b>"+(rig.preset?"Recognised: "+esc(rig.preset.name)+" (preset)":"Rig not recognised: parts guessed from the bone names")+"</b></p>"+
+   (rig.preset?"<p class=\"sub\" style=\"margin:2px 0\">"+esc(rig.preset.notes)+"</p>":"")+
+   (legs?"<p style=\"margin:4px 0\">"+legs+"</p>":"")+
+   "<table style=\"border-collapse:collapse;margin:4px 0\">"+rows+"</table>"+
+   "<details><summary>All bones ("+bones.length+")</summary><div style=\"font-family:ui-monospace,Menlo,monospace;font-size:12px;white-space:pre;overflow-x:auto\">"+bones.map(b=>"  ".repeat(depth(b))+esc(b.name)).join("\n")+"</div></details>"
+  :"<p style=\"margin:8px 0 2px\">No rig (no bones): it can be shown, but it can't move yet.</p>")+"</div>";
+ MDL.info={lying:!!lying,name:file.name,meshes,tris,bones:bones.length,shapes:shapes.size,anims:gltf.animations.length,height:h,preset:rig&&rig.preset?rig.preset.id:null,
+  parts:rig?Object.fromEntries(Object.entries(rig.map).map(([k,v])=>[k,Array.isArray(v)?v.map(b=>b.name):v.name])):null};
+ PDIRTY++}
+$("mdlPick").onclick=()=>{const f=$("mdlFile");f.value="";f.click()};
+$("mdlFile").onchange=()=>{const f=$("mdlFile").files[0];if(f)mdlLoad(f)};
+$("mdlDel").onclick=()=>{mdlRemove();mdlMsg("");mdlUI()};
+$("mdlTo3d").onclick=()=>document.querySelector('#rendSw [data-r="three"]').click();
+document.querySelectorAll("#mdlPlace button").forEach(b=>b.onclick=()=>{MDL.place=b.dataset.p;
+ if(MDL.place==="beside"){const rt=rotY([-120,0,0],HEAD);MDL.wx=POS[0]+rt[0];MDL.wz=POS[1]+rt[2];MDL.head=HEAD}mdlUI()});
+document.querySelectorAll("#mdlBones button").forEach(b=>b.onclick=()=>{MDL.bones=b.dataset.b==="on";mdlUI()});
+$("mdlSize").oninput=()=>{MDL.size=+$("mdlSize").value/100;$("mdlSizeV").textContent=$("mdlSize").value};
+document.querySelectorAll("#rendSw button").forEach(b=>b.addEventListener("click",()=>setTimeout(mdlUI,0)));
 document.querySelectorAll("#r3Look [data-k]").forEach(b=>b.onclick=()=>{R3.look[b.dataset.k]=b.dataset.v;try{localStorage.setItem("mixmoLook3D",JSON.stringify(R3.look))}catch(e){}r3applyLook();r3ui()});
 // Dev mode: players see the view, animations, terrain, looks, power saving and the timeline; the rest is for the author
 // Three ways to use the app: Game (steer him), Animation player (pick animations), Dev (everything)
