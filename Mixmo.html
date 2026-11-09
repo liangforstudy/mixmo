@@ -186,12 +186,14 @@ html.desk .sl .rs{min-height:22px;min-width:30px;padding:0 6px;font-size:14px}
 </fieldset>
 <fieldset id="mdlBox" style="margin:8px 16px"><legend>Import a model (.glb)</legend>
 <p class="sub" style="margin:4px 0 8px">Load a GLB file (on a phone, from Files). It stands in the 3D view next to him; walking with the app's gaits comes next. The file stays on this device and is gone when the page reloads.</p>
-<div class="row" style="margin:6px 0;gap:8px"><button id="mdlPick" type="button">Choose a .glb file</button><button id="mdlDel" type="button" hidden>Remove</button>
+<div class="row" style="margin:6px 0;gap:8px"><button id="mdlPick" type="button" data-nohaptic>Choose a .glb file</button><button id="mdlDel" type="button" hidden>Remove</button>
 <input type="file" id="mdlFile" accept=".glb,.gltf,model/gltf-binary,model/gltf+json" style="position:absolute;width:1px;height:1px;opacity:0;pointer-events:none" tabindex="-1" aria-hidden="true"></div>
 <p class="sub" id="mdlMsg" style="margin:4px 0"></p>
 <div class="row" id="mdl3d" style="margin:4px 0" hidden><button id="mdlTo3d" type="button">Switch to 3D</button></div>
 <div id="mdlOpts" hidden>
 <div class="row" style="margin:6px 0"><span class="lbl" style="min-width:76px">Where</span><div class="seg" id="mdlPlace"><button data-p="beside" class="on">Beside him</button><button data-p="in">In his place</button></div></div>
+<div class="row" style="margin:6px 0"><span class="lbl" style="min-width:76px">Pose</span><div class="seg" id="mdlMove"><button data-m="statue" class="on">Statue</button><button data-m="move">Copies his moves</button></div></div>
+<p class="sub" id="mdlMoveNote" style="margin:2px 0 6px"></p>
 <div class="row anim" style="margin:6px 0"><span class="lbl" style="min-width:76px">Bones</span><div class="seg" id="mdlBones"><button data-b="off" class="on">Hidden</button><button data-b="on">Shown</button></div></div>
 <div class="sl"><label>Size (% of his height)</label><input type="range" id="mdlSize" min="25" max="200" step="5" value="100"><span class="val" id="mdlSizeV">100</span></div>
 <div id="mdlInfo" style="font-size:14px;line-height:1.45"></div>
@@ -736,9 +738,10 @@ function splitLegs(e){const mid=ATT[LEGS[0].k];
   if(!L.copy){L.att={x:oa.x+cx,y:oa.y,z:oa.z};continue}
   const tx=cx-oa.x,tyaw=360-out.yaw;L.att={x:mid.x+(tx-mid.x)*e,y:mid.y+(oa.y-mid.y)*e,z:mid.z+(oa.z-mid.z)*e};L.yaw=180+(tyaw-180)*e;L.tail=e<0.5?1:0}
  return SPLIT_LEGS}
+let REC=null;
 function buildRig(p,ph){
  p=moodMix(p);
- prims=[];G=0;PNAME="";
+ prims=[];G=0;PNAME="";REC=CHAR==="sergal2"?{legs:{},arms:{}}:null;   // REC: his skeleton, for an imported model to copy (M2)
  const th=2*Math.PI*ph;
  const H=restHeight(p),BOB=p.bob*(p.bobWave*0.5+0.5);
  // body rides at the lowest ground any paw might plant on, so no leg has to over-reach
@@ -792,6 +795,7 @@ function buildRig(p,ph){
  const gb=rideHeight(gb0,lims,fl);
  const P0=[0,H+gb+BOB,0];   // whole-body bounce rides on top of the ground/reach limits
  const B=v=>add(P0,rotZ(rotX(v,p.lean*R),swayA));
+ if(REC)REC.body={o:P0,up:B([0,1,0]),fw:B([0,0,1])};
  // legs
  for(const q of plan){
   const {L,o}=q;
@@ -808,6 +812,7 @@ function buildRig(p,ph){
    if(q.stance)pts[3]=[pts[3][0],Math.max(pts[2][1]+d[1],ground(pts[3][0],pts[3][2])+3.4),pts[3][2]];
    else pts[3]=[pts[3][0],Math.max(pts[3][1],ground(pts[3][0],pts[3][2])+3.4),pts[3][2]];
   }else pts=q.rel(0,0,q.lt).map(v=>add(hip,v));
+  if(REC)REC.legs[L.k]={hip,pts:pts.map(v=>[...v])};
   const col=showColors?L.c:C.fur;let rs=1;
   if(q.gw!==undefined&&q.gw<0.01)continue;   // not grown at all: no third leg (the solver state above still updates)
   if(q.gw!==undefined){// growing third leg: pops out as a stub (first 8%), lengthens as a tail (to half), then swings down and plants
@@ -864,7 +869,7 @@ function buildRig(p,ph){
     const mid=B([0,38-4,2]),half=sub3(mid,sh),bel=add(add(sh,mul(half,0.5)),[0,-2.5*(1-SPLt),0]);
     const b=ease(ARMT),e2=add(mul(bel,1-b),mul(elF,b)),h2=add(mul(mid,1-b),mul(ha,b)),rr=0.75+0.25*b;
     tube(sh,e2,5*rr,4.4*rr,C.fur);tube(e2,h2,4.4*rr,b<0.05?4.4*rr:3.2,C.fur);if(b>0.05)dot(h2,4*b,C.furD)}
-   else{const rr=gA<1?0.4+0.6*gA:1;tube(sh,elF,5*rr,4*rr,C.fur);tube(elF,ha,4*rr,3.2*rr,C.fur);dot(ha,4*rr,C.furD)}
+   else{if(REC&&!off)REC.arms[side]={sh,el:elF,ha};const rr=gA<1?0.4+0.6*gA:1;tube(sh,elF,5*rr,4*rr,C.fur);tube(elF,ha,4*rr,3.2*rr,C.fur);dot(ha,4*rr,C.furD)}
   });
  });
  // necks + heads
@@ -885,6 +890,7 @@ function buildRig(p,ph){
   const hy=side*(p.headTurn*R*(0.6+0.4*Math.sin(th*0.5+i)));
   const H0=add(top,[0,bob*0.4,0]);
   const hp=v=>add(H0,rotY(rotX(v,-bob*0.03+(p.headDroop||0)*R),hy));
+  if(REC&&i===0)REC.head={base,top,o:hp([0,0,0]),up:hp([0,1,0]),fw:hp([0,0,1])};
   tube(hp([0,3,-5]),hp([0,1,21]),8.5,1.6,C.fur);       // wedge skull + snout
   tube(hp([0,-1,-2]),hp([0,-2.5,12]),5.5,1.5,C.belly,.5); // pale jaw
   underOf(prims[prims.length-2],prims[prims.length-1],sub3(hp([0,-1,0]),hp([0,0,0])));
@@ -898,16 +904,18 @@ function buildRig(p,ph){
  (SPL?[1,-1]:SHOW.nTails===1?[0]:[1,-1].slice(0,SHOW.nTails)).forEach((side,i)=>{
   const gT=i===1?GT2:1;if(gT<0.05)return;   // the second tail grows first, before the third leg
   G++;PNAME="Tail "+(i+1);const ST=SERGAL_SHAPE.tails;let pt=add(P0,rotZ([SPL?side*ST.root[0]*(1-SPLb)+side*SPLb*SPLIT_GAP:side*ST.root[0]*(GW<1?GT2:1),ST.root[1],ST.root[2]],swayA));
+  const tp=[pt];if(REC&&i===0)REC.tail=tp;
   for(let k=0;k<ST.segs;k++){
    const e=(p.tailLift-25+k*p.tailCurl)*R;
    const s=(side*10+p.tailSwing*Math.sin(th-k*0.55+i*0.9))*R;
    const d=[Math.sin(s)*Math.cos(e),Math.sin(e),-Math.cos(s)*Math.cos(e)];
-   const np=add(pt,mul(d,ST.segLen*gT));tube(pt,np,(3.6-k*0.2)*(gT<1?0.4+0.6*gT:1),(3.4-k*0.2)*(gT<1?0.4+0.6*gT:1),C.fur);pt=np;
+   const np=add(pt,mul(d,ST.segLen*gT));tube(pt,np,(3.6-k*0.2)*(gT<1?0.4+0.6*gT:1),(3.4-k*0.2)*(gT<1?0.4+0.6*gT:1),C.fur);pt=np;tp.push(np);
   }
   dot(pt,ST.tuft*(gT<1?0.4+0.6*gT:1),C.tuft);
  });
  // everything above was built facing his own forward; turn it to face his heading in the world
  faceHeading();
+ if(REC&&HEAD){const t=o=>Array.isArray(o)&&o.length===3&&typeof o[0]==="number"?rotY(o,HEAD):Array.isArray(o)?o.map(t):o&&typeof o==="object"?Object.fromEntries(Object.entries(o).map(([k,v])=>[k,t(v)])):o;REC=t(REC)}
 }
 
 
@@ -1454,7 +1462,8 @@ function render(){
 const GSZ=new WeakMap(),GRO=typeof ResizeObserver!=="undefined"?new ResizeObserver(es=>{for(const e of es){const w=Math.round(e.contentRect.width);GSZ.set(e.target,{w,vis:w>0})}
  PDIRTY++;try{drawGait()}catch(_){}}):null;   // shown, hidden or resized: redraw the chart now (a paused, power-saving view wouldn't)
 let GMINI=null;
-function drawGait(){drawGaitOn($("gait"),22);GMINI=GMINI||document.querySelector(".gaitMini");if(GMINI)drawGaitOn(GMINI,11)}
+function drawGait(){drawGaitOn($("gait"),22);if(!GMINI||!GMINI.isConnected)GMINI=document.querySelector(".gaitMini");   // the slider panel is rebuilt on every character / animation switch, chart included
+ if(GMINI)drawGaitOn(GMINI,11)}
 function drawGaitOn(g,rh){
  let z=GSZ.get(g);if(!z||!GRO){z={w:g.clientWidth,vis:!!g.offsetParent};GSZ.set(g,z);if(GRO)GRO.observe(g)}
  if(!z.vis||!z.w)return;   // folded away: nothing to draw
@@ -1904,7 +1913,7 @@ document.querySelectorAll("#rendSw button").forEach(b=>b.onclick=()=>{R3.want=b.
 // The model stands in the 3D view. Rigs the app knows (presets) are recognised by their bone names; any other rig gets
 // a best guess. Bone names are compared loosely: Blender's glTF suffixes ("_090_98"), case, spaces, dots and the
 // characters three.js strips from node names are ignored, so "thigh.L_090_98" and "thighL_090_98" both read "thighl".
-const MDL={grp:null,root:null,helper:null,place:"beside",bones:false,size:1,base:1,wx:0,wz:0,head:0,busy:false,info:null};
+const MDL={grp:null,root:null,helper:null,place:"beside",move:false,mv:null,bones:false,size:1,base:1,wx:0,wz:0,head:0,busy:false,info:null};
 const MDL_H=156;   // the regular sergal's standing height, ears included: a model is scaled to this
 const boneKey=n=>String(n).replace(/(_\d+)+$/,"").toLowerCase().replace(/[^a-z0-9]/g,"");
 const MD_SIDES=(m,l,r)=>{const o={};for(const [k,v] of Object.entries(m)){o[k+"L"]=l(v);o[k+"R"]=r(v)}return o};
@@ -1941,27 +1950,114 @@ function mdlRig(bones){const byKey=new Map();for(const b of bones){const k=boneK
   for(const [part,k] of Object.entries(P.map)){if(Array.isArray(k)){const l=k.map(x=>byKey.get(x)).filter(Boolean);if(l.length)out[part]=l}else if(byKey.has(k))out[part]=byKey.get(k)}
   return{preset:P,map:out}}
  return{preset:null,map:mdlGuess(bones)}}
-function mdlPlace(){const g=MDL.grp,s=MDL.base*MDL.size;g.scale.setScalar(s);
- if(MDL.place==="in"){g.position.set(0,groundW(POS[0],POS[1]),0);g.rotation.y=HEAD}
+function mdlPlace(){const g=MDL.grp,moving=mdlMoving();g.scale.setScalar(moving?MDL.mv.base:MDL.base*MDL.size);
+ if(moving){const o=MDL.place==="beside"?rotY([-120,0,0],HEAD):[0,0,0];g.position.set(o[0],groundW(POS[0],POS[1]),o[2]);g.rotation.y=HEAD}
+ else if(MDL.place==="in"){g.position.set(0,groundW(POS[0],POS[1]),0);g.rotation.y=HEAD}
  else{g.position.set(MDL.wx-POS[0],groundW(MDL.wx,MDL.wz),MDL.wz-POS[1]);g.rotation.y=MDL.head}
+ if(moving)mdlDrive();else if(MDL.mv&&MDL.mv.posed)mdlRest();
  const H=MDL.helper;if(H){H.visible=MDL.bones;
   if(H.visible){g.updateMatrixWorld(true);const a=H.geometry.attributes.position,v=new R3.T.Vector3();let i=0;
    for(const [b,p] of H.userData.pairs){b.getWorldPosition(v);a.setXYZ(i++,v.x,v.y,v.z);p.getWorldPosition(v);a.setXYZ(i++,v.x,v.y,v.z)}a.needsUpdate=true}}}
 function mdlMsg(t){$("mdlMsg").textContent=t||""}
+// ---------- M2: the model copies the regular sergal's moves ----------
+// He stays the brain: each frame his builder records his skeleton (REC). The model's hips and spine take his body's
+// turn and lean, its legs reach his planted footprints with their OWN lengths (two-bone IK, knee towards his knee), its
+// arms, neck and tail point the way his do, and its head turns like his. Sized so its hips are as high as his, so the
+// footprints fit its legs and planted feet don't slide.
+const mdlMoving=()=>MDL.move&&MDL.mv&&CHAR==="sergal2"&&!!REC&&!!REC.body;
+function mdlMotionSetup(rig,root,box,T){const m=rig.map;
+ if(!["hips","thighL","shinL","footL","thighR","shinR","footR"].every(k=>m[k]))return null;
+ root.updateMatrixWorld(true);const rq=root.getWorldQuaternion(new T.Quaternion()).invert();
+ const lp=b=>root.worldToLocal(b.getWorldPosition(new T.Vector3())),lq=b=>rq.clone().multiply(b.getWorldQuaternion(new T.Quaternion()));
+ const bones=new Set();for(const v of Object.values(m))for(const b of [].concat(v))bones.add(b);
+ const mv={rest:new Map(),RW:new Map(),ld:new Map(),posed:false,legs:{},arms:{},tail:null};
+ for(const b of bones){mv.rest.set(b,{q:b.quaternion.clone(),p:b.position.clone()});mv.RW.set(b,lq(b))}
+ // which way each bone points, in its own frame: towards the next bone of its chain
+ const dirTo=(b,c)=>{if(c&&c.parent===b&&c.position.length()>1e-6)return c.position.clone().normalize();
+  const ch=b.children.find(x=>x.isBone&&x.position.length()>1e-6);if(ch)return ch.position.clone().normalize();return null};
+ const setLd=(b,c,fb)=>{let d=dirTo(b,c);if(!d&&fb){// a leaf: keep pointing the way its parent points
+   const w=mv.RW.get(fb)||lq(fb),wb=mv.RW.get(b)||lq(b);d=(mv.ld.get(fb)||new T.Vector3(0,1,0)).clone().applyQuaternion(w).applyQuaternion(wb.clone().invert())}
+  mv.ld.set(b,d||new T.Vector3(0,1,0))};
+ for(const sd of ["L","R"]){const th=m["thigh"+sd],sh=m["shin"+sd],ft=m["foot"+sd],to=m["toes"+sd];
+  setLd(th,sh);setLd(sh,ft);const A=lp(th),K=lp(sh),F=lp(ft),Tt=to?lp(to):null;
+  mv.legs[sd]={th,sh,ft,l1:A.distanceTo(K),l2:K.distanceTo(F),ankleH:F.y-box.min.y,
+   toe:Tt?new T.Vector3(Tt.x-F.x,0,Tt.z-F.z):new T.Vector3(),hipH:A.y-box.min.y};
+  const ua=m["upperArm"+sd],fa=m["forearm"+sd],hd=m["hand"+sd];
+  if(ua&&fa){setLd(ua,fa);setLd(fa,hd,ua);mv.arms[sd]={ua,fa}}}
+ if(m.neck&&m.head)setLd(m.neck,m.head);
+ if(m.tail&&m.tail.length){const tl=m.tail,pts=tl.map(lp);let L=0;const cum=[0];
+  for(let i=0;i<tl.length;i++){setLd(tl[i],tl[i+1],i?tl[i-1]:null);if(i)L+=pts[i].distanceTo(pts[i-1]);cum.push(L)}
+  const seg=L/Math.max(1,tl.length-1);mv.tail={bones:tl,f:tl.map((_,i)=>Math.min(1,(cum[i]+seg*0.5)/(L+seg)))}}
+ const hip=(mv.legs.L.hipH+mv.legs.R.hipH)/2;mv.base=restHeight({...PS2.idle})/hip;   // its hips as high as his
+ return mv}
+function mdlRest(){const mv=MDL.mv;for(const [b,r] of mv.rest){b.quaternion.copy(r.q);b.position.copy(r.p)}mv.posed=false}
+function mdlDrive(){const T=R3.T,mv=MDL.mv,m=MDL.info&&MDL.rig,root=MDL.root,g=MDL.grp,Rr=REC;
+ const s=g.scale.x,o=MDL.place==="beside"?rotY([-120,0,0],HEAD):[0,0,0];
+ const V=a=>new T.Vector3(a[0]+o[0],a[1],a[2]+o[2]),D=(a,b)=>new T.Vector3(b[0]-a[0],b[1]-a[1],b[2]-a[2]);
+ for(const [b,r] of mv.rest){b.quaternion.copy(r.q);b.position.copy(r.p)}mv.posed=true;
+ g.updateMatrixWorld(true);
+ const rootQ=root.getWorldQuaternion(new T.Quaternion()),restW=b=>rootQ.clone().multiply(mv.RW.get(b));
+ const Qc=new T.Quaternion().setFromAxisAngle(new T.Vector3(0,1,0),HEAD),Qci=Qc.clone().invert();
+ const frame=(up,fw)=>{const u=up.clone().normalize(),f=fw.clone().normalize(),x=new T.Vector3().crossVectors(u,f).normalize();f.crossVectors(x,u);
+  return new T.Quaternion().setFromRotationMatrix(new T.Matrix4().makeBasis(x,u,f))};
+ const setW=(b,W)=>{const pq=b.parent.getWorldQuaternion(new T.Quaternion());b.quaternion.copy(pq.invert().multiply(W));b.updateMatrixWorld(true)};
+ const aim=(b,dir)=>{if(!b||dir.lengthSq()<1e-9)return;const pq=b.parent.getWorldQuaternion(new T.Quaternion()),W0=pq.clone().multiply(b.quaternion);
+  const cur=mv.ld.get(b).clone().applyQuaternion(W0).normalize();setW(b,new T.Quaternion().setFromUnitVectors(cur,dir.clone().normalize()).multiply(W0))};
+ const part=(Q,f)=>new T.Quaternion().slerp(Q,f);
+ // body: his torso's turn and lean, spread up the spine
+ const Rb=frame(D(Rr.body.o,Rr.body.up),D(Rr.body.o,Rr.body.fw)).multiply(Qci);
+ setW(m.hips,part(Rb,0.5).multiply(restW(m.hips)));
+ {const hl=Rr.legs.phBL.hip,hr=Rr.legs.phBR.hip,tgt=V([(hl[0]+hr[0])/2,(hl[1]+hr[1])/2,(hl[2]+hr[2])/2]);
+  const a=mv.legs.L.th.getWorldPosition(new T.Vector3()),b=mv.legs.R.th.getWorldPosition(new T.Vector3()),cur=a.add(b).multiplyScalar(0.5);
+  const hw=m.hips.getWorldPosition(new T.Vector3()).add(tgt.sub(cur));m.hips.position.copy(m.hips.parent.worldToLocal(hw));m.hips.updateMatrixWorld(true)}
+ // a leg too short for its footprint: lower the hips until it reaches (as he crouches), instead of the foot slipping
+ {let low=0;for(const [sd,k] of [["L","phBL"],["R","phBR"]]){const L=mv.legs[sd],his=Rr.legs[k];if(!his)continue;
+   const A=L.th.getWorldPosition(new T.Vector3()),Tg=V(his.pts[2]).add(new T.Vector3(0,L.ankleH*s-3.2,0)).sub(L.toe.clone().multiplyScalar(s).applyQuaternion(rootQ));
+   const reach=(L.l1+L.l2)*s*0.995,hd=Math.hypot(A.x-Tg.x,A.z-Tg.z);if(hd<reach)low=Math.max(low,(A.y-Tg.y)-Math.sqrt(reach*reach-hd*hd))}
+  if(low>0){const hw=m.hips.getWorldPosition(new T.Vector3());hw.y-=low;m.hips.position.copy(m.hips.parent.worldToLocal(hw));m.hips.updateMatrixWorld(true)}}
+ if(m.spine)setW(m.spine,part(Rb,0.75).multiply(restW(m.spine)));
+ if(m.chest)setW(m.chest,part(Rb,1).multiply(restW(m.chest)));
+ if(m.chest2)setW(m.chest2,Rb.clone().multiply(restW(m.chest2)));
+ // legs: reach his footprints with the model's own leg lengths; knee bends towards his knee
+ for(const [sd,k] of [["L","phBL"],["R","phBR"]]){const L=mv.legs[sd],his=Rr.legs[k];if(!his)continue;
+  const A=L.th.getWorldPosition(new T.Vector3()),paw=V(his.pts[2]),pole=V(his.pts[0]);
+  const Tg=paw.clone().add(new T.Vector3(0,L.ankleH*s-3.2,0)).sub(L.toe.clone().multiplyScalar(s).applyQuaternion(rootQ));
+  const l1=L.l1*s,l2=L.l2*s,dv=Tg.clone().sub(A),d=Math.max(Math.abs(l1-l2)+1e-3,Math.min(l1+l2-1e-3,dv.length())),n=dv.normalize();
+  const a=(l1*l1-l2*l2+d*d)/(2*d),h=Math.sqrt(Math.max(0,l1*l1-a*a));
+  const pp=pole.sub(A),perp=pp.sub(n.clone().multiplyScalar(pp.dot(n)));if(perp.lengthSq()<1e-6)perp.set(0,0,1).applyQuaternion(Qc);perp.normalize();
+  const K=A.clone().add(n.clone().multiplyScalar(a)).add(perp.multiplyScalar(h)),Tr=A.clone().add(n.clone().multiplyScalar(d));
+  aim(L.th,K.clone().sub(A));aim(L.sh,Tr.sub(L.sh.getWorldPosition(new T.Vector3())));
+  setW(L.ft,Qc.clone().multiply(Qci).multiply(restW(L.ft)))}   // feet stay level, turned his way
+ // arms: from the T-pose to the way his arms point
+ for(const [sd,side] of [["L",1],["R",-1]]){const A=mv.arms[sd],his=Rr.arms[side];if(!A||!his)continue;aim(A.ua,D(his.sh,his.el));aim(A.fa,D(his.el,his.ha))}
+ // neck and head
+ if(Rr.head){if(m.neck&&mv.ld.has(m.neck))aim(m.neck,D(Rr.head.base,Rr.head.top));
+  if(m.head)setW(m.head,frame(D(Rr.head.o,Rr.head.up),D(Rr.head.o,Rr.head.fw)).multiply(Qci).multiply(restW(m.head)))}
+ // tail: his tail's curve laid along its tail bones
+ if(mv.tail&&Rr.tail&&Rr.tail.length>1){const P=Rr.tail,cum=[0];for(let i=1;i<P.length;i++)cum.push(cum[i-1]+Math.hypot(...sub3(P[i],P[i-1])));const Lt=cum[cum.length-1]||1;
+  mv.tail.bones.forEach((b,i)=>{const at=mv.tail.f[i]*Lt;let j=1;while(j<P.length-1&&cum[j]<at)j++;aim(b,D(P[j-1],P[j]))})}}
 function mdlUI(){const has=!!MDL.grp;$("mdlOpts").hidden=!has;$("mdlDel").hidden=!has;$("mdlPick").disabled=MDL.busy;
  $("mdlPick").textContent=has?"Choose another .glb file":"Choose a .glb file";$("mdl3d").hidden=!(has&&!r3on());
  document.querySelectorAll("#mdlPlace button").forEach(b=>b.classList.toggle("on",b.dataset.p===MDL.place));
- document.querySelectorAll("#mdlBones button").forEach(b=>b.classList.toggle("on",(b.dataset.b==="on")===MDL.bones))}
+ document.querySelectorAll("#mdlBones button").forEach(b=>b.classList.toggle("on",(b.dataset.b==="on")===MDL.bones));
+ document.querySelectorAll("#mdlMove button").forEach(b=>b.classList.toggle("on",(b.dataset.m==="move")===MDL.move));
+ const mv=MDL.move&&has;$("mdlSize").disabled=mv;$("mdlSize").closest(".sl").style.opacity=mv?0.5:1;
+ $("mdlMoveNote").textContent=!has?"":!MDL.mv?(MDL.info&&MDL.info.lying?"It can't move while it's lying down.":"It can't move: its leg bones weren't found."):
+  !MDL.move?"Statue: stands still in its own pose.":CHAR!=="sergal2"?"It copies the regular sergal: pick \"Sergal (regular)\" to see it move.":
+  (MDL.place==="in"?"It moves as him, in his place.":"Dance partner: it moves beside him.")+" While it moves, its size follows his legs. (Run on all fours isn't done yet.)"}
 function mdlRemove(){const g=MDL.grp;if(!g)return;R3.sc.remove(g);if(MDL.helper){R3.sc.remove(MDL.helper);MDL.helper.geometry.dispose();MDL.helper.material.dispose()}
  g.traverse(o=>{if(o.geometry)o.geometry.dispose();for(const m of [].concat(o.material||[])){for(const k in m){const v=m[k];if(v&&v.isTexture)v.dispose()}m.dispose()}});
- MDL.grp=MDL.root=MDL.helper=MDL.info=null;$("mdlInfo").innerHTML="";PDIRTY++}
+ MDL.grp=MDL.root=MDL.helper=MDL.info=MDL.mv=MDL.rig=null;$("mdlInfo").innerHTML="";PDIRTY++}
 const esc=t=>String(t).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 async function mdlLoad(file){if(MDL.busy)return;MDL.busy=true;mdlUI();
  const mb=file.size/1048576;mdlMsg("Reading "+file.name+" ("+mb.toFixed(1)+" MB)..."+(mb>60?" A big file: this can take a while, and may be too much for a phone.":""));
  try{
   if(!R3.T){mdlMsg("Loading the 3D renderer (three.js)...");await r3load();if(!R3.T)throw{user:"Couldn't download three.js (offline or blocked), so the model can't be shown. Everything else works as normal."}}
   if(!R3.GLTF){mdlMsg("Downloading the GLB reader...");try{R3.GLTF=(await import(R3.glUrl)).GLTFLoader}catch(e){throw{user:"Couldn't download the GLB reader (offline or blocked). Everything else works as normal."}}}
-  const buf=await file.arrayBuffer();mdlMsg("Unpacking "+file.name+"...");
+  const buf=await file.arrayBuffer();
+  {const h=new Uint8Array(buf,0,Math.min(4,buf.byteLength)),magic=String.fromCharCode(...h),txt=/\.gltf$/i.test(file.name)||h[0]===0x7b;
+   if(magic!=="glTF"&&!txt)throw{user:"\""+file.name+"\" isn't a GLB file. In Blender, export with File > Export > glTF 2.0, format glTF Binary (.glb)."}}
+  mdlMsg("Unpacking "+file.name+"...");
   const gltf=await new Promise((ok,no)=>new R3.GLTF().parse(buf,"",ok,no)).catch(e=>{const m=String(e&&e.message||e);
    throw{user:/Failed to load buffer|Failed to fetch|\.bin/i.test(m)?"This .gltf points to separate files, which can't be opened from here. Export it as glTF Binary (.glb) instead.":"This file couldn't be read as a GLB ("+m.slice(0,120)+")."}});
   mdlRemove();mdlShow(gltf,file);mdlMsg("");
@@ -2013,15 +2109,22 @@ function mdlShow(gltf,file){const T=R3.T,root=gltf.scene;
    "<table style=\"border-collapse:collapse;margin:4px 0\">"+rows+"</table>"+
    "<details><summary>All bones ("+bones.length+")</summary><div style=\"font-family:ui-monospace,Menlo,monospace;font-size:12px;white-space:pre;overflow-x:auto\">"+bones.map(b=>"  ".repeat(depth(b))+esc(b.name)).join("\n")+"</div></details>"
   :"<p style=\"margin:8px 0 2px\">No rig (no bones): it can be shown, but it can't move yet.</p>")+"</div>";
- MDL.info={lying:!!lying,name:file.name,meshes,tris,bones:bones.length,shapes:shapes.size,anims:gltf.animations.length,height:h,preset:rig&&rig.preset?rig.preset.id:null,
+ MDL.rig=rig?rig.map:null;MDL.mv=rig&&!lying?mdlMotionSetup(rig,root,box,T):null;
+ MDL.info={lying:!!lying,moves:!!MDL.mv,name:file.name,meshes,tris,bones:bones.length,shapes:shapes.size,anims:gltf.animations.length,height:h,preset:rig&&rig.preset?rig.preset.id:null,
   parts:rig?Object.fromEntries(Object.entries(rig.map).map(([k,v])=>[k,Array.isArray(v)?v.map(b=>b.name):v.name])):null};
  PDIRTY++}
+// iPhone / iPad grey out .glb in the file picker (iOS has no file type for it), so there the picker shows every file and
+// the app checks the file itself once it's picked (a GLB starts with the bytes "glTF")
+if(/iPad|iPhone|iPod/.test(navigator.userAgent)||(navigator.platform==="MacIntel"&&navigator.maxTouchPoints>1))$("mdlFile").removeAttribute("accept");
 $("mdlPick").onclick=()=>{const f=$("mdlFile");f.value="";f.click()};
 $("mdlFile").onchange=()=>{const f=$("mdlFile").files[0];if(f)mdlLoad(f)};
 $("mdlDel").onclick=()=>{mdlRemove();mdlMsg("");mdlUI()};
 $("mdlTo3d").onclick=()=>document.querySelector('#rendSw [data-r="three"]').click();
 document.querySelectorAll("#mdlPlace button").forEach(b=>b.onclick=()=>{MDL.place=b.dataset.p;
  if(MDL.place==="beside"){const rt=rotY([-120,0,0],HEAD);MDL.wx=POS[0]+rt[0];MDL.wz=POS[1]+rt[2];MDL.head=HEAD}mdlUI()});
+document.querySelectorAll("#mdlMove button").forEach(b=>b.onclick=()=>{MDL.move=b.dataset.m==="move";
+ if(MDL.move&&MDL.mv&&CHAR!=="sergal2"){$("charSel").value="sergal2";$("charSel").dispatchEvent(new Event("change"))}mdlUI()});
+$("charSel").addEventListener("change",()=>{if(MDL.grp)mdlUI()});
 document.querySelectorAll("#mdlBones button").forEach(b=>b.onclick=()=>{MDL.bones=b.dataset.b==="on";mdlUI()});
 $("mdlSize").oninput=()=>{MDL.size=+$("mdlSize").value/100;$("mdlSizeV").textContent=$("mdlSize").value};
 document.querySelectorAll("#rendSw button").forEach(b=>b.addEventListener("click",()=>setTimeout(mdlUI,0)));
@@ -2063,7 +2166,8 @@ segUI();buildSliders();applyCollapsed();syncJSON();requestAnimationFrame(frame);
 // iPhone Safari: clicking the label of an iOS switch control buzzes, but only straight after a tap (tested in Haptic Lab);
 // the switch is pinned on screen so the focus it takes doesn't scroll the page. Android: a short vibrate.
 // no tick when the tap does nothing: a disabled button, a reset button already at its default, or a choice already chosen
-const tapDoesNothing=b=>b.disabled||b.getAttribute("aria-disabled")==="true"||(b.classList.contains("rs")&&!b.closest(".sl.changed"))||
+// no tick either on buttons that give their own feedback (data-nohaptic: the GLB picker opens the system file picker)
+const tapDoesNothing=b=>b.disabled||b.hasAttribute("data-nohaptic")||b.getAttribute("aria-disabled")==="true"||(b.classList.contains("rs")&&!b.closest(".sl.changed"))||
  (b.classList.contains("on")&&!!b.closest(".seg,.grid2,.grid3,#armOpt,#cycOrder,#rendSw,#uiSw"));
 document.addEventListener("click",e=>{if(!e.isTrusted||!e.target.closest)return;const btn=e.target.closest("button");if(!btn||tapDoesNothing(btn))return;
  try{if(navigator.vibrate){navigator.vibrate(8);return}}catch(_){}
