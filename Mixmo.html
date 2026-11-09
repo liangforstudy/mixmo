@@ -58,6 +58,7 @@ html.game #emoteBtn.show{display:block}
 #stickKnob{position:absolute;left:50%;top:50%;width:56px;height:56px;margin:-28px 0 0 -28px;border-radius:50%;background:var(--ink);opacity:.85;pointer-events:none}
 #gameTip kbd,#formsBox kbd{font:inherit;font-size:12px;border:1px solid var(--ink);border-radius:4px;padding:0 4px;background:var(--paper)}
 .devHead{font-size:18px;font-style:italic;margin:14px 16px 4px;border-top:2px solid var(--ink);padding-top:10px}   /* Dev mode: advanced settings hidden for players */
+.mdlCard{border-top:1px solid var(--ink);margin-top:10px;padding-top:6px}.mdlCard .mdlHead{display:flex;align-items:center;gap:8px;justify-content:space-between}
 .gaitMini{width:100%;display:block;position:sticky;top:0;z-index:2;background:#f8eed8;border-bottom:1px solid var(--ink);padding-bottom:2px}
 textarea{width:100%;font-size:16px;font-family:Menlo,monospace;height:120px;border:2px solid var(--ink);border-radius:10px;background:#fffaf0;color:var(--ink);padding:8px}
 #msg{margin:0 16px;min-height:20px;font-size:14px;color:var(--accent)}
@@ -184,20 +185,13 @@ html.desk .sl .rs{min-height:22px;min-width:30px;padding:0 6px;font-size:14px}
 <div class="row" style="margin:6px 0"><span class="lbl" style="min-width:76px">Shadows</span><div class="seg"><button data-k="shadow" data-v="real">Real</button><button data-k="shadow" data-v="blob">Soft spots</button></div></div>
 <div class="row" style="margin:6px 0"><span class="lbl" style="min-width:76px">Ground</span><div class="seg"><button data-k="ground" data-v="solid">Solid</button><button data-k="ground" data-v="grid">Grid only</button></div></div>
 </fieldset>
-<fieldset id="mdlBox" style="margin:8px 16px"><legend>Import a model (.glb)</legend>
-<p class="sub" style="margin:4px 0 8px">Load a GLB file (on a phone, from Files). It stands in the 3D view next to him; walking with the app's gaits comes next. The file stays on this device and is gone when the page reloads.</p>
-<div class="row" style="margin:6px 0;gap:8px"><button id="mdlPick" type="button" data-nohaptic>Choose a .glb file</button><button id="mdlDel" type="button" hidden>Remove</button>
-<input type="file" id="mdlFile" accept=".glb,.gltf,model/gltf-binary,model/gltf+json" style="position:absolute;width:1px;height:1px;opacity:0;pointer-events:none" tabindex="-1" aria-hidden="true"></div>
+<fieldset id="mdlBox" style="margin:8px 16px"><legend>Import models (.glb)</legend>
+<p class="sub" style="margin:4px 0 8px">Add GLB files (on a phone, from Files); you can add several. Each one stands in the 3D view as a statue or copies his moves, in his place or beside him. The files stay on this device and are gone when the page reloads.</p>
+<div class="row" style="margin:6px 0;gap:8px"><button id="mdlPick" type="button" data-nohaptic>Add a .glb file</button>
+<input type="file" id="mdlFile" multiple accept=".glb,.gltf,model/gltf-binary,model/gltf+json" style="position:absolute;width:1px;height:1px;opacity:0;pointer-events:none" tabindex="-1" aria-hidden="true"></div>
 <p class="sub" id="mdlMsg" style="margin:4px 0"></p>
 <div class="row" id="mdl3d" style="margin:4px 0" hidden><button id="mdlTo3d" type="button">Switch to 3D</button></div>
-<div id="mdlOpts" hidden>
-<div class="row" style="margin:6px 0"><span class="lbl" style="min-width:76px">Where</span><div class="seg" id="mdlPlace"><button data-p="beside" class="on">Beside him</button><button data-p="in">In his place</button></div></div>
-<div class="row" style="margin:6px 0"><span class="lbl" style="min-width:76px">Pose</span><div class="seg" id="mdlMove"><button data-m="statue" class="on">Statue</button><button data-m="move">Copies his moves</button></div></div>
-<p class="sub" id="mdlMoveNote" style="margin:2px 0 6px"></p>
-<div class="row anim" style="margin:6px 0"><span class="lbl" style="min-width:76px">Bones</span><div class="seg" id="mdlBones"><button data-b="off" class="on">Hidden</button><button data-b="on">Shown</button></div></div>
-<div class="sl"><label>Size (% of his height)</label><input type="range" id="mdlSize" min="25" max="200" step="5" value="100"><span class="val" id="mdlSizeV">100</span></div>
-<div id="mdlInfo" style="font-size:14px;line-height:1.45"></div>
-</div>
+<div id="mdlList"></div>
 </fieldset>
 
 
@@ -1862,7 +1856,7 @@ function r3render(){const T=R3.T,R=R3,OUT=0.7,L=R.look;
  const back=v=>rotY(rotX(v,-pitch),-yaw),cp=back([0,0,D]),up=back([0,1,0]);
  R.cam.position.set(cp[0],cp[1]+camY,cp[2]);R.cam.up.set(up[0],up[1],up[2]);R.cam.lookAt(0,camY,0);
  R.cam.fov=2*Math.atan(h/(2*s0*D))*180/Math.PI;R.cam.aspect=w/h;R.cam.setViewOffset(w,h,-panX,-panY,w,h);R.cam.updateProjectionMatrix();
- if(MDL.grp)mdlPlace();
+ for(const M of MODELS)mdlPlace(M);
  // ground disc follows the terrain under him
  {const gp=R.grG.attributes.position.array,b=R.grBase;for(let i=0;i<gp.length;i+=3){const x=b[i],z=b[i+2];gp[i]=x;gp[i+1]=groundW(POS[0]+x,POS[1]+z)-0.3;gp[i+2]=z}
   R.grG.attributes.position.needsUpdate=true;R.grG.computeVertexNormals()}
@@ -1880,7 +1874,7 @@ function r3render(){const T=R3.T,R=R3,OUT=0.7,L=R.look;
  const ball=(a,r,col)=>{if(nb>=R.N*3)return;V.set(a[0],a[1],a[2]);S.set(r,r,r);M.compose(V,Q.identity(),S);R.balls.setMatrixAt(nb,M);R.balls.setColorAt(nb,col);
   S.set(r+OUT,r+OUT,r+OUT);M.compose(V,Q,S);R.ballsO.setMatrixAt(nb,M);nb++};
  const smooth=L.limbs==="smooth",chains=[];let ch=null;
- for(const q of (MDL.grp&&MDL.place==="in"?[]:prims)){
+ for(const q of (MODELS.some(M=>M.place==="in")?[]:prims)){
   if(q.t===2){if(ns<64){V.set(q.a[0],q.a[1]+0.15,q.a[2]);S.set(q.r,1,q.r);M.compose(V,Q.identity(),S);R.shadows.setMatrixAt(ns++,M)}continue}
   const col=r3color(q.col||"#888");
   if(q.t===5){ch=null;const P=q.pts;if(P.length<3)continue;const f=q.fn||[0,1,0];
@@ -1913,7 +1907,10 @@ document.querySelectorAll("#rendSw button").forEach(b=>b.onclick=()=>{R3.want=b.
 // The model stands in the 3D view. Rigs the app knows (presets) are recognised by their bone names; any other rig gets
 // a best guess. Bone names are compared loosely: Blender's glTF suffixes ("_090_98"), case, spaces, dots and the
 // characters three.js strips from node names are ignored, so "thigh.L_090_98" and "thighL_090_98" both read "thighl".
-const MDL={grp:null,root:null,helper:null,place:"beside",move:false,mv:null,bones:false,size:1,base:1,wx:0,wz:0,head:0,busy:false,info:null};
+// several models at once (user, 2026-11-09): each one is a model object M with its own settings; at most one stands
+// in his place, the others take turns either side of him (right, left, further right, ...)
+const MODELS=[],MLOAD={busy:false};let MDLID=0;
+const mdlSlot=M=>{const b=MODELS.filter(x=>x.place==="beside"),k=Math.max(0,b.indexOf(M));return[(k%2?1:-1)*120*(1+Math.floor(k/2)),0,0]};
 const MDL_H=156;   // the regular sergal's standing height, ears included: a model is scaled to this
 const boneKey=n=>String(n).replace(/(_\d+)+$/,"").toLowerCase().replace(/[^a-z0-9]/g,"");
 const MD_SIDES=(m,l,r)=>{const o={};for(const [k,v] of Object.entries(m)){o[k+"L"]=l(v);o[k+"R"]=r(v)}return o};
@@ -1950,12 +1947,12 @@ function mdlRig(bones){const byKey=new Map();for(const b of bones){const k=boneK
   for(const [part,k] of Object.entries(P.map)){if(Array.isArray(k)){const l=k.map(x=>byKey.get(x)).filter(Boolean);if(l.length)out[part]=l}else if(byKey.has(k))out[part]=byKey.get(k)}
   return{preset:P,map:out}}
  return{preset:null,map:mdlGuess(bones)}}
-function mdlPlace(){const g=MDL.grp,moving=mdlMoving();g.scale.setScalar(moving?MDL.mv.base:MDL.base*MDL.size);
- if(moving){const o=MDL.place==="beside"?rotY([-120,0,0],HEAD):[0,0,0];g.position.set(o[0],groundW(POS[0],POS[1]),o[2]);g.rotation.y=HEAD}
- else if(MDL.place==="in"){g.position.set(0,groundW(POS[0],POS[1]),0);g.rotation.y=HEAD}
- else{g.position.set(MDL.wx-POS[0],groundW(MDL.wx,MDL.wz),MDL.wz-POS[1]);g.rotation.y=MDL.head}
- if(moving)mdlDrive();else if(MDL.mv&&MDL.mv.posed)mdlRest();
- const H=MDL.helper;if(H){H.visible=MDL.bones;
+function mdlPlace(M){const g=M.grp,moving=mdlMoving(M);g.scale.setScalar(moving?M.mv.base:M.base*M.size);
+ if(moving){const o=M.place==="beside"?rotY(mdlSlot(M),HEAD):[0,0,0];g.position.set(o[0],groundW(POS[0],POS[1]),o[2]);g.rotation.y=HEAD}
+ else if(M.place==="in"){g.position.set(0,groundW(POS[0],POS[1]),0);g.rotation.y=HEAD}
+ else{g.position.set(M.wx-POS[0],groundW(M.wx,M.wz),M.wz-POS[1]);g.rotation.y=M.head}
+ if(moving)mdlDrive(M);else if(M.mv&&M.mv.posed)mdlRest(M);
+ const H=M.helper;if(H){H.visible=M.bones;
   if(H.visible){g.updateMatrixWorld(true);const a=H.geometry.attributes.position,v=new R3.T.Vector3();let i=0;
    for(const [b,p] of H.userData.pairs){b.getWorldPosition(v);a.setXYZ(i++,v.x,v.y,v.z);p.getWorldPosition(v);a.setXYZ(i++,v.x,v.y,v.z)}a.needsUpdate=true}}}
 function mdlMsg(t){$("mdlMsg").textContent=t||""}
@@ -1964,7 +1961,7 @@ function mdlMsg(t){$("mdlMsg").textContent=t||""}
 // turn and lean, its legs reach his planted footprints with their OWN lengths (two-bone IK, knee towards his knee), its
 // arms, neck and tail point the way his do, and its head turns like his. Sized so its hips are as high as his, so the
 // footprints fit its legs and planted feet don't slide.
-const mdlMoving=()=>MDL.move&&MDL.mv&&CHAR==="sergal2"&&!!REC&&!!REC.body;
+const mdlMoving=M=>M.move&&M.mv&&CHAR==="sergal2"&&!!REC&&!!REC.body;
 function mdlMotionSetup(rig,root,box,T){const m=rig.map;
  if(!["hips","thighL","shinL","footL","thighR","shinR","footR"].every(k=>m[k]))return null;
  root.updateMatrixWorld(true);const rq=root.getWorldQuaternion(new T.Quaternion()).invert();
@@ -1990,9 +1987,9 @@ function mdlMotionSetup(rig,root,box,T){const m=rig.map;
   const seg=L/Math.max(1,tl.length-1);mv.tail={bones:tl,f:tl.map((_,i)=>Math.min(1,(cum[i]+seg*0.5)/(L+seg)))}}
  const hip=(mv.legs.L.hipH+mv.legs.R.hipH)/2;mv.base=restHeight({...PS2.idle})/hip;   // its hips as high as his
  return mv}
-function mdlRest(){const mv=MDL.mv;for(const [b,r] of mv.rest){b.quaternion.copy(r.q);b.position.copy(r.p)}mv.posed=false}
-function mdlDrive(){const T=R3.T,mv=MDL.mv,m=MDL.info&&MDL.rig,root=MDL.root,g=MDL.grp,Rr=REC;
- const s=g.scale.x,o=MDL.place==="beside"?rotY([-120,0,0],HEAD):[0,0,0];
+function mdlRest(M){const mv=M.mv;for(const [b,r] of mv.rest){b.quaternion.copy(r.q);b.position.copy(r.p)}mv.posed=false}
+function mdlDrive(M){const T=R3.T,mv=M.mv,m=M.rig,root=M.root,g=M.grp,Rr=REC;
+ const s=g.scale.x,o=M.place==="beside"?rotY(mdlSlot(M),HEAD):[0,0,0];
  const V=a=>new T.Vector3(a[0]+o[0],a[1],a[2]+o[2]),D=(a,b)=>new T.Vector3(b[0]-a[0],b[1]-a[1],b[2]-a[2]);
  for(const [b,r] of mv.rest){b.quaternion.copy(r.q);b.position.copy(r.p)}mv.posed=true;
  g.updateMatrixWorld(true);
@@ -2036,20 +2033,33 @@ function mdlDrive(){const T=R3.T,mv=MDL.mv,m=MDL.info&&MDL.rig,root=MDL.root,g=M
  // tail: his tail's curve laid along its tail bones
  if(mv.tail&&Rr.tail&&Rr.tail.length>1){const P=Rr.tail,cum=[0];for(let i=1;i<P.length;i++)cum.push(cum[i-1]+Math.hypot(...sub3(P[i],P[i-1])));const Lt=cum[cum.length-1]||1;
   mv.tail.bones.forEach((b,i)=>{const at=mv.tail.f[i]*Lt;let j=1;while(j<P.length-1&&cum[j]<at)j++;aim(b,D(P[j-1],P[j]))})}}
-function mdlUI(){const has=!!MDL.grp;$("mdlOpts").hidden=!has;$("mdlDel").hidden=!has;$("mdlPick").disabled=MDL.busy;
- $("mdlPick").textContent=has?"Choose another .glb file":"Choose a .glb file";$("mdl3d").hidden=!(has&&!r3on());
- document.querySelectorAll("#mdlPlace button").forEach(b=>b.classList.toggle("on",b.dataset.p===MDL.place));
- document.querySelectorAll("#mdlBones button").forEach(b=>b.classList.toggle("on",(b.dataset.b==="on")===MDL.bones));
- document.querySelectorAll("#mdlMove button").forEach(b=>b.classList.toggle("on",(b.dataset.m==="move")===MDL.move));
- const mv=MDL.move&&has;$("mdlSize").disabled=mv;$("mdlSize").closest(".sl").style.opacity=mv?0.5:1;
- $("mdlMoveNote").textContent=!has?"":!MDL.mv?(MDL.info&&MDL.info.lying?"It can't move while it's lying down.":"It can't move: its leg bones weren't found."):
-  !MDL.move?"Statue: stands still in its own pose.":CHAR!=="sergal2"?"It copies the regular sergal: pick \"Sergal (regular)\" to see it move.":
-  (MDL.place==="in"?"It moves as him, in his place.":"Dance partner: it moves beside him.")+" While it moves, its size follows his legs. (Run on all fours isn't done yet.)"}
-function mdlRemove(){const g=MDL.grp;if(!g)return;R3.sc.remove(g);if(MDL.helper){R3.sc.remove(MDL.helper);MDL.helper.geometry.dispose();MDL.helper.material.dispose()}
+// a statue beside him stays where it was put: on its side of him, facing his way
+function mdlSpot(M){const rt=rotY(mdlSlot(M),HEAD);M.wx=POS[0]+rt[0];M.wz=POS[1]+rt[2];M.head=HEAD}
+function mdlCard(M){const d=document.createElement("div");d.className="mdlCard";d.dataset.id=M.id;
+ d.innerHTML="<div class=\"mdlHead\"><b style=\"overflow-wrap:anywhere\">"+esc(M.info.name)+"</b><button type=\"button\" data-a=\"del\">Remove</button></div>"+
+  (M.lying?"<p style=\"margin:4px 0;color:var(--accent)\"><b>"+esc(M.lying)+"</b></p>":"")+
+  "<div class=\"row\" style=\"margin:6px 0\"><span class=\"lbl\" style=\"min-width:76px\">Where</span><div class=\"seg\" data-g=\"place\"><button data-v=\"beside\">Beside him</button><button data-v=\"in\">In his place</button></div></div>"+
+  "<div class=\"row\" style=\"margin:6px 0\"><span class=\"lbl\" style=\"min-width:76px\">Pose</span><div class=\"seg\" data-g=\"move\"><button data-v=\"statue\">Statue</button><button data-v=\"move\">Copies his moves</button></div></div>"+
+  "<p class=\"sub\" data-note style=\"margin:2px 0 6px\"></p>"+
+  "<div class=\"row anim\" style=\"margin:6px 0\"><span class=\"lbl\" style=\"min-width:76px\">Bones</span><div class=\"seg\" data-g=\"bones\"><button data-v=\"off\">Hidden</button><button data-v=\"on\">Shown</button></div></div>"+
+  "<div class=\"sl\"><label>Size (% of his height)</label><input type=\"range\" data-a=\"size\" min=\"25\" max=\"200\" step=\"5\" value=\"100\"><span class=\"val\">100</span></div>"+
+  "<div class=\"anim\" style=\"font-size:14px;line-height:1.45\">"+M.infoHTML+"</div>";
+ return d}
+function mdlUI(){$("mdlPick").disabled=MLOAD.busy;$("mdlPick").textContent=MODELS.length?"Add another .glb file":"Add a .glb file";
+ $("mdl3d").hidden=!(MODELS.length&&!r3on());
+ const list=$("mdlList");for(const c of [...list.children])if(!MODELS.some(M=>String(M.id)===c.dataset.id))c.remove();
+ for(const M of MODELS){let c=list.querySelector(".mdlCard[data-id=\""+M.id+"\"]");if(!c){c=mdlCard(M);list.appendChild(c)}
+  const on=(g,v)=>c.querySelectorAll("[data-g=\""+g+"\"] button").forEach(b=>b.classList.toggle("on",b.dataset.v===v));
+  on("place",M.place);on("move",M.move?"move":"statue");on("bones",M.bones?"on":"off");
+  const mv=M.move,sz=c.querySelector("[data-a=size]");sz.disabled=mv;sz.closest(".sl").style.opacity=mv?0.5:1;
+  c.querySelector("[data-note]").textContent=!M.mv?(M.lying?"It can't move while it's lying down.":"It can't move: its leg bones weren't found."):
+   !M.move?"Statue: stands still in its own pose.":CHAR!=="sergal2"?"It copies the regular sergal: pick \"Sergal (regular)\" to see it move.":
+   (M.place==="in"?"It moves as him, in his place.":"Dance partner: it moves beside him.")+" While it moves, its size follows his legs. (Run on all fours isn't done yet.)"}}
+function mdlRemove(M){const g=M.grp;R3.sc.remove(g);if(M.helper){R3.sc.remove(M.helper);M.helper.geometry.dispose();M.helper.material.dispose()}
  g.traverse(o=>{if(o.geometry)o.geometry.dispose();for(const m of [].concat(o.material||[])){for(const k in m){const v=m[k];if(v&&v.isTexture)v.dispose()}m.dispose()}});
- MDL.grp=MDL.root=MDL.helper=MDL.info=MDL.mv=MDL.rig=null;$("mdlInfo").innerHTML="";PDIRTY++}
+ MODELS.splice(MODELS.indexOf(M),1);PDIRTY++}
 const esc=t=>String(t).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
-async function mdlLoad(file){if(MDL.busy)return;MDL.busy=true;mdlUI();
+async function mdlLoad(file){
  const mb=file.size/1048576;mdlMsg("Reading "+file.name+" ("+mb.toFixed(1)+" MB)..."+(mb>60?" A big file: this can take a while, and may be too much for a phone.":""));
  try{
   if(!R3.T){mdlMsg("Loading the 3D renderer (three.js)...");await r3load();if(!R3.T)throw{user:"Couldn't download three.js (offline or blocked), so the model can't be shown. Everything else works as normal."}}
@@ -2060,9 +2070,13 @@ async function mdlLoad(file){if(MDL.busy)return;MDL.busy=true;mdlUI();
   mdlMsg("Unpacking "+file.name+"...");
   const gltf=await new Promise((ok,no)=>new R3.GLTF().parse(buf,"",ok,no)).catch(e=>{const m=String(e&&e.message||e);
    throw{user:/Failed to load buffer|Failed to fetch|\.bin/i.test(m)?"This .gltf points to separate files, which can't be opened from here. Export it as glTF Binary (.glb) instead.":"This file couldn't be read as a GLB ("+m.slice(0,120)+")."}});
-  mdlRemove();mdlShow(gltf,file);mdlMsg("");
+  mdlShow(gltf,file);mdlMsg("");
  }catch(e){mdlMsg(e&&e.user?e.user:"Something went wrong loading the model: "+String(e&&e.message||e).slice(0,160));if(!(e&&e.user))console.error(e)}
- MDL.busy=false;mdlUI();PDIRTY++}
+ mdlUI();PDIRTY++}
+// several files at once: one after another
+async function mdlLoadAll(files){if(MLOAD.busy)return;MLOAD.busy=true;mdlUI();
+ if(MODELS.length+files.length>3)mdlMsg("Several big models at once can be too much for a phone.");
+ for(const f of files)await mdlLoad(f);MLOAD.busy=false;mdlUI()}
 function mdlShow(gltf,file){const T=R3.T,root=gltf.scene;
  // counts
  let meshes=0,tris=0,shapes=new Set();const mats=new Set(),bones=[],seen=new Set();
@@ -2073,15 +2087,16 @@ function mdlShow(gltf,file){const T=R3.T,root=gltf.scene;
  // size: feet on the ground, centred, scaled to his height
  root.updateMatrixWorld(true);const box=new T.Box3().setFromObject(root),sz=box.getSize(new T.Vector3()),c=box.getCenter(new T.Vector3());
  const h=sz.y>1e-6?sz.y:1;root.position.set(-c.x,-box.min.y,-c.z);
- const g=new T.Group();g.add(root);MDL.grp=g;MDL.root=root;MDL.base=MDL_H/h;
- const rt=rotY([-120,0,0],HEAD);MDL.wx=POS[0]+rt[0];MDL.wz=POS[1]+rt[2];MDL.head=HEAD;   // on his right, facing his way
+ const g=new T.Group();g.add(root);
+ const M={id:++MDLID,grp:g,root,helper:null,place:"beside",move:false,mv:null,rig:null,bones:false,size:1,base:MDL_H/h,wx:0,wz:0,head:0,info:null,lying:"",infoHTML:""};
+ MODELS.push(M);mdlSpot(M);   // beside him, on the next free side, facing his way
  // bone overlay: a line from each bone to its parent. Blender's glTF importer leaves zero-size "..._end" tip bones that
  // can sit at the origin, so they are skipped (otherwise lines fan out from the feet)
  {const pairs=bones.filter(b=>b.parent&&b.parent.isBone&&!/_end(_\d+)*$/i.test(b.name)).map(b=>[b,b.parent]);
   if(pairs.length){const geo=new T.BufferGeometry();geo.setAttribute("position",new T.BufferAttribute(new Float32Array(pairs.length*6),3));
-   MDL.helper=new T.LineSegments(geo,new T.LineBasicMaterial({color:0x1f6fe0,depthTest:false,transparent:true,opacity:.9}));
-   MDL.helper.renderOrder=10;MDL.helper.frustumCulled=false;MDL.helper.userData.pairs=pairs;R3.sc.add(MDL.helper)}}
- R3.sc.add(g);mdlPlace();g.updateMatrixWorld(true);
+   M.helper=new T.LineSegments(geo,new T.LineBasicMaterial({color:0x1f6fe0,depthTest:false,transparent:true,opacity:.9}));
+   M.helper.renderOrder=10;M.helper.frustumCulled=false;M.helper.userData.pairs=pairs;R3.sc.add(M.helper)}}
+ R3.sc.add(g);mdlPlace(M);g.updateMatrixWorld(true);
  // rig
  const rig=bones.length?mdlRig(bones):null;
  const wp=b=>root.worldToLocal(b.getWorldPosition(new T.Vector3())),f2=v=>(+v).toFixed(2);
@@ -2099,8 +2114,7 @@ function mdlShow(gltf,file){const T=R3.T,root=gltf.scene;
  const rows=rig?MD_PARTS.map(([k,l])=>{const v=rig.map[k];return"<tr><td style=\"padding-right:10px\">"+l+"</td><td>"+(Array.isArray(v)?v.length+" bones ("+esc(v[0].name)+" ... "+esc(v[v.length-1].name)+")":nm(v))+"</td></tr>"}).join(""):"";
  const depth=b=>{let d=0;for(let p=b.parent;p&&p.isBone;p=p.parent)d++;return d};
  const tex=gltf.parser&&gltf.parser.json&&gltf.parser.json.textures?gltf.parser.json.textures.length:0;
- $("mdlInfo").innerHTML="<p style=\"margin:8px 0 4px\"><b>"+esc(file.name)+"</b> ("+(file.size/1048576).toFixed(1)+" MB)</p>"+
-  (lying?"<p style=\"margin:4px 0;color:var(--accent)\"><b>"+esc(lying)+"</b></p>":"")+"<div class=\"anim\"><p style=\"margin:2px 0\">"+meshes+" mesh"+(meshes===1?"":"es")+", "+Math.round(tris).toLocaleString()+" triangles, "+mats.size+" material"+(mats.size===1?"":"s")+", "+tex+" texture"+(tex===1?"":"s")+"; "+
+ M.lying=lying;M.infoHTML="<p style=\"margin:2px 0\">"+(file.size/1048576).toFixed(1)+" MB; "+meshes+" mesh"+(meshes===1?"":"es")+", "+Math.round(tris).toLocaleString()+" triangles, "+mats.size+" material"+(mats.size===1?"":"s")+", "+tex+" texture"+(tex===1?"":"s")+"; "+
   bones.length+" bones; "+shapes.size+" face / shape keys; "+gltf.animations.length+" animation"+(gltf.animations.length===1?"":"s")+".</p>"+
   "<p style=\"margin:2px 0\">Height "+f2(h)+" in the file's units"+(h>0.3&&h<4?" (metres, if it came from Blender)":"")+"; shown at his height ("+MDL_H+").</p>"+
   (rig?"<p style=\"margin:8px 0 2px\"><b>"+(rig.preset?"Recognised: "+esc(rig.preset.name)+" (preset)":"Rig not recognised: parts guessed from the bone names")+"</b></p>"+
@@ -2108,25 +2122,30 @@ function mdlShow(gltf,file){const T=R3.T,root=gltf.scene;
    (legs?"<p style=\"margin:4px 0\">"+legs+"</p>":"")+
    "<table style=\"border-collapse:collapse;margin:4px 0\">"+rows+"</table>"+
    "<details><summary>All bones ("+bones.length+")</summary><div style=\"font-family:ui-monospace,Menlo,monospace;font-size:12px;white-space:pre;overflow-x:auto\">"+bones.map(b=>"  ".repeat(depth(b))+esc(b.name)).join("\n")+"</div></details>"
-  :"<p style=\"margin:8px 0 2px\">No rig (no bones): it can be shown, but it can't move yet.</p>")+"</div>";
- MDL.rig=rig?rig.map:null;MDL.mv=rig&&!lying?mdlMotionSetup(rig,root,box,T):null;
- MDL.info={lying:!!lying,moves:!!MDL.mv,name:file.name,meshes,tris,bones:bones.length,shapes:shapes.size,anims:gltf.animations.length,height:h,preset:rig&&rig.preset?rig.preset.id:null,
+  :"<p style=\"margin:8px 0 2px\">No rig (no bones): it can be shown, but it can't move yet.</p>");
+ M.rig=rig?rig.map:null;M.mv=rig&&!lying?mdlMotionSetup(rig,root,box,T):null;
+ M.info={lying:!!lying,moves:!!M.mv,name:file.name,meshes,tris,bones:bones.length,shapes:shapes.size,anims:gltf.animations.length,height:h,preset:rig&&rig.preset?rig.preset.id:null,
   parts:rig?Object.fromEntries(Object.entries(rig.map).map(([k,v])=>[k,Array.isArray(v)?v.map(b=>b.name):v.name])):null};
  PDIRTY++}
 // iPhone / iPad grey out .glb in the file picker (iOS has no file type for it), so there the picker shows every file and
 // the app checks the file itself once it's picked (a GLB starts with the bytes "glTF")
 if(/iPad|iPhone|iPod/.test(navigator.userAgent)||(navigator.platform==="MacIntel"&&navigator.maxTouchPoints>1))$("mdlFile").removeAttribute("accept");
 $("mdlPick").onclick=()=>{const f=$("mdlFile");f.value="";f.click()};
-$("mdlFile").onchange=()=>{const f=$("mdlFile").files[0];if(f)mdlLoad(f)};
-$("mdlDel").onclick=()=>{mdlRemove();mdlMsg("");mdlUI()};
+$("mdlFile").onchange=()=>{const fs=[...$("mdlFile").files];if(fs.length)mdlLoadAll(fs)};
 $("mdlTo3d").onclick=()=>document.querySelector('#rendSw [data-r="three"]').click();
-document.querySelectorAll("#mdlPlace button").forEach(b=>b.onclick=()=>{MDL.place=b.dataset.p;
- if(MDL.place==="beside"){const rt=rotY([-120,0,0],HEAD);MDL.wx=POS[0]+rt[0];MDL.wz=POS[1]+rt[2];MDL.head=HEAD}mdlUI()});
-document.querySelectorAll("#mdlMove button").forEach(b=>b.onclick=()=>{MDL.move=b.dataset.m==="move";
- if(MDL.move&&MDL.mv&&CHAR!=="sergal2"){$("charSel").value="sergal2";$("charSel").dispatchEvent(new Event("change"))}mdlUI()});
-$("charSel").addEventListener("change",()=>{if(MDL.grp)mdlUI()});
-document.querySelectorAll("#mdlBones button").forEach(b=>b.onclick=()=>{MDL.bones=b.dataset.b==="on";mdlUI()});
-$("mdlSize").oninput=()=>{MDL.size=+$("mdlSize").value/100;$("mdlSizeV").textContent=$("mdlSize").value};
+$("mdlList").addEventListener("click",e=>{const b=e.target.closest("button"),c=e.target.closest(".mdlCard");if(!b||!c)return;
+ const M=MODELS.find(x=>String(x.id)===c.dataset.id);if(!M)return;
+ if(b.dataset.a==="del"){mdlRemove(M);mdlMsg("");mdlUI();return}
+ const g=b.parentElement.dataset.g,v=b.dataset.v;
+ if(g==="place"){if(v==="in")for(const o of MODELS)if(o!==M&&o.place==="in"){o.place="beside"}   // one in his place at a time
+  M.place=v;for(const o of MODELS)if(o.place==="beside"&&!mdlMoving(o))mdlSpot(o)}
+ else if(g==="move"){M.move=v==="move";if(M.move&&M.mv&&CHAR!=="sergal2"){$("charSel").value="sergal2";$("charSel").dispatchEvent(new Event("change"))}
+  if(!M.move&&M.place==="beside")mdlSpot(M)}
+ else if(g==="bones")M.bones=v==="on";
+ mdlUI()});
+$("mdlList").addEventListener("input",e=>{const r=e.target;if(r.dataset.a!=="size")return;const c=r.closest(".mdlCard"),M=MODELS.find(x=>String(x.id)===c.dataset.id);if(!M)return;
+ M.size=+r.value/100;r.parentElement.querySelector(".val").textContent=r.value});
+$("charSel").addEventListener("change",()=>{if(MODELS.length)mdlUI()});
 document.querySelectorAll("#rendSw button").forEach(b=>b.addEventListener("click",()=>setTimeout(mdlUI,0)));
 document.querySelectorAll("#r3Look [data-k]").forEach(b=>b.onclick=()=>{R3.look[b.dataset.k]=b.dataset.v;try{localStorage.setItem("mixmoLook3D",JSON.stringify(R3.look))}catch(e){}r3applyLook();r3ui()});
 // Dev mode: players see the view, animations, terrain, looks, power saving and the timeline; the rest is for the author
