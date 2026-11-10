@@ -53,7 +53,8 @@ html.game:not(.desk) #stickZone{display:block}
 #stick.show{display:block}
 #emoteBtn{position:absolute;right:10px;top:10px;z-index:3;display:none;padding:0 12px}
 html.game #emoteBtn.show{display:block}
-#formsBox{margin:8px 16px}
+#formsBox,#presetBox{margin:8px 16px}
+#presetBox .row{margin:4px 0}
 #formsBox .row{margin:4px 0}
 #stickKnob{position:absolute;left:50%;top:50%;width:56px;height:56px;margin:-28px 0 0 -28px;border-radius:50%;background:var(--ink);opacity:.85;pointer-events:none}
 #gameTip kbd,#formsBox kbd{font:inherit;font-size:12px;border:1px solid var(--ink);border-radius:4px;padding:0 4px;background:var(--paper)}
@@ -132,6 +133,10 @@ html.desk .sl .rs{min-height:22px;min-width:30px;padding:0 6px;font-size:14px}
 <div class="row" style="flex-wrap:nowrap;align-items:center"><span class="lbl">Between:</span><div class="seg" id="fMid"><button data-m="">Off</button><button data-m="dino">Dinosaur</button><button data-m="roo">Kangaroo</button></div></div>
 <div class="row" style="flex-wrap:nowrap;align-items:center"><span class="lbl">Run:</span><select id="fRun" class="pick" aria-label="Run style"></select></div>
 <p class="sub" style="margin:2px 0 0">Joystick: a small push walks, a medium one is the in-between form, all the way runs. Keys: walk and run; hold <kbd>Ctrl</kbd> for the in-between form (on Windows use it with the arrow keys: Ctrl+W closes the tab). T-pose: the button in the view while he stands still.</p>
+</fieldset>
+<fieldset id="presetBox" hidden><legend>Body preset</legend>
+<div class="row" style="flex-wrap:nowrap;align-items:center"><span class="lbl">Legs:</span><div class="seg" id="presetSeg"><button data-p="sergal">Sergal</button><button data-p="fox">Fox</button></div></div>
+<p class="sub" id="presetNote" style="margin:2px 0 0"></p>
 </fieldset>
 <fieldset id="robotLook" hidden><legend>Robot look</legend>
 <div class="sl dev"><label>Bone stretch allowed</label><input type="range" id="boneTol" min="0" max="0.3" step="0.01" value="0"><span class="val" id="boneTolV">0%</span></div><div class="row dev" style="margin:6px 0"><button id="boneShow">Bone check</button></div>
@@ -381,12 +386,14 @@ function segUI(){
 function characterFile(){const D=charDef(),clean=a=>a.map(({ik,...rest})=>rest);
  const f={format:"tripod-character",version:1,character:CHAR,name:D.name,limbs:clean(D.limbs),modes:P};
  if(CHAR!=="robot"){f.shape=SERGAL_SHAPE;f.attach=CHAR==="sergal"?ATT:Object.fromEntries(LEGS2.map(L=>[L.k,L.att]))}
+ if(CHAR==="sergal2")f.preset=PRESET2;   // body preset (the modes above are that preset's settings)
  else{f.shape={body:{len:BODY_L,radius:BODY_R}};f.look={...RLOOK}}
  return f}
 function syncJSON(){if(typeof CHARACTERS==="undefined"){$("json").value=JSON.stringify(P,null,1);return}$("json").value=JSON.stringify(characterFile(),null,1)}
 function applyCharacterFile(o){
  if(o.format!=="tripod-character"){for(const m of Object.keys(P))if(o[m])Object.assign(P[m],o[m]);return "Settings applied."}   // older settings-only text
  if(o.character!==CHAR){$("charSel").value=o.character;$("charSel").onchange()}
+ if(o.character==="sergal2"&&o.preset)setPreset2(o.preset);
  for(const m of Object.keys(o.modes||{}))if(P[m])Object.assign(P[m],o.modes[m]);
  const D=charDef();(o.limbs||[]).forEach((L,i)=>{if(D.limbs[i])Object.assign(D.limbs[i],L)});
  if(o.character==="sergal"){if(o.shape)for(const k in o.shape)Object.assign(SERGAL_SHAPE[k],o.shape[k]);if(o.attach)for(const k in o.attach)Object.assign(ATT[k],o.attach[k])}
@@ -618,14 +625,14 @@ document.querySelectorAll("#armOpt button").forEach(b=>{b.classList.toggle("on",
  b.onclick=()=>{ARMOPT=+b.dataset.a;try{localStorage.setItem("mixmoArmOpt",ARMOPT)}catch(e){}document.querySelectorAll("#armOpt button").forEach(x=>x.classList.toggle("on",x===b))}});
 document.querySelectorAll("#cycOrder button").forEach(b=>{b.classList.toggle("on",b.dataset.o===CYCORDER);
  b.onclick=()=>{CYCORDER=b.dataset.o;try{localStorage.setItem("mixmoCycleOrder",CYCORDER)}catch(e){}document.querySelectorAll("#cycOrder button").forEach(x=>x.classList.toggle("on",x===b))}});
-const [L1,L2,L3]=SERGAL_SHAPE.legSeg;   // both characters currently share these leg lengths
+let [L1,L2,L3]=SERGAL_SHAPE.legSeg,TOE=9;   // leg lengths (thigh, shin, foot) and toe in use; the regular sergal's body preset swaps them in while he is built (withLegs2)
 function legChain(p,th,o={th:0,kn:0,hk:0,dir:1}){
  const sw=Math.cos(th)>0?Math.cos(th):0; // >0 while paw swings forward
  const tA=(p.thigh+o.th+p.stride*o.dir*Math.sin(th))*R;
  const sA=tA-(p.knee+o.kn+p.lift*sw)*R;
  const mA=sA+(p.hock+o.hk+p.lift*0.7*sw)*R;
  const d=a=>[0,-Math.cos(a),Math.sin(a)];
- const k=mul(d(tA),L1),h=add(k,mul(d(sA),L2)),f=add(h,mul(d(mA),L3)),t=add(f,[0,0,9]);
+ const k=mul(d(tA),L1),h=add(k,mul(d(sA),L2)),f=add(h,mul(d(mA),L3)),t=add(f,[0,0,TOE]);
  return [k,h,f,t];
 }
 function restHeight(p){const c=legChain({...p,stride:0,lift:0},0);return -c[2][1]}
@@ -815,7 +822,7 @@ function buildRig(p,ph){
   if(q.gw!==undefined){// growing third leg: pops out as a stub (first 8%), lengthens as a tail (to half), then swings down and plants
    const g=q.gw,sb=Math.min(1,g/0.08),ln=g<0.08?0.18*sb:0.18+0.82*Math.min(1,(g-0.08)/0.42),w=g<=0.5?0:ease((g-0.5)/0.5),sw=0.35*Math.sin(th*1.5);
    const dd=v=>norm3(rotY(v,sw)),d1=dd([0,-0.45,-1]),d2=dd([0,0.1,-1]),d3=dd([0,0.55,-1]);
-   const k1=add(hip,mul(d1,L1*ln)),h1=add(k1,mul(d2,L2*ln)),f1=add(h1,mul(d3,L3*ln)),t1=add(f1,mul(d3,9*ln));
+   const k1=add(hip,mul(d1,L1*ln)),h1=add(k1,mul(d2,L2*ln)),f1=add(h1,mul(d3,L3*ln)),t1=add(f1,mul(d3,TOE*ln));
    pts=w>0?blendBones(hip,[k1,h1,f1,t1],pts,w):[k1,h1,f1,t1];rs=(0.55+0.45*Math.min(1,g/0.5))*(0.3+0.7*sb)}
   tube(hip,pts[0],8*rs,5.5*rs,col);tube(pts[0],pts[1],5.5*rs,3.6*rs,col);tube(pts[1],pts[2],3.6*rs,3.2*rs,col);tube(pts[2],pts[3],4*rs,3.4*rs,C.furD);
   if(q.gw===undefined||q.gw>=0.75)prims.push({t:2,a:[pts[2][0],ground(pts[2][0],pts[2][2]+4)+0.1,pts[2][2]+4],r:9});
@@ -1001,6 +1008,26 @@ Object.assign(DEF2.walk,{lean:8,uSwing:24,uSwing_t:9,thigh:16});
 Object.assign(DEF2.run,{lean:20,uSwing:40,uSwing_t:14});
 Object.assign(DEF2.gallop,{phBL:0,phBR:0.1});
 const PS2=JSON.parse(JSON.stringify(DEF2));
+// ---------- M3: the regular sergal's body presets ----------
+// One biped-with-a-tail character, several bodies. A preset sets his leg lengths, toe and stance, and has its own gait
+// settings, so an imported model of that body copies footprints that fit its legs. Fox: measured from the Baller Fox
+// GLB (her rig hides the raised hock inside the shin bone, so the hock was read off the mesh): hip 1.22 m, knee 0.73,
+// hock 0.39, ball of the foot at the ground; thigh 0.51, shin 0.50, raised foot 0.38. Scaled so her hips sit at 62% of
+// his full height, as hers do (his are at 50%), so a fox model copying him keeps its own size.
+const SERGAL2_PRESETS={
+ sergal:{name:"Sergal",legSeg:[30,30,22],toe:9,camUp:0,note:"His own legs: thigh, shin and foot 30 / 30 / 22, hock low."},
+ fox:{name:"Fox",legSeg:[40,39,32],toe:7,camUp:9,note:"The Baller Fox's legs: about a third longer (thigh, shin and raised foot 40 / 39 / 32), standing high on her toes with the hock at a third of her hip height; longer, lighter strides."}};
+const camAim2=()=>CHAR==="sergal2"?68+SERGAL2_PRESETS[PRESET2].camUp:68;   // where the camera looks: half way up his extra height
+let PRESET2="sergal";try{const v=localStorage.getItem("mixmoPreset2");if(SERGAL2_PRESETS[v])PRESET2=v}catch(e){}
+function withLegs2(fn){const pr=SERGAL2_PRESETS[PRESET2],s=[L1,L2,L3,TOE];[L1,L2,L3]=pr.legSeg;TOE=pr.toe;try{return fn()}finally{[L1,L2,L3,TOE]=s}}
+// fox gait: her stance (thigh 14, knee 62, hock 79 at rest), shifted per mode as his is; legs a third longer, so
+// fewer, longer strides (cadence x0.88, distance per cycle x1.3: the usual scaling for longer legs) and less bounce
+const DEF2F=JSON.parse(JSON.stringify(DEF2));
+{const st={idle:[14,62,79],walk:[12,62,79],run:[24,69,86],gallop:[26,69,86]};
+ for(const m in DEF2F){const d=DEF2F[m],[t,k,h]=st[m];Object.assign(d,{thigh:t,knee:k,hock:h,speed:+(d.speed*0.88).toFixed(2),travel:Math.round(d.travel*1.14)})}
+ DEF2F.walk.bob=2;DEF2F.run.bob=4.5;DEF2F.gallop.bob=2.5}
+const PS2F=JSON.parse(JSON.stringify(DEF2F));
+const preset2Params=()=>PRESET2==="fox"?PS2F:PS2;
 const MODES_S2=[["idle","Idle"],["walk","Walk"],["run","Run (upright)"],["gallop","Run on all fours"]];
 const META2=META.filter(([g])=>!["Lower arms (bottom pair)","Pair sync"].includes(g)).map(([g,l])=>{
  const ren={"Upper arms (top pair)":"Arms","Two heads":"Head","Lion tails":"Tail","Leg rest pose (per leg)":"Leg rest pose"}[g]||g;
@@ -1008,17 +1035,17 @@ const META2=META.filter(([g])=>!["Lower arms (bottom pair)","Pair sync"].include
  return[ren,l]});
 function buildSergal2(p,ph){const s=[GROWE,HMERGE,SPLITE,TAILE,SHOW.nArms,SHOW.nHeads,SHOW.nTails];
  GROWE=0;HMERGE=1;SPLITE=0;TAILE=0;SHOW.nArms=2;SHOW.nHeads=2;SHOW.nTails=1;
- try{buildRig(p,ph)}finally{[GROWE,HMERGE,SPLITE,TAILE,SHOW.nArms,SHOW.nHeads,SHOW.nTails]=s}}
+ try{withLegs2(()=>buildRig(p,ph))}finally{[GROWE,HMERGE,SPLITE,TAILE,SHOW.nArms,SHOW.nHeads,SHOW.nTails]=s}}
 const CHARACTERS={
  sergal:{name:"Sergal (OC)",shape:SERGAL_SHAPE,attach:ATT,limbs:LEGS,sliders:META,defaults:DEF,params:PS,modes:MODES_S,build:(p,ph)=>buildRig(p,ph),
   similar:{idle:"idle",idleTail:"idleTail",gallop:"gallop",tpose:"idle",walk:"walk",walk2:"walk",run:"run",runTail:"run",dino:"run",roo:"run",run6:"gallop",run5b:"gallop",run5f:"gallop",run4:"gallop",run4dog:"gallop",run5head:"gallop"},
-  panels:{show:["sergalParts","attach","moodRow","emoodRow"],hide:["robotLook","tF","tC"]}},
- sergal2:{name:"Sergal (regular)",shape:SERGAL_SHAPE,limbs:LEGS2,sliders:META2,defaults:DEF2,params:PS2,modes:MODES_S2,build:buildSergal2,
+  panels:{show:["sergalParts","attach","moodRow","emoodRow"],hide:["robotLook","tF","tC","presetBox"]}},
+ sergal2:{name:"Sergal (regular)",shape:SERGAL_SHAPE,limbs:LEGS2,sliders:META2,get defaults(){return PRESET2==="fox"?DEF2F:DEF2},get params(){return preset2Params()},modes:MODES_S2,build:buildSergal2,
   similar:{idle:"idle",idleTail:"idle",tpose:"idle",walk:"walk",walk2:"walk",run:"run",runTail:"run",dino:"run",roo:"run",gallop:"gallop",run6:"gallop",run5b:"gallop",run5f:"gallop",run4:"gallop",run4dog:"gallop",run5head:"gallop"},
-  panels:{show:["moodRow","emoodRow"],hide:["sergalParts","attach","robotLook","tF","tC"]}},
+  panels:{show:["moodRow","emoodRow","presetBox"],hide:["sergalParts","attach","robotLook","tF","tC"]}},
  robot:{name:"Robot",shape:{get body(){return{len:BODY_L,radius:BODY_R}},look:RLOOK,skins:SKINPAL},limbs:RLIMBS,sliders:META_R,defaults:DEF_R,params:PR,modes:MODES_R,build:(p,ph)=>buildRobot(p,ph),
   similar:{idle:"idle",idleTail:"idle",walk:"walk",run:"run",gallop:"run6"},
-  panels:{show:["robotLook","tF","tC"],hide:["sergalParts","attach","moodRow","emoodRow"]}}};
+  panels:{show:["robotLook","tF","tC"],hide:["sergalParts","attach","moodRow","emoodRow","presetBox"]}}};
 const charDef=()=>CHARACTERS[CHAR];
 $("charSel").innerHTML=Object.entries(CHARACTERS).map(([k,c])=>`<option value="${k}">${c.name}</option>`).join("");
 $("charSel").onchange=()=>{CHAR=$("charSel").value;const D=charDef();
@@ -1028,6 +1055,15 @@ $("charSel").onchange=()=>{CHAR=$("charSel").value;const D=charDef();
  for(const L of [...LEGS,...RLIMBS,...LEGS2])L.ik=null;
  for(const id of D.panels.show)$(id).hidden=false;for(const id of D.panels.hide)$(id).hidden=true;FLIP=null;
  segUI();buildSliders();applyCollapsed();syncJSON()};
+// body preset (regular sergal): changing it rebuilds him like a character switch (same animation) and clears the
+// rewind history, since recorded frames were built with the other legs
+function presetUI(){document.querySelectorAll("#presetSeg button").forEach(b=>b.classList.toggle("on",b.dataset.p===PRESET2));
+ $("presetNote").textContent=SERGAL2_PRESETS[PRESET2].note}
+function setPreset2(v){if(!SERGAL2_PRESETS[v]||v===PRESET2)return;PRESET2=v;try{localStorage.setItem("mixmoPreset2",v)}catch(e){}
+ if(CHAR==="sergal2"){$("charSel").onchange();if(typeof hClear==="function")hClear()}
+ presetUI();if(typeof mdlUI==="function"&&MODELS.length)mdlUI();PDIRTY++}
+document.querySelectorAll("#presetSeg button").forEach(b=>b.onclick=()=>setPreset2(b.dataset.p));
+presetUI();
 // body length moves the top cluster of limbs with the end of the body
 $("rLen").oninput=()=>{BODY_L=+$("rLen").value;$("rLenV").textContent=BODY_L;for(const L of RLIMBS)if(L.end==="T")L.v[1]=BODY_L;CEIL=ceilFor()};
 $("rRad").oninput=()=>{BODY_R=+$("rRad").value;$("rRadV").textContent=BODY_R};
@@ -1326,7 +1362,7 @@ if(typeof ResizeObserver!=="undefined"){let vw=0,vh=0;new ResizeObserver(es=>{co
  (fine.addEventListener?fine.addEventListener("change",apply):fine.addListener(apply));addEventListener("resize",apply);
  window.UIMODE=()=>({pick,desk:root.classList.contains("desk"),side:root.classList.contains("side")});apply()})();
 function proj(v){
- const robo=CHAR==="robot";let q=rotX(rotY([v[0],v[1]-(robo?CAMY:68),v[2]],yaw),pitch);
+ const robo=CHAR==="robot";let q=rotX(rotY([v[0],v[1]-(robo?CAMY:camAim2()),v[2]],yaw),pitch);
  const s=zoom*Math.min(W,Hh*1.1)/(robo?260+BODY_L*1.4:245)*(600/(600-q[2]));
  return{x:W/2+panX+q[0]*s,y:Hh*0.5+panY-q[1]*s,z:q[2],s};
 }
@@ -1405,7 +1441,7 @@ function pickReport(){if(!PSEL){pSay(PICK?"Tap a shape in the view to track it."
  pSay(head+" Drawn "+(k+1)+" of "+DRAWN.length+"; about "+Math.round(100*tot/sm.length)+"% covered by: "+by.slice(0,6).map(b=>b.nm+" ("+Math.round(100*b.n/sm.length)+"%)").join("; ")+(by.length>6?"; and "+(by.length-6)+" more":"")+".")}
 // camera readout (both debug panels): the orbit settings, where the camera is, and which side of him it sees
 let CTXT="";
-function camReport(){const robo=CHAR==="robot",camY=robo?CAMY:68,D=600,deg=r=>Math.round(r*180/Math.PI);
+function camReport(){const robo=CHAR==="robot",camY=robo?CAMY:camAim2(),D=600,deg=r=>Math.round(r*180/Math.PI);
  const back=v=>rotY(rotX(v,-pitch),-yaw),cp=back([0,0,D]),rel=[cp[0],cp[1]+camY,cp[2]];
  let a=Math.atan2(cp[0],cp[2])-HEAD;a=Math.atan2(Math.sin(a),Math.cos(a));   // 0 = in front of him, ±180 = behind
  const sides=["front","front-left","left","back-left","back","back-right","right","front-right"],side=sides[((Math.round(a/(Math.PI/4))%8)+8)%8];
@@ -1874,7 +1910,7 @@ function r3render(){const T=R3.T,R=R3,OUT=0.7,L=R.look;
  const w=Math.max(1,W),h=Math.max(1,Hh),dpr=Math.min(2,DPR);
  if(R.rd.getPixelRatio()!==dpr)R.rd.setPixelRatio(dpr);const sz=R.rd.getSize(new T.Vector2());if(sz.x!==w||sz.y!==h)R.rd.setSize(w,h,false);
  // camera: same view as the canvas renderer (orbit yaw/pitch round the target, 600 units back, same scale and pan)
- const robo=CHAR==="robot",camY=robo?CAMY:68,s0=zoom*Math.min(w,h*1.1)/(robo?260+BODY_L*1.4:245),D=600;
+ const robo=CHAR==="robot",camY=robo?CAMY:camAim2(),s0=zoom*Math.min(w,h*1.1)/(robo?260+BODY_L*1.4:245),D=600;
  const back=v=>rotY(rotX(v,-pitch),-yaw),cp=back([0,0,D]),up=back([0,1,0]);
  R.cam.position.set(cp[0],cp[1]+camY,cp[2]);R.cam.up.set(up[0],up[1],up[2]);R.cam.lookAt(0,camY,0);
  R.cam.fov=2*Math.atan(h/(2*s0*D))*180/Math.PI;R.cam.aspect=w/h;R.cam.setViewOffset(w,h,-panX,-panY,w,h);R.cam.updateProjectionMatrix();
@@ -1969,7 +2005,7 @@ function mdlRig(bones){const byKey=new Map();for(const b of bones){const k=boneK
   for(const [part,k] of Object.entries(P.map)){if(Array.isArray(k)){const l=k.map(x=>byKey.get(x)).filter(Boolean);if(l.length)out[part]=l}else if(byKey.has(k))out[part]=byKey.get(k)}
   return{preset:P,map:out}}
  return{preset:null,map:mdlGuess(bones)}}
-function mdlPlace(M){const g=M.grp,moving=mdlMoving(M);g.scale.setScalar(moving?M.mv.base:M.base*M.size);
+function mdlPlace(M){const g=M.grp,moving=mdlMoving(M);g.scale.setScalar(moving?mdlBase(M.mv):M.base*M.size);
  if(moving){const o=M.place==="beside"?rotY(mdlSlot(M),HEAD):[0,0,0];g.position.set(o[0],groundW(POS[0],POS[1]),o[2]);g.rotation.y=HEAD}
  else if(M.place==="in"){g.position.set(0,groundW(POS[0],POS[1]),0);g.rotation.y=HEAD}
  else{g.position.set(M.wx-POS[0],groundW(M.wx,M.wz),M.wz-POS[1]);g.rotation.y=M.head}
@@ -1984,6 +2020,13 @@ function mdlMsg(t){$("mdlMsg").textContent=t||""}
 // arms, neck and tail point the way his do, and its head turns like his. Sized so its hips are as high as his, so the
 // footprints fit its legs and planted feet don't slide.
 const mdlMoving=M=>M.move&&M.mv&&CHAR==="sergal2"&&!!REC&&!!REC.body;
+// the paw's tip, in the model's own frame (forward = +z): the furthest-forward point the foot bone moves most
+function mdlFootTip(root,ft,T){let best=null;const v=new T.Vector3(),inv=new T.Matrix4().copy(root.matrixWorld).invert();
+ root.traverse(o=>{if(!o.isSkinnedMesh)return;const bi=o.skeleton.bones.indexOf(ft);if(bi<0)return;
+  const si=o.geometry.attributes.skinIndex,sw=o.geometry.attributes.skinWeight;if(!si||!sw)return;
+  for(let i=0;i<si.count;i++){let w=0,top=0;for(let c=0;c<4;c++){const x=sw.getComponent(i,c);if(si.getComponent(i,c)===bi)w+=x;top=Math.max(top,x)}
+   if(w<0.5||w<top)continue;o.getVertexPosition(i,v);v.applyMatrix4(o.matrixWorld).applyMatrix4(inv);if(best===null||v.z>best)best=v.z}});
+ return best}
 function mdlMotionSetup(rig,root,box,T){const m=rig.map;
  if(!["hips","thighL","shinL","footL","thighR","shinR","footR"].every(k=>m[k]))return null;
  root.updateMatrixWorld(true);const rq=root.getWorldQuaternion(new T.Quaternion()).invert();
@@ -2000,16 +2043,24 @@ function mdlMotionSetup(rig,root,box,T){const m=rig.map;
  for(const sd of ["L","R"]){const th=m["thigh"+sd],sh=m["shin"+sd],ft=m["foot"+sd],to=m["toes"+sd];
   setLd(th,sh);setLd(sh,ft);const A=lp(th),K=lp(sh),F=lp(ft),Tt=to?lp(to):null;
   // foot: from the ankle forward to the ball of the foot (the toes bone; without one, an estimate of 30% of the shin)
+  // no toes bone: the ball of the foot is half way from the ankle to the paw's tip, read off the mesh (the vertices the
+  // foot bone moves most); the old guess, 30% of the shin, put the Baller Fox's ball 0.21 m ahead, past her toes (0.14)
+  const tipZ=Tt?null:mdlFootTip(root,ft,T),toeZ=tipZ!==null&&tipZ>F.z?Math.min(0.3*K.distanceTo(F),0.5*(tipZ-F.z)):0.3*K.distanceTo(F);
   mv.legs[sd]={th,sh,ft,to,l1:A.distanceTo(K),l2:K.distanceTo(F),ankleH:F.y-box.min.y,
-   toe:Tt?new T.Vector3(Tt.x-F.x,0,Tt.z-F.z):new T.Vector3(0,0,0.3*K.distanceTo(F)),hipH:A.y-box.min.y};
+   toe:Tt?new T.Vector3(Tt.x-F.x,0,Tt.z-F.z):new T.Vector3(0,0,toeZ),hipH:A.y-box.min.y};
   const ua=m["upperArm"+sd],fa=m["forearm"+sd],hd=m["hand"+sd];
   if(ua&&fa){setLd(ua,fa);setLd(fa,hd,ua);mv.arms[sd]={ua,fa}}}
  if(m.neck&&m.head)setLd(m.neck,m.head);
  if(m.tail&&m.tail.length){const tl=m.tail,pts=tl.map(lp);let L=0;const cum=[0];
   for(let i=0;i<tl.length;i++){setLd(tl[i],tl[i+1],i?tl[i-1]:null);if(i)L+=pts[i].distanceTo(pts[i-1]);cum.push(L)}
   const seg=L/Math.max(1,tl.length-1);mv.tail={bones:tl,f:tl.map((_,i)=>Math.min(1,(cum[i]+seg*0.5)/(L+seg)))}}
- const hip=(mv.legs.L.hipH+mv.legs.R.hipH)/2;mv.base=restHeight({...PS2.idle})/hip;   // its hips as high as his
+ mv.hip=(mv.legs.L.hipH+mv.legs.R.hipH)/2;   // its hips are drawn as high as his: see mdlBase
  return mv}
+// while it copies him, a model is scaled so its hips are as high as his standing hips, with the body preset's legs
+// (Fox: her legs are a third longer than his own, so a fox model keeps about its own size instead of shrinking)
+const MDLBASE={k:"",v:0};
+function mdlBase(mv){const i=preset2Params().idle,k=PRESET2+","+i.thigh+","+i.knee+","+i.hock;   // his standing height depends only on these
+ if(MDLBASE.k!==k){MDLBASE.k=k;MDLBASE.v=withLegs2(()=>restHeight({...preset2Params().idle}))}return MDLBASE.v/mv.hip}
 function mdlRest(M){const mv=M.mv;for(const [b,r] of mv.rest){b.quaternion.copy(r.q);b.position.copy(r.p)}mv.posed=false}
 function mdlDrive(M){const T=R3.T,mv=M.mv,m=M.rig,root=M.root,g=M.grp,Rr=REC;
  const s=g.scale.x,o=M.place==="beside"?rotY(mdlSlot(M),HEAD):[0,0,0];
@@ -2090,7 +2141,8 @@ function mdlUI(){$("mdlPick").disabled=MLOAD.busy;$("mdlPick").textContent=MODEL
   const mv=M.move,sz=c.querySelector("[data-a=size]");sz.disabled=mv;sz.closest(".sl").style.opacity=mv?0.5:1;
   c.querySelector("[data-note]").textContent=!M.mv?(M.lying?"It can't move while it's lying down.":"It can't move: its leg bones weren't found."):
    !M.move?"Statue: stands still in its own pose.":CHAR!=="sergal2"?"It copies the regular sergal: pick \"Sergal (regular)\" to see it move.":
-   (M.place==="in"?"It moves as him, in his place.":"Dance partner: it moves beside him.")+" While it moves, its size follows his legs. (Run on all fours isn't done yet.)"}}
+   (M.place==="in"?"It moves as him, in his place.":"Dance partner: it moves beside him.")+" While it moves, its size follows his legs. (Run on all fours isn't done yet.)"+
+   (M.info.preset==="ballerfox"&&PRESET2!=="fox"?" Tip: Body preset > Fox gives him her legs, so her steps fit her.":M.info.preset==="femsergal"&&PRESET2!=="sergal"?" Tip: she fits Body preset > Sergal.":"")}}
 function mdlRemove(M){const g=M.grp;R3.sc.remove(g);if(M.helper){R3.sc.remove(M.helper);M.helper.geometry.dispose();M.helper.material.dispose()}
  g.traverse(o=>{if(o.geometry)o.geometry.dispose();for(const m of [].concat(o.material||[])){for(const k in m){const v=m[k];if(v&&v.isTexture)v.dispose()}m.dispose()}});
  MODELS.splice(MODELS.indexOf(M),1);PDIRTY++}
