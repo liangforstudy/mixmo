@@ -1829,10 +1829,28 @@ function r3warm(){const R=R3,T=R.T,M=R.MAT;
   add(R.grid,[R.grid.material]);add(R.shadows,[R.shadows.material]);return W};
  const go=W=>R.rd.compileAsync?R.rd.compileAsync(W,R.cam):Promise.resolve(R.rd.compile(W,R.cam));
  return Promise.all([go(mk(true)),go(mk(false))]).catch(()=>{})}
+// A model just added: build its shaders (with and without the sun's real shadows) and upload its textures now, in
+// the background, so the first frame that shows it (for example when the drawer is pulled down and the view
+// appears) doesn't stop to do it (user's suggestion, 2026-11-10).
+function mdlWarm(M){const R=R3;if(!R.rd||!M.grp)return Promise.resolve();
+ M.grp.traverse(o=>{for(const m of [].concat(o.material||[]))for(const k in m){const v=m[k];if(v&&v.isTexture)try{R.rd.initTexture(v)}catch(_){}}});
+ const go=()=>R.rd.compileAsync?R.rd.compileAsync(R.sc,R.cam):Promise.resolve(R.rd.compile(R.sc,R.cam));
+ const was=R.sun.castShadow,a=go();R.sun.castShadow=!was;const b=go();R.sun.castShadow=was;   // both variants start compiling now
+ // Then draw the scene once with the sun's real shadows on and once with them off, right away (not after waiting for
+ // compileAsync). Safari only really builds a shader the first time it draws with it, and never reports one as ready
+ // before that, so waiting meant this never happened on the iPhone (user's recording, 2026-11-10: "0 of 8 shaders
+ // confirmed", then a 0.22 s freeze when the drawer was pulled down). Drawing also builds the shadow pass's shaders,
+ // which compileAsync skips. It goes to the screen, not off screen (tone mapping is part of a shader's recipe); the
+ // next frame paints over it.
+ try{const prev=R.rd.getRenderTarget(),fc=[];M.grp.traverse(o=>{if(o.isMesh){fc.push([o,o.frustumCulled]);o.frustumCulled=false}});   // every part, even off screen
+  R.rd.setRenderTarget(null);for(const sh of [true,false]){R.sun.castShadow=sh;R.rd.shadowMap.needsUpdate=true;R.rd.render(R.sc,R.cam)}
+  R.sun.castShadow=was;R.rd.setRenderTarget(prev);for(const [o,f] of fc)o.frustumCulled=f}catch(_){R.sun.castShadow=was}
+ return Promise.all([a,b]).catch(()=>{})}
 function r3applyLook(){const R=R3,L=R.look;if(!R.rd||!R.MAT)return;const M=R.MAT[L.style]||R.MAT.toon;
  R.segM.material=M.seg;R.balls.material=M.plain;R.panels.material=M.panel;
  const ol=L.outline==="on";R.segOM.visible=R.ballsO.visible=R.edges.visible=ol;
- const real=L.shadow==="real"&&!POWER;R.sun.castShadow=real;   // power saving: soft spots instead of real shadowsR.shadows.visible=!real;
+ const real=L.shadow==="real"&&!POWER;R.sun.castShadow=real;   // power saving: soft spots instead of real shadows
+ R.shadows.visible=!real;
  R.groundM.material=L.ground==="solid"?M.ground:R.catcher;R.groundM.visible=L.ground==="solid"||real}
 function r3color(s){const T=R3.T;let c=R3.col[s];if(!c){c=new T.Color();try{c.setStyle(s)}catch(e){c.set(0x888888)}R3.col[s]=c}return c}
 // one tube segment for the GPU: ends p0/p1, end directions m0/m1 (Hermite), ring frame n0 at the start, radii, smooth flag, colours
@@ -2086,7 +2104,19 @@ async function mdlLoad(file){
   mdlMsg("Unpacking "+file.name+"...");
   const gltf=await new Promise((ok,no)=>new R3.GLTF().parse(buf,"",ok,no)).catch(e=>{const m=String(e&&e.message||e);
    throw{user:/Failed to load buffer|Failed to fetch|\.bin/i.test(m)?"This .gltf points to separate files, which can't be opened from here. Export it as glTF Binary (.glb) instead.":"This file couldn't be read as a GLB ("+m.slice(0,120)+")."}});
-  mdlShow(gltf,file);mdlMsg("");
+  mdlShow(gltf,file);mdlUI();   // its card shows now, not after the warm-up
+  // be honest about the warm-up: count the model's shaders the GPU has confirmed ready and show that. Some GPUs (the
+  // iPhone) are slow to confirm, or never confirm the last ones; then say so, and stop waiting (the model works anyway)
+  {const M=MODELS[MODELS.length-1],name=file.name;let done=false;mdlWarm(M).catch(()=>{}).then(()=>{done=true});
+   const count=()=>{const mats=new Set();M.grp.traverse(o=>{for(const m of [].concat(o.material||[]))mats.add(m)});let ok=0;
+    for(const m of mats){try{const pr=R3.rd.properties.get(m).currentProgram;if(pr&&pr.isReady())ok++}catch(_){}}return[ok,mats.size]};
+   const t0=performance.now();let gaveUp=false;
+   while(!done){const [ok,n]=count(),sec=(performance.now()-t0)/1000;if(n&&ok>=n)break;
+    if(sec>8){gaveUp=true;mdlMsg("The GPU hasn't confirmed "+(n-ok)+" of "+name+"'s "+n+" shaders, and it may not say when. The model works; the first look at it may pause for a moment.");break}
+    mdlMsg("Getting "+name+" ready for the GPU: "+ok+" of "+n+" shaders confirmed...");await new Promise(r=>setTimeout(r,250))}
+   if(!gaveUp)mdlMsg("");
+   else{const msg=$("mdlMsg").textContent;let k=0;const late=setInterval(()=>{const [ok,n]=count();   // keep an eye out: if the GPU confirms later, say so
+    if(ok>=n||done){clearInterval(late);if($("mdlMsg").textContent===msg)mdlMsg("")}else if(++k>120||!MODELS.includes(M)){clearInterval(late)}},1000)}}
  }catch(e){mdlMsg(e&&e.user?e.user:"Something went wrong loading the model: "+String(e&&e.message||e).slice(0,160));if(!(e&&e.user))console.error(e)}
  mdlUI();PDIRTY++}
 // several files at once: one after another
