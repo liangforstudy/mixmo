@@ -764,6 +764,7 @@ function buildRig(p,ph){
  const GL=TAILE>0.001?Math.min(GLEG,1-0.5*ease(TAILE)):GLEG;   // GL: the third leg's own growth (0.5 = a full-length tail)
  // splitting starts at the neck: shoulders/heads/arms separate first (SPLt), hips/legs/tails last (SPLb)
  const SPLR=GL<1?0:(SPLITE>0.001?ease(SPLITE):0),SPL=ARMOPT===1?SPLR:Math.min(1,SPLR/0.8),ARMT=ARMOPT===1?1:Math.max(0,(SPLR-0.8)/0.2),SPLt=Math.min(1,SPL/0.6),SPLb=Math.max(0,(SPL-0.3)/0.7),legSet=SPL?splitLegs(SPLb):CHAR==="sergal2"?LEGS2:LEGS;
+ const pStill={...p,stride:0,lift:0};   // copied once per frame: the leg solver calls relStill ~60 times per leg
  for(const L of legSet){
   const sx=L.k.slice(2),y=L.yaw*R,o=[Math.sin(y),0,Math.cos(y)],sp=Math.tan(p.splay*R);
   // the middle-leg copy takes on its partner leg's settings as the halves separate
@@ -772,7 +773,7 @@ function buildRig(p,ph){
   const A={...(L.att||ATT[L.k])};if(!L.tail)A.y+=(p.hipBob||0)*-Math.cos(2*Math.PI*(ph+p[L.k]));
   const off={th:mx("th"),kn:mx("kn"),hk:mx("hk"),dir:Math.cos(rot)};
   const rel=(sw,a,lt)=>legChain(p,lt,{...off,th:off.th+sw+a*0.5,kn:off.kn+a,hk:off.hk+a*0.8}).map(q=>add(rotY(q,rot),mul(o,-q[1]*sp)));
-  const relStill=(sw,a)=>legChain({...p,stride:0,lift:0},0,{...off,th:off.th+sw+a*0.5,kn:off.kn+a,hk:off.hk+a*0.8}).map(q=>add(rotY(q,rot),mul(o,-q[1]*sp)));
+  const relStill=(sw,a)=>legChain(pStill,0,{...off,th:off.th+sw+a*0.5,kn:off.kn+a,hk:off.hk+a*0.8}).map(q=>add(rotY(q,rot),mul(o,-q[1]*sp)));
   const rest=relStill(0,0)[2],rx=A.x+rest[0],rz=A.z+rest[2];
   const U=ph+p[L.k],n=Math.floor(U),u=U-n;
   FOOT_R=3.2;const st0=stepTarget(rx,rz,U,p.lift*0.3),tgt=st0.tgt,gp=st0.gp,stance=st0.stance;
@@ -1109,7 +1110,8 @@ function buildRobot(p,ph){
  // how planted each limb is (1 = standing on it)
  const plantW=L=>{let w=L.end==="B"?(L.role==="tail"?1-p.tailUse:1):(L.role==="neck"?p.topPlant*(1-Math.min(1,(p.frontTail||0)+(p.frontHead||0))):p.topPlant);return w*(1-tuck)};
  const off0={th:0,kn:0,hk:0,dir:1};
- const relStill=(sw,a,rot=0,sc=1)=>legChain({...p,stride:0,lift:0},0,{...off0,th:sw+a*0.5,kn:a,hk:a*0.8}).map(v=>mul(rot?rotY(v,rot*R):v,sc));
+ const pStill={...p,stride:0,lift:0};   // copied once per frame, not per solver call
+ const relStill=(sw,a,rot=0,sc=1)=>legChain(pStill,0,{...off0,th:sw+a*0.5,kn:a,hk:a*0.8}).map(v=>mul(rot?rotY(v,rot*R):v,sc));
  const LSC=L=>(L.role==="tail"||L.role==="neck")?RLOOK.mid:1;   // middle limb of each end: adjustable length
  const plan=RLIMBS.map(L=>{const ao=bodyDir(bend(L.v)),w=plantW(L),o={L,ao,w};
   if(w>0.01){const sp=Math.tan(p.splay*R),out=norm3([L.v[0],0,L.v[2]||0.001]);
