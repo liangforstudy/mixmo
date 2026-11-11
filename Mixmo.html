@@ -1286,13 +1286,17 @@ function buildRobot(p,ph){
   // lengths kept), the whole robot is lowered as far as the gripping legs need, and his forward travel stops meanwhile
   if(rise&&ft<1){const ang=riseAng(),Tf=v=>add(cMid,rotX(sub3(v,cMid),ang)),Ti=v=>add(cMid,rotX(sub3(v,cMid),-ang));
    if(!FLIP.prints)FLIP.prints={};
-   const red=chains.map((c,i)=>[c,i]).filter(([c])=>(c.L.end==="B")===SWAP);   // red end only (the end he rises onto)
+   const red=chains.map((c,i)=>[c,i]).filter(([c])=>c.L.end==="T");   // the end he rises onto: always his top end here (its paw colour swaps with every Over)
    const plan=red.map(([c,i],k)=>{const st=riseLegPlan(ft,k),key=i+"/"+st.spot,hp=Tf(c.chain[0]),nat=Tf(c.chain[3]);
     // where a spot is: 1 = where the paw is when the rise starts; 2 = half way from its hip in towards the body's middle
     const spotNow=n=>n===1?[nat[0],nat[2]]:[hp[0],cMid[2]+0.5*(hp[2]-cMid[2])];
     if(st.spot&&!FLIP.prints[key]&&st.hold)FLIP.prints[key]=spotNow(st.spot);
     const from=st.from===0?[nat[0],nat[2]]:(FLIP.prints[i+"/"+st.from]||spotNow(st.from)),to=st.to===0?[nat[0],nat[2]]:(FLIP.prints[i+"/"+st.to]||spotNow(st.to));
     const h=st.u,H=[from[0]+(to[0]-from[0])*h,from[1]+(to[1]-from[1])*h];
+    // never further from the hip (sideways) than the leg can reach: an out-of-reach spot dragged his hips to the
+    // ground trying to reach it (neck limb, 2nd and 3rd Over)
+    {let L=0;for(let j=1;j<4;j++)L+=Math.hypot(...sub3(c.chain[j],c.chain[j-1]));const mx=0.9*L,dx=H[0]-hp[0],dz=H[1]-hp[2],d=Math.hypot(dx,dz);
+     if(d>mx){H[0]=hp[0]+dx*mx/d;H[1]=hp[2]+dz*mx/d}}
     return{c,i,hp,H,arc:st.step?14*Math.sqrt(Math.sin(Math.PI*h)):0,w:st.w}});
    // lower him as far as the gripping legs need to reach their spots (turning about his middle lifts his hips)
    let dyR=0,wMax=0;for(const q of plan){if(q.w<=0)continue;wMax=Math.max(wMax,q.w);const c=q.c,gy=ground(q.H[0],q.H[1])+3.2;
@@ -1304,7 +1308,17 @@ function buildRobot(p,ph){
     // corner into the ground; its own direction flips when it points straight down)
     const toe=sub3(Tf(c.chain[4]),Tf(c.chain[3])),tl=Math.hypot(...toe),ox=q.H[0]-cMid[0],oz=q.H[1]-cMid[2],ol=Math.hypot(ox,oz)||1;
     const toeF=add(mul([ox*tl/ol,0,oz*tl/ol],q.w),mul(toe,1-q.w));
-    c.chain=reachChain(c.chain.slice(0,4),T).concat([null]);c.chain[4]=Ti(add(Tf(c.chain[3]),toeF))}}}
+    let ch=reachChain(c.chain.slice(0,4),T);
+    // a knee folded down into the ground (seen on the neck limb, 2nd and 3rd Over): flip the bend over, up (a half turn
+    // of the middle joints about the hip-paw line keeps every bone's length)
+    const under=p=>{let m=1e9;for(let j=1;j<3;j++){const v=Tf(p[j]);m=Math.min(m,v[1]+dyR-ground(v[0],v[2]))}return m};
+    if(under(ch)<4){const ax=norm3(sub3(ch[3],ch[0])),fl=ch.map((v,j)=>j===0||j===3?v:(()=>{const r=sub3(v,ch[0]),pa=mul(ax,dot3(r,ax));return add(ch[0],sub3(mul(pa,2),r))})());
+     if(under(fl)>under(ch))ch=fl}
+    // a leg folded tight (hip nearly over its paw) can still dip a joint below: lift such joints just above the ground
+    // and bend again from there, a few times, keeping the best
+    for(let it=0;it<4&&under(ch)<2;it++){const lift=ch.map((v,j)=>{if(j===0||j===3)return v;const w=Tf(v),g=ground(w[0],w[2])+3-dyR;return w[1]<g?Ti([w[0],g,w[2]]):v});
+     const nx=reachChain(lift,T);if(under(nx)>under(ch))ch=nx;else break}
+    c.chain=ch.concat([null]);c.chain[4]=Ti(add(Tf(c.chain[3]),toeF))}}}
  ROBFEET=chains.map(c=>({w:c.q.w,p:rotY(c.chain[3],HEAD)}));
  if(flipping&&!ends){
   // (the whole robot is then lifted so the middle ends up where the hanging pose has it)
