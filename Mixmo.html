@@ -277,7 +277,7 @@ const META=[
 const DEF={
  idle:{speed:.35,travel:0,phF:0,phBL:.33,phBR:.67,stride:0,lift:0,thigh:18,knee:55,hock:45,splay:14,bob:1.2,bobMul:1,sway:1,lean:0,armSwing:4,armRaise:10,elbow:25,neck:22,headBob:1.5,headTurn:12,tailSwing:10,tailLift:8,tailCurl:14},
  walk:{speed:.9,travel:62,phF:0,phBL:.33,phBR:.67,stride:24,lift:32,thigh:20,knee:55,hock:45,splay:12,bob:2.5,bobMul:3,sway:3,lean:6,armSwing:20,armRaise:10,elbow:32,neck:24,headBob:3,headTurn:6,tailSwing:18,tailLift:14,tailCurl:14},
- run:{speed:1.8,travel:175,phF:0,phBL:.5,phBR:.5,stride:40,lift:55,thigh:28,knee:62,hock:52,splay:10,bob:6,bobMul:2,sway:2,lean:18,armSwing:38,armRaise:22,elbow:75,neck:28,headBob:6,headTurn:3,tailSwing:24,tailLift:30,tailCurl:8},
+ run:{speed:1.8,travel:175,phF:.76,phBL:.15,phBR:.51,stride:40,lift:55,thigh:28,knee:62,hock:52,splay:10,bob:6,bobMul:2,sway:2,lean:18,armSwing:38,armRaise:22,elbow:75,neck:28,headBob:6,headTurn:3,tailSwing:24,tailLift:30,tailCurl:8},
  gallop:{speed:1.6,travel:210,phF:0,phBL:.5,phBR:.5,stride:40,lift:50,thigh:30,knee:62,hock:52,splay:10,bob:3,bobMul:2,sway:1,lean:105,armSwing:30,armRaise:10,elbow:30,neck:34,headBob:3,headTurn:0,tailSwing:16,tailLift:22,tailCurl:6}
 };
 for(const m in DEF)for(const s of ["F","BL","BR"])for(const k of ["rot","th","kn","hk"])DEF[m][k+s]=0;
@@ -568,6 +568,7 @@ const rotX=(v,a)=>{const c=Math.cos(a),s=Math.sin(a);return[v[0],v[1]*c-v[2]*s,v
 const rotY=(v,a)=>{const c=Math.cos(a),s=Math.sin(a);return[v[0]*c+v[2]*s,v[1],-v[0]*s+v[2]*c]};
 const rotZ=(v,a)=>{const c=Math.cos(a),s=Math.sin(a);return[v[0]*c-v[1]*s,v[0]*s+v[1]*c,v[2]]};
 const frac=x=>x-Math.floor(x),ease=u=>u*u*(3-2*u);
+const PHASEK=k=>/^ph[A-Z]/.test(k)||k==="uPhase"||k==="lPhase";   // settings that are a timing within the cycle (0-1, wrapping)
 
 // ---------- rig ----------
 const C={fur:"#d6b483",furD:"#b8925e",belly:"#f3e2bf",tuft:"#7a4a22",ink:"#3a2a1c",ear:"#e9b9a0"};
@@ -1755,7 +1756,9 @@ function frame(t){
  // 'Frame' blend mode: while paused, the switch only moves when you step/scrub (see advance)
  if(playing||!STEPBLEND)blendU=bt<=0?1:Math.min(1,blendU+dt/bt);
  const u=ease(blendU),tg=P[mode];
- for(const k in tg)cur[k]=from[k]+(tg[k]-from[k])*u;
+ // leg and arm timings are positions round the step cycle (0 and 1 are the same moment), so they blend the short way
+ // round: walk 0 -> run 0.76 steps back 0.24 instead of running forward through most of a cycle (the tail leg whirled)
+ for(const k in tg){let d=tg[k]-from[k];if(PHASEK(k)){d-=Math.round(d);cur[k]=frac(from[k]+d*u)}else cur[k]=from[k]+d*u}
  // blend bounce waves, not the multiplier (lerping a frequency jitters)
  const th0=2*Math.PI*phase,fb=Math.sin(th0*Math.round(from.bobMul));
  cur.bobWave=fb+(Math.sin(th0*Math.round(tg.bobMul))-fb)*u;
