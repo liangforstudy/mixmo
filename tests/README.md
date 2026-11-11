@@ -10,7 +10,8 @@ Put Mixmo.html in this folder, start `python3 -m http.server 8765` here, then:
 `t/`: scripts for the robot's get-up (rise). Run from this folder, e.g. `python3 t/check.py http://localhost:8765/Mixmo.html`
 (bones, planted-paw slide, lowest point through the rise, many starting animations); `t/regress.py old-url new-url`
 compares every other animation between two builds (the first line, sergal/idle, differs by itself from run to run);
-`t/shots.py` makes frame sheets; `t/live.py` plays the real page (desktop 3D, 2D, emulated iPhone).
+`t/drop2.py url` measures the Over drop (red paws landing, slide, lowest joint) and `t/drop3.py url walk` traces
+every limb through it; `t/shots.py` and `t/dshots.py` make frame sheets (the rise, the drop); `t/live.py` plays the real page (desktop 3D, 2D, emulated iPhone).
 
 `node-scripts/`: the Node + Playwright scripts from the 2026-11-10/11 session (models, playback speed buttons,
 hold-to-step, its own Over checks). See node-scripts/README.md.

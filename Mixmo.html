@@ -318,7 +318,7 @@ let DIR=1;   // +1: he travels toward his front end; -1: on all six, the other e
 let HEAD=0,HEAD_T=0,OMEGA=0,POS=[0,0],TRAVK=1,SKIDLEAN=0,BOOST=0,TURN={st:null,t:0,fast:false};
 const effSpeed=()=>Math.max(cur.speed,BOOST);
 const dirNow=()=>((typeof LYING!=="undefined"&&LYING.has(mode))||(TURNM&&TURNM.kind==="U6"))?DIR:DIR+(1-DIR)*ease(blendU);   // leaving all six while reversed: ease back to forwards
-const perCycle=()=>effSpeed()>0.01?cur.travel*TRAVK*riseK()*(typeof riseTravel==="function"?riseTravel():1)*dirNow()/effSpeed():0;   // a rise (Over) stops him while his front paws hold the ground (riseK: planted rise; riseTravel: the gripping rise)
+const perCycle=()=>effSpeed()>0.01?cur.travel*TRAVK*(typeof dropOn==="function"&&dropOn()?0:1)*riseK()*(typeof riseTravel==="function"?riseTravel():1)*dirNow()/effSpeed():0;   // a rise (Over) stops him while his front paws hold the ground (riseK: planted rise; riseTravel: the gripping rise)
 // parts of multi-part morphs, as [start (0-1), name]; markers on the scrubber show where each begins
 function morphParts(kind){return({
  skid:[[0,"skidding"],[0.35,"whipping round"],[0.65,"speeding off"]],
@@ -1011,7 +1011,7 @@ let RZC=[NaN,NaN,0];
 function riseTau(){const F=FLIP,ph=phase-F.p0;if(ph<=0)return 0;if(ph>=F.len)return 1;if(RZC[0]===F.p0&&RZC[1]===phase)return RZC[2];
  let lo=0,hi=F.T;for(let k=0;k<24;k++){const m=(lo+hi)/2;if(risePh(F,m)<ph)lo=m;else hi=m}
  RZC=[F.p0,phase,(lo+hi)/2/F.T];return RZC[2]}
-function riseK(){if(!FLIP||!FLIP.nu)return 1;const t=riseTau();if(t<=0||t>=1)return 1;if(t<RZ_T0)return(1-t/RZ_T0)**2;const x=Math.min(1,(t-1+RZ_T1)/RZ_T1/0.6);return x<=0?0:x*x*(3-2*x)}   // back to full travel a little before the end, so the footprints have settled when the paws step onto them
+function riseK(){if(!FLIP||!FLIP.nu)return 1;const t=riseTau();if(t<=0||t>=1)return 1;if(t<RZ_T0)return FLIP.ov?0:(1-t/RZ_T0)**2;const x=Math.min(1,(t-1+RZ_T1)/RZ_T1/0.6);return x<=0?0:x*x*(3-2*x)}   // back to full travel a little before the end, so the footprints have settled when the paws step onto them
 function riseS(t){const u=Math.max(0,Math.min(1,(t-0.1)/0.9));return u*u*(3-2*u)-(t<0.24?0.03*Math.sin(Math.PI*t/0.24)**2:0)}
 function riseZT(t){const l=cur.lean*R,l0=FLIP.l0*R;return BODY_L/2*(Math.sin(l)+Math.sin(l0+(Math.PI+l-l0)*riseS(t)))}
 const smc=x=>{x=Math.min(1,Math.max(0,x));return x*x*(3-2*x)};
@@ -1043,8 +1043,9 @@ function startFlip(kind){if(FLIP||CHAR!=="robot")return;if(!playing&&!STEPBLEND)
   // it always takes RZ_T seconds: the cycle speed changes during the switch, so its length in cycles is worked out from
   // the speed he has now, the speed he is heading for and the blend time (risePh); riseTau turns that back into time
   const tm={s0:Math.max(0.05,effSpeed()),s1:Math.max(0.05,tp.speed||0),bt:+$("blend").value,T:RZ_T};len=risePh(tm,RZ_T);
-  const reach=D+(0.8*cur.travel*TRAVK+0.2*tp.travel)*RZ_T*RZ_T0/3+tp.travel*RZ_T*RZ_T1*RZ_K1;   // pivot + coasting in + setting off
-  nu={nu:true,...tm,l0:cur.lean,hd0:HEAD,dz:0,D,C:[POS[0]+sn*reach,POS[1]+c*reach],pw:[...ROBCH.w],
+  const pd=WALKOVER&&WALKOVER.pd&&WALKOVER.pd.C?WALKOVER.pd:null;   // after a planted drop: standing still, red paws already on their stool spots
+  const reach=D+(pd?0:(0.8*cur.travel*TRAVK+0.2*tp.travel)*RZ_T*RZ_T0/3)+tp.travel*RZ_T*RZ_T1*RZ_K1;   // pivot + coasting in + setting off
+  nu={nu:true,...tm,l0:cur.lean,hd0:HEAD,dz:0,D,ov:pd?1:0,C:pd?[...pd.C]:[POS[0]+sn*reach,POS[1]+c*reach],pw:[...ROBCH.w],
    // each paw's spot in the world (and how high it was, if it was in the air), and which way its knee points
    A:ROBCH.ch.map(ch=>{const v=ch[3];return[POS[0]+v[0]*c+v[2]*sn,POS[1]-v[0]*sn+v[2]*c,Math.max(0,v[1]-ground(v[0],v[2])-3.2)]}),
    h:ROBCH.ch.map(ch=>{const a=sub3(ch[3],ch[0]),k=sub3(ch[1],ch[0]);return sub3(k,mul(a,dot3(k,a)/(dot3(a,a)||1)))})}}
@@ -1150,10 +1151,21 @@ document.querySelectorAll("#gaitStyle button").forEach(b=>b.onclick=()=>{
 let WALKOVER=null;
 // staged, and driven by the blend/flip progress (not the clock), so it also works frame by frame while paused
 const goMode=m=>{const sel=$("modeSel");sel.value=m;sel.onchange()};
+// Planted drop (2026-11-11, user: the red legs should plant at once, not run another step of the six-leg gait before
+// the rise): from an upright animation the drop no longer runs the six-leg gait. He coasts to a stop (DROP_G: how far
+// along that coast he is, by blend progress), each red limb comes straight down onto the spot it will hold during the
+// rise (its place in the stool) and stays there; each black paw takes one step to where it rests lying down.
+const DROP_G=u=>1-(1-u)**3,dropOn=()=>!!(WALKOVER&&WALKOVER.stage===1&&WALKOVER.pd);
 $("tF").onclick=()=>{if(WALKOVER||FLIP||CHAR!=="robot")return;if(!playing&&!STEPBLEND)$("play").onclick();
  WALKOVER={stage:1,back:mode==="run6"?"run":mode,saved:STANDEND};
+ if(!LYING.has(mode)&&!GECKO&&!SPIN&&!TURNM&&DIR===1&&ROBCH&&ROBCH.ph===phase&&ROBCH.ch.length===6){
+  const c=Math.cos(HEAD),sn=Math.sin(HEAD),bt=+$("blend").value;
+  WALKOVER.pd={hd:HEAD,p0:[...POS],dz:0,Dc:Math.min(40,Math.max(0,cur.travel*TRAVK*bt/3)),w0:[...ROBCH.w],C:null,T:null,
+   A:ROBCH.ch.map(ch=>{const v=ch[3];return[POS[0]+v[0]*c+v[2]*sn,POS[1]-v[0]*sn+v[2]*c,Math.max(0,v[1]-ground(v[0],v[2])-3.2)]})}}
  if(mode!=="run6")goMode("run6")};
 function walkoverStep(){if(!WALKOVER)return;
+ if(dropOn()){const q=WALKOVER.pd,d=q.Dc*DROP_G(Math.min(1,blendU>=0.999?1:blendU)),dd=d-q.dz;   // the coast, tied to the blend so it also runs backwards
+  if(dd){POS[0]+=Math.sin(q.hd)*dd;POS[1]+=Math.cos(q.hd)*dd;groundOff+=dd;q.dz=d}}
  if(WALKOVER.stage===1&&blendU>=0.999){STANDEND="front";goMode(WALKOVER.back);STANDEND=WALKOVER.saved;WALKOVER.stage=2;return}
  if(WALKOVER.stage===2&&!FLIP&&blendU>=0.999)WALKOVER=null}
 $("tC").onclick=()=>startFlip(GECKO?"down":"up");
@@ -1216,20 +1228,57 @@ function buildRobot(p,ph){
  const pStill={...p,stride:0,lift:0};   // copied once per frame, not per solver call
  const relStill=(sw,a,rot=0,sc=1)=>legChain(pStill,0,{...off0,th:sw+a*0.5,kn:a,hk:a*0.8}).map(v=>mul(rot?rotY(v,rot*R):v,sc));
  const LSC=L=>(L.role==="tail"||L.role==="neck")?RLOOK.mid:1;   // middle limb of each end: adjustable length
+ // where limb Lj's paw rests (sideways, forwards from the hips) when standing still in animation tp
+ const restAt=(tp,Lj)=>{const sc=LSC(Lj),ao=rotX(Lj.v,tp.lean*R);
+  if(Lj.role==="tail"&&tp.tailCurve>0.5)return[ao[0],ao[2]-tp.tailReach*sc];
+  const out=norm3([Lj.v[0],0,Lj.v[2]||0.001]);let f=legChain({...tp,stride:0,lift:0},0,off0)[2];if(Lj.rot)f=rotY(f,Lj.rot*R);
+  f=splayV(mul(f,sc),out,Math.tan(tp.splay*R));return[ao[0]+f[0],ao[2]+f[2]]};
+ // planted drop (Over from an upright animation, see DROP_G): every paw's landing spot is fixed in the world when it starts
+ const DP=(typeof dropOn==="function"&&dropOn()&&P[WALKOVER.back]&&!flipping)?WALKOVER.pd:null;
+ const smD=x=>{x=Math.max(0,Math.min(1,x));return x*x*(3-2*x)};
+ if(DP&&!DP.T){const c=Math.cos(DP.hd),sn=Math.sin(DP.hd),tb=P[WALKOVER.back],t6=P.run6,wd=(o,d)=>[o[0]+d[0]*c+d[1]*sn,o[1]-d[0]*sn+d[1]*c];
+  const end=wd(DP.p0,[0,DP.Dc]);   // where his hips stop
+  DP.C=wd(end,[0,BODY_L*Math.sin(t6.lean*R)+tb.travel*RZ_T*RZ_T1*RZ_K1]);   // where his hips will be once he stands on the red end (the stool's centre)
+  const ord=[0,1,2].filter(i=>DP.w0[i]>0.5).sort((x,y)=>DP.A[y][2]-DP.A[x][2]);
+  DP.T=RLIMBS.map((L,i)=>{if(i>=3){if(DP.w0[i]>=0.5)return null;// lands on its place in the stool (the rise takes it from there, also when it then turns into a raised tail)
+    return{k:"land",S:wd(DP.C,restAt(tb,RLIMBS[i-3]))}}
+   // each black paw takes one early step (while he is still fairly upright) onto where it rests lying down, any paw
+   // that was in the air first. Held where they stood, their knees folded into the ground as his hips came down; stepping
+   // later than about half way, the leg solver jumped. A propped (kangaroo) tail holds its spot, then steps in once it
+   // has turned back into a leg
+   if(DP.w0[i]<=0.5)return null;const S=wd(end,restAt(t6,L));
+   if(L.role==="tail"&&cur.tailCurve>0.5)return{k:"step",tail:1,S,a:0.55,b:0.92};
+   const a=[0,0.09,0.18][ord.indexOf(i)];return{k:"step",S,a,b:a+0.28}})}
+ const dropPlan=(i,w)=>{const T=DP.T[i],u=blendU,cH=Math.cos(HEAD),sH=Math.sin(HEAD);
+  const loc=v=>{const dx=v[0]-POS[0],dz=v[1]-POS[1];return[dx*cH-dz*sH,dx*sH+dz*cH]},S=T.S?loc(T.S):null;
+  if(T.k==="land"){// reaches straight for its spot from early in the drop, touches down as soon as his front end is low enough
+   // (the height is set below, once the body's height is known), and stays
+   const wl=Math.max(w,smD((u-0.05)/0.45)),g=[S[0],ground(S[0],S[1])+3.2,S[1]];return{tgt:g,gp:g,stance:false,w:wl,land:1}}
+  if(T.k==="hold"){const A=loc(DP.A[i]),g=[A[0],ground(A[0],A[1])+3.2,A[1]];return{tgt:g,gp:g,stance:true}}
+  const A=loc(T.tail?T.A:DP.A[i]),s=Math.max(0,Math.min(1,(u-T.a)/(T.b-T.a))),e=smD(s),x=A[0]+(S[0]-A[0])*e,z=A[1]+(S[1]-A[1])*e,dist=Math.hypot(S[0]-A[0],S[1]-A[1]);
+  const h0=T.tail?0:DP.A[i][2],gy=ground(x,z)+3.2,arc=(dist>1.5?Math.min(10,3+0.2*dist):0)*Math.sin(Math.PI*s)+h0*(1-e);
+  return{tgt:[x,gy+arc,z],gp:[x,gy,z],stance:(s<=0||s>=1)&&h0*(1-e)<0.05}};
  const plan=RLIMBS.map(L=>{const ao=bodyDir(bend(L.v)),w=plantW(L),o={L,ao,w};
-  if(w>0.01){const sp=Math.tan(p.splay*R),out=norm3([L.v[0],0,L.v[2]||0.001]);
+  if(DP&&DP.T[RLIMBS.indexOf(L)]&&DP.T[RLIMBS.indexOf(L)].k==="land")o.w=Math.max(o.w,0.011);   // so it is planned from the first frame
+  if(o.w>0.01){const sp=Math.tan(p.splay*R),out=norm3([L.v[0],0,L.v[2]||0.001]);
    const rest=splayV(relStill(0,0,L.rot||0,LSC(L))[2],out,sp);let rx=ao[0]+rest[0],rz=ao[2]+rest[2];
    // kangaroo tail: plants well behind the body and drags/pushes like a sprung prop
    if(L.role==="tail"&&p.tailCurve>0.5){rx=ao[0];rz=ao[2]-p.tailReach*LSC(L);o.curve=true}   // a longer tail plants further back
-   Object.assign(o,step(rx,rz,ph+p[L.k],p.lift*0.3*LSC(L),3.2),{out,sp,sc:LSC(L)})}
+   Object.assign(o,step(rx,rz,ph+p[L.k],p.lift*0.3*LSC(L),3.2),{out,sp,sc:LSC(L)});
+   if(DP){const i=RLIMBS.indexOf(L),T=DP.T[i];
+    if(T&&T.tail&&!T.A){const c=Math.cos(HEAD),sn=Math.sin(HEAD);T.A=[POS[0]+rx*c+rz*sn,POS[1]-rx*sn+rz*c]}   // the propped tail's spot
+    if(T)Object.assign(o,dropPlan(i,w))}}
   return o});
  // body height: average/lowest planted ground, crouch to keep planted paws reachable, keep body off the ground
  const pl=plan.filter(q=>q.w>0.01);
  const gb0=pl.length?groundUnder(pl.map(q=>ground(q.tgt[0],q.tgt[2]))):0;
- const lims=pl.map(q=>reachLimit(q.gp,q.ao,(L1+L2+L3)*0.97*(q.sc||1)*(q.curve?1.6:1),H)+(1-q.w)*300);
+ const lims=pl.map(q=>reachLimit(q.gp,q.ao,(L1+L2+L3)*0.97*(q.sc||1)*(q.curve?1.6:1),H)+(q.land?300:(1-q.w)*300));   // a limb coming down in a planted drop never pulls the body down to it
  const smp=[];for(let t=0;t<=1.001;t+=0.25)smp.push([bodyDir(bend([0,BODY_L*t,0])),BODY_R+1.5]);
  const gb=rideHeight(gb0,lims,bodyFloor(smp,H),hang);
  const P0=[0,H+gb+BOB,0],B=v=>add(P0,bodyDir(bend(v))),fwd=bodyDir([0,0,1]);
+ // planted drop: a limb coming down is as low as its leg can reach from where the hip is now, and no lower than the ground
+ for(const q of plan)if(q.land){const hp=add(P0,q.ao),Lr=(L1+L2+L3)*0.96*(q.sc||1),d2=(q.tgt[0]-hp[0])**2+(q.tgt[2]-hp[2])**2;
+  const y=Math.max(q.tgt[1],hp[1]-Math.sqrt(Math.max(0,Lr*Lr-d2)));q.stance=q.w>=0.999&&y-q.tgt[1]<0.05;q.tgt=[q.tgt[0],y,q.tgt[2]]}
  // body
  G++;{const N=RLOOK.segs,gap=N>1?4:0,SB=segBounds(N);
   for(let i=0;i<N;i++){const y0=(i?SB[i]+gap/2:-2),y1=(i<N-1?SB[i+1]-gap/2:BODY_L+2);
@@ -1353,10 +1402,7 @@ function buildRobot(p,ph){
    return[k,h,pw,add(pw,mul(td,TOE*sc))]};
   // the stool: where each standing paw rests in the animation he is rising into (its splay, his lean)
   const tp=P[mode],tS={...tp,stride:0,lift:0},cl=loc(F.C);
-  const stool=j=>{const Lj=RLIMBS[j],sc=LSC(Lj),ao=rotX(Lj.v,tp.lean*R);
-   if(Lj.role==="tail"&&tp.tailCurve>0.5)return[ao[0],ao[2]-tp.tailReach*sc];
-   const out=norm3([Lj.v[0],0,Lj.v[2]||0.001]);let f=legChain(tS,0,off0)[2];if(Lj.rot)f=rotY(f,Lj.rot*R);
-   f=splayV(mul(f,sc),out,Math.tan(tp.splay*R));return[ao[0]+f[0],ao[2]+f[2]]};
+  const stool=j=>restAt(tp,RLIMBS[j]);
   const zr=[top[0]-P0[0],top[2]-P0[2]];   // how far the standing end still is from where it will stand
   // [step into the stool: from, to; hand over to the walking leg: from, to], one paw at a time
   const WIN={3:[0.14,0.28,0.91,1],4:[0.02,0.16,0.84,0.94],5:[0.08,0.22,0.88,0.97]};
@@ -1364,7 +1410,7 @@ function buildRobot(p,ph){
   for(let i=3;i<6;i++){const j=i-3,c=chains[i],sc=LSC(c.L),[a0,a1,b0,b1]=WIN[i];
    const s=Math.max(0,Math.min(1,(ft-a0)/(a1-a0))),se=sm(s),u=Math.max(0,Math.min(1,(ft-b0)/(b1-b0))),ue=sm(u);
    const A=loc(F.A[i]),so0=stool(j),so=rotY([so0[0],0,so0[1]],dh),Sx=cl[0]+so[0],Sz=cl[2]+so[2],dist=Math.hypot(Sx-A[0],Sz-A[2]);
-   const gx=A[0]+(Sx-A[0])*se,gz=A[2]+(Sz-A[2])*se,gy=ground(gx,gz)+3.2+Math.min(16,5+0.3*dist)*Math.sin(Math.PI*s)+F.A[i][2]*(1-sm(ft/0.08));
+   const gx=A[0]+(Sx-A[0])*se,gz=A[2]+(Sz-A[2])*se,gy=ground(gx,gz)+3.2+(dist>1.5?Math.min(16,5+0.3*dist):0)*Math.sin(Math.PI*s)+F.A[i][2]*(1-sm(ft/0.08));
    const wj=plan[j].w,Pj=src[j][3];let tg=[gx,gy+(wj>0.5?0:34*sm((ft-0.42)/0.2)),gz],hold=(s<=0||s>=1)&&(wj>0.5||ft<0.42);
    if(wj>0.5){const hx=Pj[0]+zr[0],hz=Pj[2]+zr[1],d2=Math.hypot(hx-gx,hz-gz);hold=hold&&(u<=0||u>=1);
     tg=[gx+(hx-gx)*ue,gy+(Pj[1]-gy)*ue+Math.min(12,0.4*d2)*Math.sin(Math.PI*u),gz+(hz-gz)*ue]}
@@ -1515,7 +1561,8 @@ function buildRobot(p,ph){
   for(let i=0;i<3;i++){prism(chain[i],chain[i+1],LS[i][0],lc,fwd,10);dot(chain[i+1],LS[i][1]+0.6,RLOOK.joint)}
   if(!(role==="neck"&&pw<0.5&&headHide))prism(pts[2],pts[3],role==="neck"&&pw<0.5?5.5:4.2,endCol(L),fwd,10);}
   if(RZ){if(c.W[3][1]-ground(c.W[3][0],c.W[3][2])<9)prims.push({t:2,a:pts[2],r:8})}   // planted rise: a shadow under every paw near the ground (placed after the pitch-over)
-  else if(q.w>0.5&&!GECKO){const cp=q.cpt||pts[2];prims.push({t:2,a:[cp[0],ground(cp[0],cp[2])+0.1,cp[2]],r:8})}
+  // (a limb still coming down in a planted drop gets no shadow spot until it is near the ground)
+  else if(q.w>0.5&&!GECKO&&!(q.land&&pts[2][1]-ground(pts[2][0],pts[2][2])>12)){const cp=q.cpt||pts[2];prims.push({t:2,a:[cp[0],ground(cp[0],cp[2])+0.1,cp[2]],r:8})}
  }
  // bone check (debug): mark any bone that had to be pulled back to its allowed length
  if(BONESHOW)for(const c of chains)for(const j of c.bad){G++;PNAME="Bone check marker";dot(c.chain[j-1],2.6,"#e0201a");dot(c.chain[j],2.6,"#e0201a")}
@@ -1753,13 +1800,13 @@ function toggleSpin(now){if(SPIN){
   if(now){spinEnd();return}
   if(SPIN.stopH!==undefined){delete SPIN.stopH;$("tS").classList.add("on");return}   // pressed again: keep spinning
   const q=Math.PI/2;SPIN.stopH=Math.ceil((HEAD+1e-3)/q)*q;$("tS").classList.remove("on");turnStep();return}
- if(FLIP&&FLIP.nu)return;   // rising over his planted front paws: a spin would pull him off them, so it waits for the next press
+ if((FLIP&&FLIP.nu)||dropOn())return;   // rising over his planted front paws (or dropping onto them): a spin would pull him off them, so it waits for the next press
  const ts=Math.max(cur.speed,2.2),pz=CHAR==="robot"?LASTMID[2]:0;
  const rmax=CHAR==="robot"?Math.max(15,...LASTHIPS.map(a=>Math.hypot(a[0],a[2]-pz)+25)):15;
  SPIN={p0:phase,h0:HEAD,len:Math.max(1.1*ts,2*Math.PI*rmax/SPINSTEP),ts,pz,W:[POS[0]+Math.sin(HEAD)*pz,POS[1]+Math.cos(HEAD)*pz]};$("tS").classList.add("on");turnStep()}
 function startTurn(kind,exact){   // exact: turn by exactly this angle (the game's reversal), no squaring up
  if(TURNM)return;   // a turn is playing: let it finish (pressing Spin mid-turn used to make him jump at the end)
- if(FLIP&&FLIP.nu)return;   // rising over his planted front paws (1.4 s): turning would pull him off them, so turns wait until he is up
+ if((FLIP&&FLIP.nu)||dropOn())return;   // rising over his planted front paws (1.4 s), or dropping onto them: turning would pull him off them, so turns wait until he is up
  if(kind==="S"){toggleSpin();return}
  const lying=CHAR==="robot"&&LYING.has(mode),bodyK=Math.max(0.6,Math.min(2.2,BODY_L/100));   // body length 100 = normal
  // swapping ends doesn't turn the body, so it can't square up a spin cut short: let the spin wind down first, then swap
