@@ -277,7 +277,7 @@ const META=[
 const DEF={
  idle:{speed:.35,travel:0,phF:0,phBL:.33,phBR:.67,stride:0,lift:0,thigh:18,knee:55,hock:45,splay:14,bob:1.2,bobMul:1,sway:1,lean:0,armSwing:4,armRaise:10,elbow:25,neck:22,headBob:1.5,headTurn:12,tailSwing:10,tailLift:8,tailCurl:14},
  walk:{speed:.9,travel:62,phF:0,phBL:.33,phBR:.67,stride:24,lift:32,thigh:20,knee:55,hock:45,splay:12,bob:2.5,bobMul:3,sway:3,lean:6,armSwing:20,armRaise:10,elbow:32,neck:24,headBob:3,headTurn:6,tailSwing:18,tailLift:14,tailCurl:14},
- run:{speed:1.8,travel:175,phF:.76,phBL:.15,phBR:.51,stride:40,lift:55,thigh:28,knee:62,hock:52,splay:10,bob:6,bobMul:2,sway:2,lean:18,armSwing:38,armRaise:22,elbow:75,neck:28,headBob:6,headTurn:3,tailSwing:24,tailLift:30,tailCurl:8},
+ run:{speed:1.8,travel:175,phF:.76,phBL:.15,phBR:.51,stride:40,lift:55,thigh:28,knee:62,hock:52,splay:10,bob:6,bobMul:2,sway:2,lean:18,armSwing:38,armRaise:22,elbow:75,neck:22,headBob:2.5,headTurn:25,tailSwing:24,tailLift:30,tailCurl:8},
  gallop:{speed:1.6,travel:210,phF:0,phBL:.5,phBR:.5,stride:40,lift:50,thigh:30,knee:62,hock:52,splay:10,bob:3,bobMul:2,sway:1,lean:105,armSwing:30,armRaise:10,elbow:30,neck:34,headBob:3,headTurn:0,tailSwing:16,tailLift:22,tailCurl:6}
 };
 for(const m in DEF)for(const s of ["F","BL","BR"])for(const k of ["rot","th","kn","hk"])DEF[m][k+s]=0;
@@ -300,6 +300,8 @@ for(const m in DEF){const d=DEF[m];
  for(const x of ["u","l"]){d[x+"Swing_t"]=Math.round(d[x+"Swing"]*0.35);d[x+"Raise_t"]=Math.round(d[x+"Raise"]*0.3);d[x+"ElbowSwing_t"]=Math.round(d[x+"ElbowSwing"]*0.4);d[x+"Elbow_t"]=Math.round(d[x+"Elbow"]*0.6)}
  d.headDroop_t=28;d.headTurn_t=Math.round(d.headTurn*0.4);d.neck_t=Math.round(d.neck*0.8);
  d.tailLift_t=-32;d.tailSwing_t=Math.round(d.tailSwing*0.4);d.tailCurl_t=4}
+// Run heads (user's tuning, 2026-11-11, at Happy): neck spread 22, nod 2.5, glance 25; Tired keeps the old values
+Object.assign(DEF.run,{neck_t:22,headBob_t:6,headTurn_t:1});
 let MOOD=1,editMood="h";
 function moodMix(p){const q={...p};for(const k of MOODK){const t=p[k+"_t"];if(t!==undefined)q[k]=t+(p[k]-t)*MOOD}return q}
 DEF.idleTail={...DEF.idle};   // same settings; the third leg is held up as a tail (see TAILE)
@@ -1006,7 +1008,7 @@ const LEGS2=[{n:"Left",yaw:90,k:"phBL",c:"#3f6f8f",att:{x:7,y:0,z:1.5}},{n:"Righ
 const DEF2=JSON.parse(JSON.stringify(DEF));delete DEF2.idleTail;
 for(const m in DEF2)Object.assign(DEF2[m],{phBL:0,phBR:0.5,splay:4});
 Object.assign(DEF2.walk,{lean:8,uSwing:24,uSwing_t:9,thigh:16});
-Object.assign(DEF2.run,{lean:20,uSwing:40,uSwing_t:14});
+Object.assign(DEF2.run,{lean:20,uSwing:40,uSwing_t:14,neck:28,headBob:6,headTurn:3});   // his head keeps the old run values (the OC's were retuned)
 Object.assign(DEF2.gallop,{phBL:0,phBR:0.1});
 const PS2=JSON.parse(JSON.stringify(DEF2));
 // ---------- M3: the regular sergal's body presets ----------
