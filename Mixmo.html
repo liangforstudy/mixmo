@@ -1325,7 +1325,11 @@ function buildRobot(p,ph){
  // somersault: whole robot pitches end over end around its middle and hops up
  const xf=(T,N)=>{for(const q of prims){const same=q.b===q.a;q.a=T(q.a);if(q.b)q.b=same?q.a:T(q.b);if(q.pts)q.pts=q.pts.map(T);if(q.fn)q.fn=N(q.fn);if(q.n)q.n=N(q.n)}};
  const mir=v=>[v[0],CEIL-v[1],v[2]];   // ceiling world: upside-down mirror of the floor pose
- if(ends){const ang=Math.PI*ft*ft*(3-2*ft),lift=[0,(FLIP.kind==="rise"?0:50)*Math.sin(Math.PI*ft),0];
+ // rise (Over): the switch to standing tilts the body back up over ~22 frames while the rise turns him over in 53, so
+ // a plain half turn first tipped him back towards the black end and lifted the red paws ~40 off the ground. Instead
+ // the turn makes up whatever the switch hasn't: the tilt you see goes smoothly from lying to standing on the red end
+ const riseAng=()=>{const s=ft*ft*(3-2*ft),to=(P[mode]&&P[mode].lean)||0;return((1-s)*from.lean+s*(to+180)-cur.lean)*R};
+ if(ends){const ang=FLIP.kind==="rise"?riseAng():Math.PI*ft*ft*(3-2*ft),lift=[0,(FLIP.kind==="rise"?0:50)*Math.sin(Math.PI*ft),0];
   // somersault with a half twist: end over end and turned round, so he lands facing the same way
   const tw=FLIP.kind==="rise"?0:ang;
   xf(v=>add(add(cMid,rotY(rotX(sub3(v,cMid),ang),tw)),lift),n=>rotY(rotX(n,ang),tw));
