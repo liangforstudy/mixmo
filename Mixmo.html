@@ -318,7 +318,7 @@ let DIR=1;   // +1: he travels toward his front end; -1: on all six, the other e
 let HEAD=0,HEAD_T=0,OMEGA=0,POS=[0,0],TRAVK=1,SKIDLEAN=0,BOOST=0,TURN={st:null,t:0,fast:false};
 const effSpeed=()=>Math.max(cur.speed,BOOST);
 const dirNow=()=>((typeof LYING!=="undefined"&&LYING.has(mode))||(TURNM&&TURNM.kind==="U6"))?DIR:DIR+(1-DIR)*ease(blendU);   // leaving all six while reversed: ease back to forwards
-const perCycle=()=>effSpeed()>0.01?cur.travel*TRAVK*dirNow()/effSpeed():0;
+const perCycle=()=>effSpeed()>0.01?cur.travel*TRAVK*(typeof riseTravel==="function"?riseTravel():1)*dirNow()/effSpeed():0;   // a rise (Over) stops him while the red paws grip
 // parts of multi-part morphs, as [start (0-1), name]; markers on the scrubber show where each begins
 function morphParts(kind){return({
  skid:[[0,"skidding"],[0.35,"whipping round"],[0.65,"speeding off"]],
@@ -998,6 +998,25 @@ const RLOOK={midLen:1,midSeg:1,head:true,segs:1,mid:1,skin:"robot",morph:0.35,bo
 // FLIP.kind: "ends" (somersault so the two ends swap), "up" (flip up onto the ceiling), "down" (drop back off it)
 let FLIP=null,SWAP=false,GECKO=false,ROBFEET=[],LASTMID=[0,0,0],LASTHIPS=[],SEGDBG=null,BONEBAD=0,BONETOL=0,BONESHOW=false;let CEIL=215;const ceilFor=()=>175+BODY_L*1.2;CEIL=ceilFor();
 const flipT=()=>FLIP?(phase-FLIP.p0)/FLIP.len:-1;
+const smc=x=>{x=Math.min(1,Math.max(0,x));return x*x*(3-2*x)};
+// rise (Over): what red leg k is doing at rise time t. spot = the spot it holds or steps to (1 = first, 2 = second,
+// 0 = where the walk wants it); from/to/u = a step from one spot to another (u: 0-1); w = how much it grips
+const riseLegPlan=(t,k)=>{const a=0.42+0.1*k,r=0.8+0.06*k,S=0.1,E=0.08;
+ if(t<0.15)return{step:1,from:0,to:1,u:smc(t/0.15),spot:1,hold:t>0,w:smc(t/0.15)};
+ if(t<a)return{step:0,from:1,to:1,u:0,spot:1,hold:1,w:1};
+ if(t<a+S)return{step:1,from:1,to:2,u:smc((t-a)/S),spot:2,hold:1,w:1};   // spot 2 is fixed as the step starts
+ if(t<r)return{step:0,from:2,to:2,u:0,spot:2,hold:1,w:1};
+ if(t<r+E){const u=smc((t-r)/E);return{step:1,from:2,to:0,u,spot:0,hold:0,w:1-u}}
+ return{step:0,from:0,to:0,u:0,spot:0,hold:0,w:0}};
+const riseGrip=t=>(riseLegPlan(t,0).w+riseLegPlan(t,1).w+riseLegPlan(t,2).w)/3;
+const riseTravel=()=>{if(!FLIP||FLIP.kind!=="rise")return 1;const t=flipT();return t>=0&&t<1?1-riseGrip(t):1};
+// bend a chain (hip fixed) so its tip reaches T, keeping every bone's length (FABRIK, starting from its current bend)
+function reachChain(ch,T){const n=ch.length,L=[];for(let j=1;j<n;j++)L.push(Math.hypot(...sub3(ch[j],ch[j-1])));
+ let p=ch.map(v=>[...v]);const root=p[0];
+ for(let it=0;it<12;it++){p[n-1]=[...T];for(let j=n-2;j>=0;j--){const d=norm3(sub3(p[j],p[j+1]));p[j]=add(p[j+1],mul(d,L[j]))}
+  p[0]=[...root];for(let j=1;j<n;j++){const d=norm3(sub3(p[j],p[j-1]));p[j]=add(p[j-1],mul(d,L[j-1]))}
+  if(Math.hypot(...sub3(p[n-1],T))<0.05)break}
+ return p}
 function startFlip(kind){if(FLIP||CHAR!=="robot")return;if(!playing&&!STEPBLEND)$("play").onclick();
  FLIP={kind,p0:phase,len:Math.max(0.15,(kind==="ends"?0.9:kind==="rise"?1.0:1.1)*effSpeed())};
  // ceiling: the top (front) end reaches up and grabs, so the ends trade jobs. Going up they swap on landing;
@@ -1142,6 +1161,8 @@ function buildRobot(p,ph){
   headHide=(p.frontHead||0)>0&&r>0.5}   // TEMPORARY: a head can't move to the other end yet, so once the ends have swapped it is hidden
  const ft0=flipT(),flipping=FLIP&&ft0>=0&&ft0<1,ft=flipping?ft0:0,ends=flipping&&(FLIP.kind==="ends"||FLIP.kind==="rise"),
   tuck=flipping&&FLIP.kind==="ends"?Math.sin(Math.PI*ft):0;
+ let RISEDY=0,RISEW=0;   // rise: how far the red paws' grip lowers him, and how much (set below)
+ const riseAng=()=>{const s=ft*ft*(3-2*ft),to=(P[mode]&&P[mode].lean)||0;return((1-s)*from.lean+s*(to+180)-cur.lean)*R};   // see the rise below
  // hanging from the ceiling: gravity pulls the body down, so the planted legs hang nearly straight instead of crouching
  const upE=flipping&&!ends?(()=>{const s=FLIP.kind==="up"?ft:1-ft;return s*s*(3-2*s)})():0,hang=flipping&&!ends?upE*(1-tuck):(GECKO&&!FLIP?1:0);
  const calm=1-tuck;   // swings and sways fade out mid-flip so the tucked pose is the same both sides
@@ -1257,7 +1278,33 @@ function buildRobot(p,ph){
   // rise = a plain forward pitch (no twist): partners are matched left-to-left, and each hip glides
   // along the body to where its partner's hip will be, so nothing snaps when the ends trade jobs
   const rise=FLIP.kind==="rise",e=ft*ft*(3-2*ft),M=v=>add(cMid,(rise?rotX:rotZ)(sub3(v,cMid),Math.PI)),src=chains.map(c=>c.chain.map(v=>[...v])),PM=rise?[3,4,5,0,1,2]:[3,5,4,0,2,1];
-  const rl=chains.map(c=>c.restL.slice());chains.forEach((c,i)=>{const pc=src[PM[i]].map(M);{const r0=add(mul(c.chain[0],1-e),mul(pc[0],e));c.chain=[r0,...blendBones(r0,c.chain.slice(1),pc.slice(1),e,c.chain[0],pc[0])]}if(chains[PM[i]].q.curve)c.flex=true;c.restL=rl[i].map((l,j)=>l*(1-e)+rl[PM[i]][j]*e)})}
+  const rl=chains.map(c=>c.restL.slice());chains.forEach((c,i)=>{const pc=src[PM[i]].map(M);{const r0=add(mul(c.chain[0],1-e),mul(pc[0],e));c.chain=[r0,...blendBones(r0,c.chain.slice(1),pc.slice(1),e,c.chain[0],pc[0])]}if(chains[PM[i]].q.curve)c.flex=true;c.restL=rl[i].map((l,j)=>l*(1-e)+rl[PM[i]][j]*e)})
+  // rise: all three red paws hold the ground while he tips over onto them (user, 2026-11-11: one red leg was lifting
+  // the whole body while the others stepped). Each red leg: steps onto the ground where it is (0-15% of the rise), holds
+  // that spot, steps in towards the middle of the body as he comes up (one leg after another, ~42-62%), holds again,
+  // then steps off into the walk at the end (80-100%). Steps are arcs, not slides; each leg bends to reach (bone
+  // lengths kept), the whole robot is lowered as far as the gripping legs need, and his forward travel stops meanwhile
+  if(rise&&ft<1){const ang=riseAng(),Tf=v=>add(cMid,rotX(sub3(v,cMid),ang)),Ti=v=>add(cMid,rotX(sub3(v,cMid),-ang));
+   if(!FLIP.prints)FLIP.prints={};
+   const red=chains.map((c,i)=>[c,i]).filter(([c])=>(c.L.end==="B")===SWAP);   // red end only (the end he rises onto)
+   const plan=red.map(([c,i],k)=>{const st=riseLegPlan(ft,k),key=i+"/"+st.spot,hp=Tf(c.chain[0]),nat=Tf(c.chain[3]);
+    // where a spot is: 1 = where the paw is when the rise starts; 2 = half way from its hip in towards the body's middle
+    const spotNow=n=>n===1?[nat[0],nat[2]]:[hp[0],cMid[2]+0.5*(hp[2]-cMid[2])];
+    if(st.spot&&!FLIP.prints[key]&&st.hold)FLIP.prints[key]=spotNow(st.spot);
+    const from=st.from===0?[nat[0],nat[2]]:(FLIP.prints[i+"/"+st.from]||spotNow(st.from)),to=st.to===0?[nat[0],nat[2]]:(FLIP.prints[i+"/"+st.to]||spotNow(st.to));
+    const h=st.u,H=[from[0]+(to[0]-from[0])*h,from[1]+(to[1]-from[1])*h];
+    return{c,i,hp,H,arc:st.step?14*Math.sqrt(Math.sin(Math.PI*h)):0,w:st.w}});
+   // lower him as far as the gripping legs need to reach their spots (turning about his middle lifts his hips)
+   let dyR=0,wMax=0;for(const q of plan){if(q.w<=0)continue;wMax=Math.max(wMax,q.w);const c=q.c,gy=ground(q.H[0],q.H[1])+3.2;
+    let L=0;for(let j=1;j<4;j++)L+=Math.hypot(...sub3(c.chain[j],c.chain[j-1]));L*=0.97;
+    const h2=(q.hp[0]-q.H[0])**2+(q.hp[2]-q.H[1])**2;dyR=Math.min(dyR,-(q.hp[1]-gy)+Math.sqrt(Math.max(0,L*L-h2)))}
+   RISEDY=dyR;RISEW=wMax;
+   if(wMax>0)for(const q of plan){const c=q.c,T=Ti([q.H[0],ground(q.H[0],q.H[1])+3.2-dyR+q.arc,q.H[1]]);
+    // the toe lies flat on the ground, pointing outwards from his middle (kept at its angle it tipped the paw block's
+    // corner into the ground; its own direction flips when it points straight down)
+    const toe=sub3(Tf(c.chain[4]),Tf(c.chain[3])),tl=Math.hypot(...toe),ox=q.H[0]-cMid[0],oz=q.H[1]-cMid[2],ol=Math.hypot(ox,oz)||1;
+    const toeF=add(mul([ox*tl/ol,0,oz*tl/ol],q.w),mul(toe,1-q.w));
+    c.chain=reachChain(c.chain.slice(0,4),T).concat([null]);c.chain[4]=Ti(add(Tf(c.chain[3]),toeF))}}}
  ROBFEET=chains.map(c=>({w:c.q.w,p:rotY(c.chain[3],HEAD)}));
  if(flipping&&!ends){
   // (the whole robot is then lifted so the middle ends up where the hanging pose has it)
@@ -1328,14 +1375,13 @@ function buildRobot(p,ph){
  // rise (Over): the switch to standing tilts the body back up over ~22 frames while the rise turns him over in 53, so
  // a plain half turn first tipped him back towards the black end and lifted the red paws ~40 off the ground. Instead
  // the turn makes up whatever the switch hasn't: the tilt you see goes smoothly from lying to standing on the red end
- const riseAng=()=>{const s=ft*ft*(3-2*ft),to=(P[mode]&&P[mode].lean)||0;return((1-s)*from.lean+s*(to+180)-cur.lean)*R};
  if(ends){const ang=FLIP.kind==="rise"?riseAng():Math.PI*ft*ft*(3-2*ft),lift=[0,(FLIP.kind==="rise"?0:50)*Math.sin(Math.PI*ft),0];
   // somersault with a half twist: end over end and turned round, so he lands facing the same way
   const tw=FLIP.kind==="rise"?0:ang;
   xf(v=>add(add(cMid,rotY(rotX(sub3(v,cMid),ang),tw)),lift),n=>rotY(rotX(n,ang),tw));
   if(FLIP.kind==="rise"){// tipping over onto the front end: keep his lowest paw on the ground the whole way
    let lo=1e9;for(const q of prims){if(q.t===2)continue;for(const v of (q.pts||[q.a]))lo=Math.min(lo,v[1])}
-   const dy=-(lo-3.2)*Math.sin(Math.PI*ft);xf(v=>[v[0],v[1]+dy,v[2]],n=>n);for(const q of prims)if(q.t===2)q.a=[q.a[0],0.1,q.a[2]]}}
+   const gw=RISEW,dy=-(lo-3.2)*Math.sin(Math.PI*ft)*(1-gw)+RISEDY*gw;xf(v=>[v[0],v[1]+dy,v[2]],n=>n);for(const q of prims)if(q.t===2)q.a=[q.a[0],0.1,q.a[2]]}}
  else if(flipping){// grabbing the ceiling: the body itself just rises (limbs were blended above)
   const s=FLIP.kind==="up"?ft:1-ft,e=s*s*(3-2*s),sh=mul(sub3(mir(cMid),cMid),e);
   xf(v=>add(v,sh),n=>n)}
