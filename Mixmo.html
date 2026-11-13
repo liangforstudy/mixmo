@@ -1269,6 +1269,7 @@ $("flipV").oninput=()=>{FLIPV=+$("flipV").value;$("flipVV").textContent=FLIPV;tr
 const hexRGB=h=>[1,3,5].map(i=>parseInt(h.slice(i,i+2),16));
 function shade(h,f){const [r,g,b]=hexRGB(h);return`rgb(${Math.min(255,r*f)|0},${Math.min(255,g*f)|0},${Math.min(255,b*f)|0})`}
 const norm3=v=>{const l=Math.hypot(...v)||1;return[v[0]/l,v[1]/l,v[2]/l]};
+const rotAxis=(v,ax,an)=>{const c=Math.cos(an),s=Math.sin(an),k=ax;return add(add(mul(v,c),mul([k[1]*v[2]-k[2]*v[1],k[2]*v[0]-k[0]*v[2],k[0]*v[1]-k[1]*v[0]],s)),mul(k,(k[0]*v[0]+k[1]*v[1]+k[2]*v[2])*(1-c)))};   // turn v about the unit axis ax by an
 const cross3=(a,b)=>[a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]];
 const dot3=(a,b)=>a[0]*b[0]+a[1]*b[1]+a[2]*b[2];
 // a box/cylinder segment from a to b: superellipse cross-section (square -> circle by RLOOK.morph)
@@ -1644,12 +1645,26 @@ function buildRobot(p,ph){
   // top end grabs the ceiling: each limb moves to where its partner at the other end will be once he hangs
   // (that partner's pose, mirrored top-to-bottom). Blended segment by segment, keeping bone lengths
   const s=FLIP.kind==="up"?ft:1-ft,e=s*s*(3-2*s),PM=[3,4,5,0,1,2],src=chains.map(c=>c.chain.map(v=>[...v]));
+  // the body tips from its lean on the floor to its lean hanging (the floor pose mirrored top to bottom: a body leaning
+  // forward by L hangs leaning back by L), steadily about his middle. Before (fix 2026-11-13) it kept its floor lean
+  // and snapped round on the frame the ends swapped: 104 degrees for the dinosaur. The hips ride along with the body
+  const tip=LYING.has(mode)?0:-2*(p.lean||0)*R*e,TB=v=>add(cMid,rotX(sub3(v,cMid),tip));   // lying flat, the hanging body is flat too: no tip
+  if(tip)for(const q of prims){if(!/^Body/.test(q.nm||""))continue;const same=q.b===q.a;q.a=TB(q.a);if(q.b)q.b=same?q.a:TB(q.b);if(q.pts)q.pts=q.pts.map(TB);if(q.fn)q.fn=rotX(q.fn,tip);if(q.n)q.n=rotX(q.n,tip)}
   chains.forEach((c,i)=>{const pc=src[PM[i]].map(v=>[v[0],2*cMid[1]-v[1],v[2]]),own=src[i];
-   const out=[add(mul(own[0],1-e),mul(pc[0],e))];
+   const out=[add(mul(TB(own[0]),1-e),mul(pc[0],e))];
    for(let j=1;j<own.length;j++){const a=sub3(own[j],own[j-1]),b=sub3(pc[j],pc[j-1]),la=Math.hypot(...a),lb=Math.hypot(...b);
-    let d=add(mul(a,(1-e)/(la||1)),mul(b,e/(lb||1)));const ld=Math.hypot(...d);d=ld>1e-6?mul(d,1/ld):norm3(a);
+    // each bone swings in his front-to-back plane (about the side-to-side axis), its sideways lean blended on its own
+    // (fix 2026-11-13: averaging the two directions, or turning the short way round, made a limb whose two poses point
+    // nearly opposite ways swing out sideways one frame and forwards the next, up to 100 units in a frame). Which way
+    // round it swings is picked when the move starts and kept
+    const ua=la>1e-6?mul(a,1/la):[0,-1,0],ub=lb>1e-6?mul(b,1/lb):ua,cl=x=>Math.max(-1,Math.min(1,x));
+    const ea=Math.asin(cl(ua[0])),eb=Math.asin(cl(ub[0])),fa=Math.atan2(ua[2],ua[1]),fb=Math.atan2(ub[2],ub[1]);
+    let df=Math.atan2(Math.sin(fb-fa),Math.cos(fb-fa));const key=i+"/"+j,S=FLIP.sns||(FLIP.sns={});
+    if(S[key]===undefined)S[key]=df>=0?1:-1;else if((df>=0?1:-1)!==S[key]&&Math.abs(df)>Math.PI/2)df+=S[key]*2*Math.PI;   // keep the way round
+    const el=ea+(eb-ea)*e,f=fa+df*e,d=[Math.sin(el),Math.cos(el)*Math.cos(f),Math.cos(el)*Math.sin(f)];
     out.push(add(out[j-1],mul(d,la*(1-e)+lb*e)))}
-   c.chain=out;if(chains[PM[i]].q.curve)c.flex=true})
+   c.chain=out;if(chains[PM[i]].q.curve)c.flex=true;
+   if(e>0.5){c.dRole=RLIMBS[PM[i]].role;c.dW=chains[PM[i]].q.w}})   // past half way each limb is drawn as the part it takes over (no head block popping up where a tail was)
   {const rl=chains.map(c=>c.restL.slice());chains.forEach((c,i)=>c.restL=rl[i].map((l,j)=>l*(1-e)+rl[PM[i]][j]*e))}}
  // bone rule: no bone may stretch or shrink past the allowed amount (the kangaroo's curled tail is exempt)
  BONEBAD=0;
@@ -1729,7 +1744,11 @@ function buildRobot(p,ph){
    const gw=RISEW,dy=-(lo-3.2)*Math.sin(Math.PI*ft)*(1-gw)+RISEDY*gw;xf(v=>[v[0],v[1]+dy,v[2]],n=>n);for(const q of prims)if(q.t===2)q.a=[q.a[0],0.1,q.a[2]]}}
  else if(flipping){// grabbing the ceiling: the body itself just rises (limbs were blended above)
   const s=FLIP.kind==="up"?ft:1-ft,e=s*s*(3-2*s),sh=mul(sub3(mir(cMid),cMid),e);
-  xf(v=>add(v,sh),n=>n)}
+  xf(v=>add(v,sh),n=>n);
+  // nothing below the floor (the tipping body, 2026-11-13, pushed a leg or the kangaroo's tail up to 6 into it near the
+  // landing): lift him clear, allowing the usual ~1 that a paw block's corners sink
+  {let lo=1e9;for(const q of prims){if(q.t===2)continue;for(const v of (q.pts||[q.a]))lo=Math.min(lo,v[1]-ground(v[0],v[2]))}
+   const up=Math.max(0,-1.2-lo);if(up)xf(v=>[v[0],v[1]+up,v[2]],n=>n)}}
  else if(GECKO)xf(mir,n=>[n[0],-n[1],n[2]]);
  // the pose as drawn, before turning to his heading: [hip, knee, hock, paw, toe] per limb (read when a rise starts)
  ROBCH={ph:phase,ch:chains.map(c=>RZ?c.W:c.chain),w:chains.map(c=>c.q.w)};
