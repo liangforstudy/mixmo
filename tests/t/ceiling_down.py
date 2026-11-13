@@ -5,7 +5,7 @@ async def main():
     url,mode,w=sys.argv[1],sys.argv[2],sys.argv[3];dd=sys.argv[4] if len(sys.argv)>4 else 'flip';rl=sys.argv[5] if len(sys.argv)>5 else 'yes';verbose=len(sys.argv)>6
     async with async_playwright() as p:
         b=await p.chromium.launch(executable_path="/usr/bin/google-chrome",args=["--no-sandbox"])
-        pg=await b.new_page(viewport={"width":360,"height":700})
+        pg=await b.new_page(viewport={"width":360,"height":700});await pg.add_init_script("try{if(!localStorage.getItem('mixmoTier'))localStorage.setItem('mixmoTier','anim')}catch(e){}")
         errs=[];pg.on("pageerror",lambda e:errs.append(str(e)))
         await pg.goto(url);await pg.wait_for_timeout(400)
         await pg.evaluate(f"""()=>{{document.querySelector('#rendSw [data-r=canvas]').click();const s=document.getElementById('charSel');s.value='robot';s.onchange();const m=document.getElementById('modeSel');m.value='{mode}';m.onchange();document.querySelector('#ceilTurn [data-c={__import__('os').environ.get('TURN','flip')}]').click();document.querySelector('#ceilDown [data-w={w}]').click();const q=document.querySelector('#ceilDrop [data-d={dd}]');if(q)q.click();const r=document.querySelector('#ceilRoll [data-r="{rl}"]');if(r)r.click()}}""")

@@ -7,7 +7,7 @@ with sync_playwright() as p:
     b=p.chromium.launch();errs=[]
     for ch,steps in [('robot',[('mode','walk',1200),('mode','run6',1500),('turn','U',1800),('mode','walk',1500),('js','startFlip("up")',2200),('js','startFlip("down")',2200)]),
                      ('sergal',[('mode','walk',1200),('turn','L',1500),('mode','idle',1200),('js','setCycle(2)',1500),('mode','run',1500)])]:
-        pg=b.new_page(viewport={'width':1200,'height':800});pg.on('pageerror',lambda e:errs.append(str(e)))
+        pg=b.new_page(viewport={'width':1200,'height':800});pg.add_init_script("try{if(!localStorage.getItem('mixmoTier'))localStorage.setItem('mixmoTier','anim')}catch(e){}");pg.on('pageerror',lambda e:errs.append(str(e)))
         pg.goto('http://localhost:8765/Mixmo.html');pg.wait_for_timeout(500)
         pg.evaluate(f'()=>{{$("charSel").value="{ch}";$("charSel").dispatchEvent(new Event("change"));$("charSel").onchange();window.POSES=[];const orig=hRecord;window.hRecord=function(dt){{const n=HIST.length,last=HIST[n-1];orig(dt);if(HIST.length!==n||HIST[HIST.length-1]!==last)POSES[HIST.length-1]=({KEY})()}};if(!playing)$("play").onclick()}}')
         for kind,arg,wait in steps:

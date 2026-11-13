@@ -12,7 +12,7 @@ window.snap=()=>({ft:FLIP?flipT():null,kind:FLIP?FLIP.kind:null,mode,blendU,phas
 """
 def open_page(pw,url,w=390,h=844):
     b=pw.chromium.launch()
-    pg=b.new_page(viewport={"width":w,"height":h})
+    pg=b.new_page(viewport={"width":w,"height":h});pg.add_init_script("try{if(!localStorage.getItem('mixmoTier'))localStorage.setItem('mixmoTier','anim')}catch(e){}")
     pg.route("**/*jsdelivr*",lambda r:r.abort())
     errs=[]
     pg.on("pageerror",lambda e:errs.append(str(e)))

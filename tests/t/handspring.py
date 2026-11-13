@@ -16,7 +16,7 @@ async def flip_and_wait(pg,timeout=6):
 async def main():
     async with async_playwright() as p:
         b=await p.chromium.launch(executable_path="/usr/bin/google-chrome",args=["--no-sandbox"])
-        pg=await b.new_page(viewport={"width":420,"height":900});errs=[];pg.on("pageerror",lambda e:errs.append(str(e)))
+        pg=await b.new_page(viewport={"width":420,"height":900});await pg.add_init_script("try{if(!localStorage.getItem('mixmoTier'))localStorage.setItem('mixmoTier','anim')}catch(e){}");errs=[];pg.on("pageerror",lambda e:errs.append(str(e)))
         await pg.goto(F if F.startswith("http") else "file://"+F);await pg.wait_for_timeout(400);await pg.evaluate(MON)
         print("-- every fast animation")
         for m in ["run","runTail","dino","roo","run4dog","run4","run5b","run5f","run5head","run6"]:
