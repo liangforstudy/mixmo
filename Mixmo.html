@@ -165,8 +165,8 @@ html.desk .sl .rs{min-height:22px;min-width:30px;padding:0 6px;font-size:14px}
 <p class="sub dev" style="margin:4px 0 0">Applies to the mode picked under "Editing".</p>
 <div class="sl"><label>Flip: handspring at this ground speed and up (below it: walkover)</label><input type="range" id="flipV" min="20" max="250" step="5" value="100"><span class="val" id="flipVV">100</span></div>
 <p class="sub" style="margin:2px 0 6px">Ground speed in units a second (his body is 100 long).<span class="dev"> The speedometer in the corner of the view (Dev mode only) shows his ground speed and which flip the Flip button would play. The red tick is this setting.</span></p>
-<div class="row dev" style="margin:10px 0 0;flex-wrap:nowrap"><span class="lbl">Dev, to compare: when he skids into a 180&deg; on 4, 5 or 6 legs, the end that sinks:</span></div>
-<div class="grid2 dev" id="skidEnd"><button data-k="same" class="on">Same end every time (now)</button><button data-k="behind">The end behind him (fix)</button></div>
+<div class="row" style="margin:10px 0 0;flex-wrap:nowrap"><span class="lbl">When he skids into a 180&deg; on 4, 5 or 6 legs, the legs that dip:</span></div>
+<div class="grid2" id="skidEnd"><button data-k="back" class="on">Back legs</button><button data-k="front">Front legs</button></div>
 <div class="row" style="margin:10px 0 0;flex-wrap:nowrap"><span class="lbl">180&deg; when on 4, 5 or 6 legs:</span></div>
 <div class="grid2" id="lyingTurn"><button data-t="swap" class="on">Swap ends</button><button data-t="turn">Turn round</button><button data-t="swapKeep" style="grid-column:1/3">Swap ends, raised limbs stay put (variant)</button></div>
 <p class="sub" style="margin:4px 0">Swap ends: he stops and the other end leads; a raised tail moves to the new back end. The variant keeps raised limbs where they are, so it looks like the opposite 5-leg run. Turn round: the body swings round; a shorter body turns faster.</p>
@@ -210,7 +210,7 @@ html.desk .sl .rs{min-height:22px;min-width:30px;padding:0 6px;font-size:14px}
 
 <p id="msg"></p>
 <div class="row" style="align-items:center;flex-wrap:nowrap"><span class="lbl">Power saving:</span><div class="seg" id="powSw"><button data-p="off">Off</button><button data-p="on">On</button></div></div>
-<p class="sub" style="margin:2px 16px 6px">Draws at most 30 frames a second and stops redrawing while nothing moves. In 3D, shadows become soft spots. Works with 2D and 3D; 2D uses the least power.</p>
+<p class="sub" style="margin:2px 16px 6px">Draws at most 30 frames a second. In 3D, shadows become soft spots. Works with 2D and 3D; 2D uses the least power. (Whether it is on or off, nothing is redrawn while nothing moves.)</p>
 <div class="row" style="align-items:center;flex-wrap:nowrap"><span class="lbl">Renderer:</span><div class="seg" id="rendSw"><button data-r="three">3D (three.js)</button><button data-r="canvas">2D</button></div></div>
 <fieldset id="r3Look" style="margin:8px 16px"><legend>3D look</legend>
 <div class="row" style="margin:6px 0"><span class="lbl" style="min-width:76px">Style</span><div class="seg"><button data-k="style" data-v="toon">Cartoon</button><button data-k="style" data-v="soft">Soft</button></div></div>
@@ -1282,8 +1282,8 @@ const FALL_T=1.0,FALL_TF=0.62;
 let CEILTURN="flip";try{if(localStorage.getItem("mixmoCeilTurn")==="roll")CEILTURN="roll"}catch(e){}   // lying runs: end over end or roll (user, 2026-11-13)
 document.querySelectorAll("#ceilTurn button").forEach(b=>{b.classList.toggle("on",b.dataset.c===CEILTURN);b.onclick=()=>{CEILTURN=b.dataset.c;try{localStorage.setItem("mixmoCeilTurn",CEILTURN)}catch(e){}
  document.querySelectorAll("#ceilTurn button").forEach(x=>x.classList.toggle("on",x===b))}});
-let SKIDEND="same";try{if(localStorage.getItem("mixmoSkidEnd")==="behind")SKIDEND="behind"}catch(e){}
-document.querySelectorAll("#skidEnd button").forEach(b=>{b.classList.toggle("on",b.dataset.k===SKIDEND);b.onclick=()=>{SKIDEND=b.dataset.k;try{localStorage.setItem("mixmoSkidEnd",SKIDEND)}catch(e){}
+let SKIDEND="back";try{if(localStorage.getItem("mixmoSkidEnd2")==="front")SKIDEND="front"}catch(e){}
+document.querySelectorAll("#skidEnd button").forEach(b=>{b.classList.toggle("on",b.dataset.k===SKIDEND);b.onclick=()=>{SKIDEND=b.dataset.k;try{localStorage.setItem("mixmoSkidEnd2",SKIDEND)}catch(e){}
  document.querySelectorAll("#skidEnd button").forEach(x=>x.classList.toggle("on",x===b))}});
 let CEILDOWN="cat";try{const v=localStorage.getItem("mixmoCeilDown");if(v==="swing")CEILDOWN=v}catch(e){}   // Float down removed (user, 2026-11-13): a saved "float" becomes the cat drop
 document.querySelectorAll("#ceilDown button").forEach(b=>{b.classList.toggle("on",b.dataset.w===CEILDOWN);b.onclick=()=>{CEILDOWN=b.dataset.w;try{localStorage.setItem("mixmoCeilDown",CEILDOWN)}catch(e){}
@@ -2181,9 +2181,9 @@ function turnShape(T,t){   // -> [heading fraction, travel factor, lean back, su
  if(T.kind==="S")return[smt(t),1-Math.sin(Math.PI*t),0,"spinning"];
  // the skid sinks the end behind him (fix 2026-11-13, user: it sank the same end every time, so on every other 180
  // the end in front went down): his lean is drawn in his own frame, so it follows which end was leading
- // To compare (user, 2026-11-13: "compare your fix with the current one first"): Dev, "180 on 4-6 legs, the skid
- // sinks": the same end every time (as before, the default) or the end behind him (the fix)
- if(T.kind==="U6"){const lean=T.skidSw?-26*(SKIDEND==="behind"&&T.d0<0?-1:1)*Math.sin(Math.PI*Math.min(1,t/0.55)):0;return[0,1,lean,t<0.5?(T.skidSw?"skidding":"slowing"):"other end leading"]}
+ // which end dips (user, 2026-11-13): the back legs (default) or the front legs. Before, it was always end B, so on
+ // every other 180 the other end went down
+ if(T.kind==="U6"){const lean=T.skidSw?-26*(T.d0<0?-1:1)*(SKIDEND==="front"?-1:1)*Math.sin(Math.PI*Math.min(1,t/0.55)):0;return[0,1,lean,t<0.5?(T.skidSw?"skidding":"slowing"):"other end leading"]}
  return[smt(t),1,0,""]}
 function turnStep(){
  if(!TURNM&&SPIN){const t=(phase-SPIN.p0)/SPIN.len;HEAD=SPIN.h0+2*Math.PI*t;HEAD_T=HEAD;TRAVK=0;BOOST=SPIN.ts;
@@ -2297,7 +2297,7 @@ function stickSpinStep(){const now=performance.now();
  if(!STICKSPIN&&Math.abs(STICK.turn)>3*Math.PI&&!TURNM){STICK.turn=0;STICKSPIN=true;if(!SPIN)toggleSpin();else if(SPIN.stopH!==undefined)toggleSpin()}
  else if(STICKSPIN&&(!STICK.on||now-STICK.last>400)){STICKSPIN=false;if(SPIN&&SPIN.stopH===undefined)toggleSpin()}}
 // ---- Robot forms (Game): which of his animations walking, the in-between speed and running use; T-pose emote ----
-const FORMS={walk:"walk",mid:"dino",run:"run"};
+const FORMS={walk:"walk",mid:"dino",run:"run4dog"};   // Game: running is on fours like a dog by default (user, 2026-11-13)
 try{Object.assign(FORMS,JSON.parse(localStorage.getItem("mixmoForms")||"{}"))}catch(e){}
 const RUNS_R=["run","runTail","run4dog","run4","run5b","run5f","run5head","run6"];
 function formsUI(){const rob=CHAR==="robot";$("formsBox").hidden=!rob;
@@ -2363,7 +2363,7 @@ let PSIG="";
 addEventListener("resize",()=>PDIRTY++);
 function powerSig(){let h=0;const r=v=>Math.round(v*4);   // movements under a quarter unit (well under a pixel) don't count
  for(const q of prims){const a=q.a,b=q.b;if(a)h+=r(a[0])*11+r(a[1])*13+r(a[2])*17;if(b&&b!==a)h+=r(b[0])*7+r(b[1])*19+r(b[2])*23;if(q.pts)h+=r(q.pts[0][0])*3+r(q.pts[0][1])*5}
- return [h,prims.length,yaw,pitch,zoom,panX,panY,W,Hh,r3on(),R3.ok,PDIRTY,HPOS,mode,CHAR].join("|")}
+ return [h,prims.length,yaw,pitch,zoom,panX,panY,W,Hh,r3on(),R3.ok,PDIRTY,HPOS,mode,CHAR,Math.round(CAMY*4),POS[0].toFixed(2),POS[1].toFixed(2),HEAD.toFixed(4),typeof MODELS!=="undefined"?MODELS.length:0,GECKO,CEIL].join("|")}
 function frame(t){
  if(POWER&&t-last<1000/30-4){requestAnimationFrame(frame);return}   // 30 frames a second: skip every other screen refresh
  const dt=Math.min(.05,(t-last)/1000)*PLAYRATE;last=t;   // PLAYRATE: 1, 1/2 or 1/4 (slow motion: everything moves at that rate)
@@ -2392,7 +2392,8 @@ function frame(t){
  showFrame();
  flipStep();
  hPre();charDef().build({...cur},phase);
- if(POWER){const sg=powerSig();if(sg===PSIG){hRecord(dt);requestAnimationFrame(frame);return}PSIG=sg}   // nothing changed: keep the last picture
+ // nothing changed: keep the last picture (always, user 2026-11-13, for phone heat; before only with Power saving)
+ {const sg=powerSig();if(sg===PSIG){hRecord(dt);requestAnimationFrame(frame);return}PSIG=sg}
  render();drawGait();showStatus();speedoUI(dt);hRecord(dt);
  requestAnimationFrame(frame);
 }
@@ -2509,7 +2510,7 @@ function mdlWarm(M){const R=R3;if(!R.rd||!M.grp)return Promise.resolve();
   R.rd.setRenderTarget(null);for(const sh of [true,false]){R.sun.castShadow=sh;R.rd.shadowMap.needsUpdate=true;R.rd.render(R.sc,R.cam)}
   R.sun.castShadow=was;R.rd.setRenderTarget(prev);for(const [o,f] of fc)o.frustumCulled=f}catch(_){R.sun.castShadow=was}
  return Promise.all([a,b]).catch(()=>{})}
-function r3applyLook(){const R=R3,L=R.look;if(!R.rd||!R.MAT)return;const M=R.MAT[L.style]||R.MAT.toon;
+function r3applyLook(){PDIRTY++;const R=R3,L=R.look;if(!R.rd||!R.MAT)return;const M=R.MAT[L.style]||R.MAT.toon;
  R.segM.material=M.seg;R.balls.material=M.plain;R.panels.material=M.panel;
  const ol=L.outline==="on";R.segOM.visible=R.ballsO.visible=R.edges.visible=ol;
  const real=L.shadow==="real"&&!POWER;R.sun.castShadow=real;   // power saving: soft spots instead of real shadows
@@ -2638,7 +2639,7 @@ function mdlPlace(M){const g=M.grp,moving=mdlMoving(M);g.scale.setScalar(moving?
  const H=M.helper;if(H){H.visible=M.bones;
   if(H.visible){g.updateMatrixWorld(true);const a=H.geometry.attributes.position,v=new R3.T.Vector3();let i=0;
    for(const [b,p] of H.userData.pairs){b.getWorldPosition(v);a.setXYZ(i++,v.x,v.y,v.z);p.getWorldPosition(v);a.setXYZ(i++,v.x,v.y,v.z)}a.needsUpdate=true}}}
-function mdlMsg(t){$("mdlMsg").textContent=t||""}
+function mdlMsg(t){$("mdlMsg").textContent=t||"";PDIRTY++}   // a model step finished: redraw (unchanged frames are skipped)
 // ---------- M2: the model copies the regular sergal's moves ----------
 // He stays the brain: each frame his builder records his skeleton (REC). The model's hips and spine take his body's
 // turn and lean, its legs reach his planted footprints with their OWN lengths (two-bone IK, knee towards his knee), its
