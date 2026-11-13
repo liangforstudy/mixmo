@@ -1824,6 +1824,17 @@ function buildRobot(p,ph){
   const rot=(p,a)=>{const w=sub3(p,hip),c2=Math.cos(a),s2=Math.sin(a);return add(hip,add(add(mul(w,c2),mul(cross3(ax,w),s2)),mul(ax,dot3(ax,w)*(1-c2))))};
   let best=null;for(let k=1;k<=45;k++){const a=k*2*Math.PI/180,np=ch.map((p,j)=>j?rot(p,a):p);if(pen(np)[0]<=0){best=np;break}}
   if(best)for(let j=1;j<ch.length;j++)ch[j]=best[j]}
+ // planted legs too (fix 2026-11-13: in the six-legged 180's skid the end behind him sinks low and a planted leg's knee
+ // went up to 6 into the ground): swing the knee and hock round the hip-to-paw line, the least turn that clears them.
+ // The hip and the paw stay where they are and no bone changes length
+ if(!GECKO&&!FLIP)for(const c of chains){if(c.q.w<0.99||c.q.curve||c.flex)continue;const ch=c.chain,n=ch.length;if(n<4)continue;
+  const pi=n-2,hip=ch[0],rad=j=>LS[j-1]?LS[j-1][1]+0.6:4;
+  const pen=pts=>{let worst=0;for(let j=1;j<pi;j++){const d=ground(pts[j][0],pts[j][2])+rad(j)+0.5-pts[j][1];if(d>worst)worst=d}return worst};
+  if(pen(ch)<=0)continue;let ax=sub3(ch[pi],hip);const al=Math.hypot(...ax);if(al<1e-6)continue;ax=mul(ax,1/al);
+  const rot=(p,a)=>{const w=sub3(p,hip),c2=Math.cos(a),s2=Math.sin(a);return add(hip,add(add(mul(w,c2),mul(cross3(ax,w),s2)),mul(ax,dot3(ax,w)*(1-c2))))};
+  let best=null,bp=pen(ch);for(let k=1;k<=90&&!best;k++)for(const sg of [1,-1]){const a=sg*k*2*Math.PI/180,np=ch.map((p,j)=>j>0&&j<pi?rot(p,a):p),pp=pen(np);
+   if(pp<=0){best=np;break}if(pp<bp){bp=pp;best=null;c._bk=np}}
+  best=best||c._bk;delete c._bk;if(best)for(let j=1;j<pi;j++)ch[j]=best[j]}
  SEGDBG=chains.map(c=>c.q.curve||c.flex?[]:c.chain.slice(1).map((v,j)=>Math.hypot(...sub3(v,c.chain[j]))/c.restL[j]));
  for(const c of chains){const {L,q,chain}=c;G++;PNAME=L.n.toLowerCase().includes(L.role)?L.n:L.n+" "+L.role;
   const lc=showColors?L.c:RLOOK.limb,pts=chain.slice(1);
@@ -2163,7 +2174,9 @@ function turnShape(T,t){   // -> [heading fraction, travel factor, lean back, su
   if(t<0.65)return[smt((t-0.35)/0.3),0,lean,"whipping round"];
   const k=(t-0.65)/0.35;return[1,k*k,lean,"speeding off"]}
  if(T.kind==="S")return[smt(t),1-Math.sin(Math.PI*t),0,"spinning"];
- if(T.kind==="U6"){const lean=T.skidSw?-26*Math.sin(Math.PI*Math.min(1,t/0.55)):0;return[0,1,lean,t<0.5?(T.skidSw?"skidding":"slowing"):"other end leading"]}
+ // the skid sinks the end behind him (fix 2026-11-13, user: it sank the same end every time, so on every other 180
+ // the end in front went down): his lean is drawn in his own frame, so it follows which end was leading
+ if(T.kind==="U6"){const lean=T.skidSw?-26*(T.d0<0?-1:1)*Math.sin(Math.PI*Math.min(1,t/0.55)):0;return[0,1,lean,t<0.5?(T.skidSw?"skidding":"slowing"):"other end leading"]}
  return[smt(t),1,0,""]}
 function turnStep(){
  if(!TURNM&&SPIN){const t=(phase-SPIN.p0)/SPIN.len;HEAD=SPIN.h0+2*Math.PI*t;HEAD_T=HEAD;TRAVK=0;BOOST=SPIN.ts;
