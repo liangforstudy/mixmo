@@ -126,7 +126,7 @@ html.desk .sl .rs{min-height:22px;min-width:30px;padding:0 6px;font-size:14px}
 <body>
 <div id="app"><div id="top">
 <div class="row" style="margin:8px 16px;flex-wrap:nowrap;gap:6px"><select id="charSel" aria-label="Character" class="pick" style="flex:0.8"></select><select id="modeSel" aria-label="Animation" class="pick anim"></select><button id="play" class="on">Pause</button></div>
-<div class="row anim" style="margin:0 16px 8px;flex-wrap:nowrap;gap:6px"><button class="tb" id="tL" aria-label="Turn left 90 degrees">&#8630; 90&deg;</button><button class="tb" id="tR" aria-label="Turn right 90 degrees">90&deg; &#8631;</button><button class="tb" id="tU" aria-label="Turn around">&#10226; 180&deg;</button><button class="tb" id="tS" aria-label="Spin on the spot">Spin</button><button class="tb" id="tF" aria-label="Flip ends: drop onto all six and rise onto the other end. Tap again while flipping to queue more" title="Flip ends (tap again while flipping to queue more)" hidden>Flip<span id="tFq"></span></button><button class="tb" id="tC" aria-label="Flip up onto the ceiling" hidden>Ceiling</button></div>
+<div class="row anim" style="margin:0 16px 8px;flex-wrap:nowrap;gap:6px"><button class="tb" id="tL" aria-label="Turn left 90 degrees">&#8630; 90&deg;</button><button class="tb" id="tR" aria-label="Turn right 90 degrees">90&deg; &#8631;</button><button class="tb" id="tU" aria-label="Turn around">&#10226; 180&deg;</button><button class="tb" id="tS" aria-label="Spin on the spot">Spin</button><button class="tb" id="tF" aria-label="Flip onto the other end: walkover when slow, handspring when fast. Tap again while flipping to queue more" title="Flip: walkover when slow, handspring when fast (see the speedometer). Tap again while flipping to queue more" hidden>Flip<span id="tFq"></span></button><button class="tb" id="tC" aria-label="Flip up onto the ceiling" hidden>Ceiling</button></div>
 <input type="checkbox" switch id="hapSw" tabindex="-1" aria-hidden="true" style="position:fixed;left:0;top:0;width:1px;height:1px;opacity:0;pointer-events:none;margin:0"><label for="hapSw" id="hapLb" aria-hidden="true" style="position:fixed;left:0;top:0;width:1px;height:1px;opacity:0;pointer-events:none;overflow:hidden"></label>
 <div id="view"><canvas id="cv"></canvas><canvas id="cv3"></canvas><div id="r3msg"></div><div id="speedo" aria-live="off"><div id="spTxt">0 u/s</div><div id="spFlip"></div><div class="bar"><div class="fill" id="spFill"></div><div class="tick" id="spTick"></div></div></div><button id="emoteBtn" aria-label="Emote: T-pose">T-pose</button><div id="stickZone" class="fresh" aria-label="Touch control area: tap and drag here to move"><div class="zl">Tap and drag here to move.</div><div id="stick"><div id="stickKnob"></div></div></div><div id="hint">1 finger / drag: orbit - 2 fingers / wheel: zoom - 2 fingers / right-drag: pan - double-tap: reset</div></div>
 <div class="row" style="margin:6px 16px 0;flex-wrap:nowrap;align-items:center"><button id="prevF" aria-label="Previous frame" title="Step back (left arrow key)">&#9664;</button><span id="scrubWrap"><input type="range" id="scrub" min="0" max="1" step="0.001" value="0"><span id="scrubMarks"></span></span><button id="nextF" aria-label="Next frame" title="Step forward (right arrow key)">&#9654;</button><span class="val" id="scrubV" hidden>0</span><button id="stepBlend" class="dev on" aria-label="How mode switches play while paused" style="padding:0 6px;font-size:13px;line-height:1.1">Switch:<br>by frame</button></div>
@@ -331,7 +331,7 @@ function morphParts(kind){return({
  skid:[[0,"skidding"],[0.35,"whipping round"],[0.65,"speeding off"]],
  up:[[0,"hop & turn"],[0.6,"settling onto the ceiling"]],
  down:[[0,"letting go"],[0.4,"flip & drop"]],
- rise:(typeof FLIP!=="undefined"&&FLIP&&FLIP.nu)?[[0,"front paws step into a stool"],[0.12,"back legs push up"],[0.36,"back legs become arms"],[0.7,"settling"]].map(([t,n])=>[risePh(FLIP,t*FLIP.T)/FLIP.len,n]):null})[kind]||null}   // the rise's parts are set in time; the scrubber runs in cycles
+ rise:(typeof FLIP!=="undefined"&&FLIP&&FLIP.nu)?(FLIP.wo?[[0,"hands into a stool"],[0.16,"lead leg kicks over"],[0.42,"other legs follow (split)"],[0.76,"standing on the other end"]]:[[0,"front paws step into a stool"],[0.12,"back legs push up"],[0.36,"back legs become arms"],[0.7,"settling"]]).map(([t,n])=>[risePh(FLIP,t*FLIP.T)/FLIP.len,n]):null})[kind]||null}   // the rise's parts are set in time; the scrubber runs in cycles
 const partAt=(parts,t)=>{let i=0;while(i+1<parts.length&&t>=parts[i+1][0])i++;return i};
 let STEPBLEND=true,BLENDFROM=null,BLENDP0=0,BLENDTOT=1,TURNREC=null;
 // ---------- status line: is he looping, or in the middle of a morph? ----------
@@ -343,7 +343,7 @@ function showStatus(){
   parts.push(`${modeName(BLENDFROM)} → ${modeName(mode)}, frame ${Math.min(BLENDTOT,Math.floor(blendU*BLENDTOT)+1)}/${BLENDTOT}`)}
  if(typeof FLIP!=="undefined"&&FLIP){const t=flipT(),tot=Math.max(1,Math.round(FLIP.len*FPC));
   const pp=morphParts(FLIP.kind),pi=pp?partAt(pp,t):0;
-  if(t>=0&&t<1)parts.push(`${{ends:"Somersault",up:"Flip up to ceiling",down:"Drop from ceiling",rise:"Rise onto front end"}[FLIP.kind]}${pp?` part ${pi+1}/${pp.length} (${pp[pi][1]})`:""}, frame ${Math.min(tot,Math.floor(t*tot)+1)}/${tot}`)}
+  if(t>=0&&t<1)parts.push(`${{ends:"Somersault",hop:"Front handspring (stand-in)",up:"Flip up to ceiling",down:"Drop from ceiling",rise:FLIP.wo?"Front walkover":"Rise onto front end"}[FLIP.kind]}${pp?` part ${pi+1}/${pp.length} (${pp[pi][1]})`:""}, frame ${Math.min(tot,Math.floor(t*tot)+1)}/${tot}`)}
  if(typeof WALKOVER!=="undefined"&&WALKOVER)parts.unshift("Flip ends: "+(WALKOVER.stage===1?"dropping onto all six":"rising onto the other end")+(FLIPQ>0?` (${FLIPQ} more queued)`:""));
  if(typeof TURNM!=="undefined"&&TURNM){const T=TURNM,tot=Math.max(1,Math.round(T.len*FPC)),t=Math.max(0,Math.min(1,(phase-T.p0)/T.len)),st=turnShape(T,t)[3];
   const pp=T.skid?morphParts("skid"):null,pi=pp?partAt(pp,t):0;
@@ -1041,7 +1041,7 @@ function reachChain(ch,T,L0){const n=ch.length,L=L0||[];if(!L0)for(let j=1;j<n;j
   if(Math.hypot(...sub3(p[n-1],T))<0.05)break}
  return p}
 function startFlip(kind){if(FLIP||CHAR!=="robot")return;if(!playing&&!STEPBLEND)$("play").onclick();
- let len=Math.max(0.15,(kind==="ends"?0.9:kind==="rise"?1.0:1.1)*effSpeed()),nu=null;
+ let len=Math.max(0.15,(kind==="ends"||kind==="hop"?0.9:kind==="rise"?1.0:1.1)*effSpeed()),nu=null;
  // Rise onto the front end, planted version (2026-11-11): he pivots over his front paws, which step into a stool and
  // stay put; the back legs push off, then become the arms. Needs the pose he is in right now (ROBCH), so it is only
  // used from the floor, going forwards (not mid-turn), to an upright animation; anything else keeps the older blended rise.
@@ -1056,7 +1056,7 @@ function startFlip(kind){if(FLIP||CHAR!=="robot")return;if(!playing&&!STEPBLEND)
    // each paw's spot in the world (and how high it was, if it was in the air), and which way its knee points
    A:ROBCH.ch.map(ch=>{const v=ch[3];return[POS[0]+v[0]*c+v[2]*sn,POS[1]-v[0]*sn+v[2]*c,Math.max(0,v[1]-ground(v[0],v[2])-3.2)]}),
    h:ROBCH.ch.map(ch=>{const a=sub3(ch[3],ch[0]),k=sub3(ch[1],ch[0]);return sub3(k,mul(a,dot3(k,a)/(dot3(a,a)||1)))})}}
- FLIP={kind,p0:phase,len,...nu};
+ FLIP={kind,p0:phase,len,...nu};if(kind==="rise"&&typeof WALKOVER!=="undefined"&&WALKOVER)FLIP.wo=true;   // a walkover's rise (split legs)if(kind==="hop")FLIP.sg=DIR<0?-1:1;   // hop: over whichever end is leading
  // ceiling: the top (front) end reaches up and grabs, so the ends trade jobs. Going up they swap on landing;
  // coming down they swap at the start, so the move can run as "up" played backwards
  if(kind==="down")SWAP=!SWAP}
@@ -1170,8 +1170,13 @@ const flipQUI=()=>{const e=$("tFq");if(e)setText("tFq",FLIPQ>0?" +"+FLIPQ:"")};
 const flipQClear=()=>{FLIPQ=0;flipQUI()};
 function flipQStep(){if(FLIPQ>0&&!WALKOVER&&!FLIP&&CHAR==="robot"){FLIPQ--;flipQUI();startOver()}}
 $("tF").onclick=()=>{if(CHAR!=="robot")return;if(WALKOVER||FLIP){FLIPQ=Math.min(99,FLIPQ+1);flipQUI();if(!playing&&!STEPBLEND)$("play").onclick();return}startOver()};
-function startOver(){if(WALKOVER||FLIP||CHAR!=="robot")return;if(!playing&&!STEPBLEND)$("play").onclick();
- WALKOVER={stage:1,back:mode==="run6"?"run":mode,saved:STANDEND};
+function startOver(){if(WALKOVER||FLIP||CHAR!=="robot")return;
+ if(GECKO){say("Drop from the ceiling first, then flip.");flipQClear();return}
+ // fast (speedometer at or above the threshold), or lying on 4-6 legs: front handspring (stand-in for now), staying in
+ // the same animation; slow and upright: front walkover, back into the animation he was in
+ if(flipKind()==="handspring"||LYING.has(mode)){startFlip("hop");return}
+ if(!playing&&!STEPBLEND)$("play").onclick();
+ WALKOVER={stage:1,back:mode,saved:STANDEND};
  if(!LYING.has(mode)&&!GECKO&&!SPIN&&!TURNM&&DIR===1&&ROBCH&&ROBCH.ph===phase&&ROBCH.ch.length===6){
   const c=Math.cos(HEAD),sn=Math.sin(HEAD),bt=+$("blend").value;
   WALKOVER.pd={hd:HEAD,p0:[...POS],dz:0,Dc:Math.min(40,Math.max(0,cur.travel*TRAVK*bt/3)),w0:[...ROBCH.w],C:null,T:null,
@@ -1188,11 +1193,11 @@ function flipStep(){if(!FLIP)return;const t=flipT();
   const d=t<=0?0:t>=1?FLIP.D:FLIP.D-riseZT(riseTau()),dd=d-FLIP.dz;
   if(dd){POS[0]+=Math.sin(HEAD)*dd;POS[1]+=Math.cos(HEAD)*dd;groundOff+=dd;FLIP.dz=d}}
  if(t<0){if(FLIP.kind==="down")SWAP=!SWAP;FLIP=null;return}   // scrubbed back past the start: cancel
- if(t>=1){if(FLIP.kind==="ends"||FLIP.kind==="rise")SWAP=!SWAP;else{GECKO=FLIP.kind==="up";if(GECKO)SWAP=!SWAP}FLIP=null;$("tC").textContent=GECKO?"Drop":"Ceiling"}}
+ if(t>=1){if(FLIP.kind==="ends"||FLIP.kind==="rise"||FLIP.kind==="hop")SWAP=!SWAP;else{GECKO=FLIP.kind==="up";if(GECKO)SWAP=!SWAP}FLIP=null;$("tC").textContent=GECKO?"Drop":"Ceiling"}}
 
 // ---------- speedometer (user, 2026-11-13): his ground speed right now, and which flip the Flip button would play ----------
 // Speed = distance per cycle x cycles a second, so it is exact while paused, stepping or rewound too. Fast (at or above
-// FLIPV) = front handspring, slower = front walkover. (The handspring itself is coming; for now Flip still plays the walkover.)
+// FLIPV) = front handspring, slower = front walkover. (The real handspring is coming; for now fast flips play a stand-in front flip.)
 let FLIPV=100;try{const v=+localStorage.getItem("mixmoFlipV");if(v>=20&&v<=250)FLIPV=v}catch(e){}
 const groundSpeed=()=>Math.abs(perCycle()*effSpeed());
 const flipKind=()=>groundSpeed()>=FLIPV?"handspring":"walkover";
@@ -1233,8 +1238,8 @@ function buildRobot(p,ph){
  let headHide=false;
  if(LIMBSW&&LYING.has(mode)){const r=(1-dirNow())/2,a=p.tailUse||0,b=p.frontTail||0;p.tailUse=a+(b-a)*r;p.frontTail=b+(a-b)*r;
   headHide=(p.frontHead||0)>0&&r>0.5}   // TEMPORARY: a head can't move to the other end yet, so once the ends have swapped it is hidden
- const ft0=flipT(),flipping=FLIP&&ft0>=0&&ft0<1,ft=flipping?ft0:0,ends=flipping&&(FLIP.kind==="ends"||FLIP.kind==="rise"),
-  tuck=flipping&&FLIP.kind==="ends"?Math.sin(Math.PI*ft):0;
+ const ft0=flipT(),flipping=FLIP&&ft0>=0&&ft0<1,ft=flipping?ft0:0,ends=flipping&&(FLIP.kind==="ends"||FLIP.kind==="rise"||FLIP.kind==="hop"),
+  tuck=flipping&&(FLIP.kind==="ends"||FLIP.kind==="hop")?Math.sin(Math.PI*ft):0;
  let RISEDY=0,RISEW=0;   // rise: how far the red paws' grip lowers him, and how much (set below)
  const riseAng=()=>{const s=ft*ft*(3-2*ft),to=(P[mode]&&P[mode].lean)||0;return((1-s)*from.lean+s*(to+180)-cur.lean)*R};   // see the rise below
  // hanging from the ceiling: gravity pulls the body down, so the planted legs hang nearly straight instead of crouching
@@ -1475,8 +1480,19 @@ function buildRobot(p,ph){
    const push=F.pw[i]>0.5?rzLeg(hip,A,rotY(F.h[i],dh),sc):src[i].slice(1).map(X);
    // then the arm / neck pose of the limb whose place it takes (the raised pose; at the very end exactly that limb's pose)
    const rs=chains[j].raised,pre=[rs[0],...blendBones(rs[0],rs.slice(1),src[j].slice(1),sm((ft-0.6)/0.4),rs[0],src[j][0])],arm=pre.map(v=>X(M(v)));
-   const wm=sm((ft-0.36)/0.28);
-   c.W=[hip,...swingBones(hip,push,arm.slice(1),wm,arm[0])];if(wm>0.02)c.W=clearFloor(c.W);
+   // front walkover (stage 2, 2026-11-13): the back legs go over one after another, in a split. The lead leg (left)
+   // leaves the ground early and kicks up high over the top while the other two still push; they follow later. Each
+   // kicks out straight as it passes over (most for the lead leg), then folds into its arm / neck pose. Only in a
+   // walkover: the plain rise (leaving Run on all six onto the front end) keeps all three together
+   // [leaves the ground, kick reached, starts folding, folded, how high it kicks]; the plain rise: all together, no kick
+   const WO=F.wo?[[0.42,0.58,0.70,0.90,0.45],[0.14,0.32,0.62,0.86,1],[0.48,0.62,0.72,0.92,0.45]][i]:null;
+   const wm=WO?Math.max(0,Math.min(1,(ft-WO[0])/(WO[3]-WO[0]))):sm((ft-0.36)/0.28);
+   if(WO&&ft>WO[0]&&ft<WO[3]){// in order: push off -> kick up, nearly straight, and ride over the top with the body -> fold into its arm / neck pose
+    const mid=X(cMid),ax=norm3(sub3(hip,mid)),kd=norm3(add(ax,mul([0,0.7,0.55],WO[4]))),bend=norm3(add(kd,[0,0,0.25])),kick=[];let pv=hip;
+    for(let k=0;k<c.restL.length;k++){pv=add(pv,mul(k===1?bend:kd,c.restL[k]));kick.push(pv)}   // toes pointed
+    c.W=ft<WO[1]?[hip,...blendBones(hip,push,kick,sm((ft-WO[0])/(WO[1]-WO[0])))]:ft<WO[2]?[hip,...kick]:[hip,...swingBones(hip,kick,arm.slice(1),sm((ft-WO[2])/(WO[3]-WO[2])),arm[0])]}
+   else c.W=[hip,...swingBones(hip,push,arm.slice(1),WO?(ft>=WO[3]?1:0):wm,arm[0])];
+   if(wm>0.02)c.W=clearFloor(c.W);
    c.dW=wm>0.5?0:1;c.dRole=wm>0.5?RLIMBS[j].role:c.L.role;c.hFw=rotX([0,0,1],-angE);c.hUp=rotX([0,1,0],-angE)}
   chains.forEach((c,i)=>{c.chain=c.W.map(Xi);c.restL=rl[i].map((l,k)=>l*(1-e)+rl[PM[i]][k]*e)});
   RZ={angE,X}}
@@ -1485,7 +1501,7 @@ function buildRobot(p,ph){
   // half turn every limb is exactly where its partner stood: no snap when the ends swap roles
   // rise = a plain forward pitch (no twist): partners are matched left-to-left, and each hip glides
   // along the body to where its partner's hip will be, so nothing snaps when the ends trade jobs
-  const rise=FLIP.kind==="rise",e=ft*ft*(3-2*ft),M=v=>add(cMid,(rise?rotX:rotZ)(sub3(v,cMid),Math.PI)),src=chains.map(c=>c.chain.map(v=>[...v])),PM=rise?[3,4,5,0,1,2]:[3,5,4,0,2,1];
+  const rise=FLIP.kind==="rise",fx=rise||FLIP.kind==="hop",e=ft*ft*(3-2*ft),M=v=>add(cMid,(fx?rotX:rotZ)(sub3(v,cMid),Math.PI)),src=chains.map(c=>c.chain.map(v=>[...v])),PM=fx?[3,4,5,0,1,2]:[3,5,4,0,2,1];   // hop: a plain forward flip, no twist (partners left-to-left, like the rise)
   const rl=chains.map(c=>c.restL.slice());chains.forEach((c,i)=>{const pc=src[PM[i]].map(M);{const r0=add(mul(c.chain[0],1-e),mul(pc[0],e));c.chain=[r0,...blendBones(r0,c.chain.slice(1),pc.slice(1),e,c.chain[0],pc[0])]}if(chains[PM[i]].q.curve)c.flex=true;c.restL=rl[i].map((l,j)=>l*(1-e)+rl[PM[i]][j]*e)})
   // rise: all three red paws hold the ground while he tips over onto them (user, 2026-11-11: one red leg was lifting
   // the whole body while the others stepped). Each red leg: steps onto the ground where it is (0-15% of the rise), holds
@@ -1602,6 +1618,13 @@ function buildRobot(p,ph){
  // a plain half turn first tipped him back towards the black end and lifted the red paws ~40 off the ground. Instead
  // the turn makes up whatever the switch hasn't: the tilt you see goes smoothly from lying to standing on the red end
  if(RZ){xf(RZ.X,n=>rotX(n,RZ.angE));for(const q of prims)if(q.t===2)q.a=[q.a[0],ground(q.a[0],q.a[2])+0.1,q.a[2]]}
+ else if(ends&&FLIP.kind==="hop"){// stand-in handspring (until the real one, stages 3-5): a forward flip over the leading end,
+  // half a turn about his middle, so he lands on the other end's legs in the same animation. Kept clear of the ground,
+  // with a hop on top; he keeps travelling the whole time
+  const ang=FLIP.sg*Math.PI*ft*ft*(3-2*ft);xf(v=>add(cMid,rotX(sub3(v,cMid),ang)),n=>rotX(n,ang));
+  let lo=1e9;for(const q of prims){if(q.t===2)continue;for(const v of (q.pts||[q.a]))lo=Math.min(lo,v[1]-ground(v[0],v[2]))}
+  const dy=Math.max(0,3.2-lo)*Math.sin(Math.PI*Math.min(1,ft*1.15))+30*Math.sin(Math.PI*ft);xf(v=>[v[0],v[1]+dy,v[2]],n=>n);
+  for(const q of prims)if(q.t===2)q.a=[q.a[0],ground(q.a[0],q.a[2])+0.1,q.a[2]]}
  else if(ends){const ang=FLIP.kind==="rise"?riseAng():Math.PI*ft*ft*(3-2*ft),lift=[0,(FLIP.kind==="rise"?0:50)*Math.sin(Math.PI*ft),0];
   // somersault with a half twist: end over end and turned round, so he lands facing the same way
   const tw=FLIP.kind==="rise"?0:ang;
@@ -2006,7 +2029,7 @@ function gameInput(){const k=c=>GKEYS.has(c);
 function gameEnter(){GKEYS.clear();if(TIER!=="game")return;if(HPOS>=0)hBranch();if(TURNM||SPIN){TURNM=null;if(SPIN)spinEnd()}if(!playing)$("play").onclick()}
 let GAMEMODE=null;const GHIST=[];   // recent stick / key directions [time, angle], for spotting a flick
 function gameStep(dt){if(scrubDrag)return;if(TIER==="game"&&playing&&HPOS<0)stickSpinStep();
- if(TIER!=="game"||!playing||HPOS>=0||SPIN||FLIP)return;   // spinning: speed stays as it was (the stick is out while circling)
+ if(TIER!=="game"||!playing||HPOS>=0||SPIN||FLIP||WALKOVER||FLIPQ>0)return;   // a Flip (or one queued) leaves the animation alone   // spinning: speed stays as it was (the stick is out while circling)
  const g=gameInput();if(g.speed!=="idle")EMOTE=false;emoteUI(g.speed==="idle"&&!TURNM);
  const want=gameMode(g.speed==="idle"&&EMOTE?"emote":g.speed);
  // speed follows the input even during a 180 turn: let go mid-turn and he slows down through it, instead of finishing
