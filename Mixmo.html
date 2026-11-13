@@ -135,6 +135,8 @@ html.desk .sl .rs{min-height:22px;min-width:30px;padding:0 6px;font-size:14px}
 </div><div id="split"></div><div id="bot">
 <h1>The Curious Gait of a Three-Legged Sergal</h1>
 <p class="sub">Drag to turn him about, pinch to look closer, slide two fingers to move the view.</p>
+<div class="row" id="devRow" style="align-items:center;flex-wrap:nowrap"><span class="lbl">Mode:</span><div class="seg" id="tierSw"><button data-t="game">Game</button><button data-t="anim">Animation player</button><button data-t="dev">Dev</button></div></div>
+<p class="sub" style="margin:2px 16px 10px">Game: steer him with the keys. Animation player: pick animations, turns and the timeline. Dev: also the advanced settings (gait sliders, leg placement, footfall chart, sergal parts, save &amp; load, bone and debug tools).</p>
 <p id="gameTip" class="gameOnly"><b>Game.</b> <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> to run, hold <kbd>Shift</kbd> to walk; the arrow keys walk (while paused, <kbd>&larr;</kbd> <kbd>&rarr;</kbd> step frames); on the robot, <kbd>Ctrl</kbd> = his in-between form. On a phone, drag in the left half of the view: a joystick appears under your thumb; push a little to walk, all the way to run. Up = away from the camera. To look around, drag the right half on a phone, or anywhere with a mouse. <i>Psst: try spinning the joystick round.</i></p>
 <fieldset id="formsBox" class="gameOnly" hidden><legend>Robot forms</legend>
 <div class="row" style="flex-wrap:nowrap;align-items:center"><span class="lbl">Walk:</span><div class="seg" id="fWalk"><button data-m="walk">On three</button><button data-m="walk2">On two, tail up</button></div></div>
@@ -169,6 +171,9 @@ html.desk .sl .rs{min-height:22px;min-width:30px;padding:0 6px;font-size:14px}
 <div class="sl"><label>Ceiling height</label><input type="range" id="ceilH" min="150" max="600" step="5" value="295"><span class="val" id="ceilHV">295</span></div>
 <div class="sl"><label>Jump height (how far up he can jump to grab the ceiling)</label><input type="range" id="jumpH" min="20" max="300" step="5" value="160"><span class="val" id="jumpHV">160</span></div>
 <p class="sub" style="margin:2px 0 6px">Ceiling: he crouches, jumps, and the feet nearest the ceiling grab it first. Out of reach, he jumps, reaches up and lands again.</p>
+<div class="row" style="margin:10px 0 0;flex-wrap:nowrap"><span class="lbl">Runs on 4, 5 or 6 legs, to and from the ceiling:</span></div>
+<div class="grid2" id="ceilTurn"><button data-c="flip" class="on">End over end</button><button data-c="roll">Roll belly-up</button></div>
+<p class="sub" style="margin:4px 0">End over end: he turns head over tail, so his ends change places. Roll belly-up: he rolls over along his length, so each end stays where it is.</p>
 <div class="row" style="margin:10px 0 0;flex-wrap:nowrap"><span class="lbl">Leaving the ceiling:</span></div>
 <div class="grid2" id="ceilDown"><button data-w="cat" class="on">Cat drop</button><button data-w="swing">Swing down</button><button data-w="float" style="grid-column:1/3">Float down (as before)</button></div>
 <p class="sub" style="margin:4px 0">Cat drop: he lets go, falls, turns over on the way and lands on his feet, the end that hung lowest first. Swing down: he keeps his grip while his body and other limbs swing down, then lets go and drops. Float down: the old slow turn-over.</p>
@@ -181,8 +186,6 @@ html.desk .sl .rs{min-height:22px;min-width:30px;padding:0 6px;font-size:14px}
 <p class="sub" style="margin:4px 0 0">Back end tips him back onto the end behind him. Front end rises forward over his front legs, so he ends up the other way up, looking exactly the same but with the paw colours swapped. End A / End B pick a paw colour, whichever end it is on.</p>
 </fieldset>
 
-<div class="row" id="devRow" style="align-items:center;flex-wrap:nowrap"><span class="lbl">Mode:</span><div class="seg" id="tierSw"><button data-t="game">Game</button><button data-t="anim">Animation player</button><button data-t="dev">Dev</button></div></div>
-<p class="sub" style="margin:2px 16px 10px">Game: steer him with the keys. Animation player: pick animations, turns and the timeline. Dev: also the advanced settings (gait sliders, leg placement, footfall chart, sergal parts, save &amp; load, bone and debug tools).</p>
 <fieldset><legend>Terrain</legend>
 <div class="row" style="margin:6px 0"><div class="seg" id="terrain"><button data-t="flat" class="on">Flat</button><button data-t="hills">Hills</button><button data-t="bumpy">Bumpy</button><button data-t="steps">Steps</button></div></div>
 <div class="sl"><label>Height</label><input type="range" id="tH" min="0" max="40" step="0.5" value="12"><span class="val" id="tHV">12</span></div>
@@ -1192,7 +1195,7 @@ const CHARACTERS={
   panels:{show:["moodRow","emoodRow","presetBox"],hide:["sergalParts","attach","robotLook","tF","tC"]}},
  robot:{name:"Robot",shape:{get body(){return{len:BODY_L,radius:BODY_R}},look:RLOOK,skins:SKINPAL},limbs:RLIMBS,sliders:META_R,defaults:DEF_R,params:PR,modes:MODES_R,build:(p,ph)=>buildRobot(p,ph),
   similar:{idle:"idle",idleTail:"idle",walk:"walk",run:"run",gallop:"run6"},
-  panels:{show:["robotLook","tF","tC"],hide:["sergalParts","attach","moodRow","emoodRow","presetBox"]}}};
+  title:"The Curious Gait of a Six-Legged Robot",panels:{show:["robotLook","tF","tC"],hide:["sergalParts","attach","moodRow","emoodRow","presetBox"]}}};
 const charDef=()=>CHARACTERS[CHAR];
 $("charSel").innerHTML=Object.entries(CHARACTERS).map(([k,c])=>`<option value="${k}">${c.name}</option>`).join("");
 $("charSel").onchange=()=>{CHAR=$("charSel").value;const D=charDef();
@@ -1200,6 +1203,7 @@ $("charSel").onchange=()=>{CHAR=$("charSel").value;const D=charDef();
  // keep doing the same kind of thing when switching characters
  const nm=D.similar[mode]||"idle";mode=editMode=nm;BLENDFROM=null;from={...P[nm]};cur={...P[nm]};blendU=1;SPR.init=false;
  for(const L of [...LEGS,...RLIMBS,...LEGS2])L.ik=null;
+ document.querySelector("#bot h1").textContent=D.title||"The Curious Gait of a Three-Legged Sergal";   // the robot has his own (user, 2026-11-13)
  for(const id of D.panels.show)$(id).hidden=false;for(const id of D.panels.hide)$(id).hidden=true;FLIP=null;
  segUI();buildSliders();applyCollapsed();syncJSON()};
 // body preset (regular sergal): changing it rebuilds him like a character switch (same animation) and clears the
@@ -1273,6 +1277,9 @@ function walkoverStep(){if(!WALKOVER)return;
 // share of the move spent falling (the rest is the landing)
 let CEILDROP="flip";try{const v=localStorage.getItem("mixmoCeilDrop");if(v==="four"||v==="six")CEILDROP=v}catch(e){}
 const FALL_T=1.0,FALL_TF=0.62;
+let CEILTURN="flip";try{if(localStorage.getItem("mixmoCeilTurn")==="roll")CEILTURN="roll"}catch(e){}   // lying runs: end over end or roll (user, 2026-11-13)
+document.querySelectorAll("#ceilTurn button").forEach(b=>{b.classList.toggle("on",b.dataset.c===CEILTURN);b.onclick=()=>{CEILTURN=b.dataset.c;try{localStorage.setItem("mixmoCeilTurn",CEILTURN)}catch(e){}
+ document.querySelectorAll("#ceilTurn button").forEach(x=>x.classList.toggle("on",x===b))}});
 let CEILDOWN="cat";try{const v=localStorage.getItem("mixmoCeilDown");if(v==="swing"||v==="float"||v==="cat")CEILDOWN=v}catch(e){}
 document.querySelectorAll("#ceilDown button").forEach(b=>{b.classList.toggle("on",b.dataset.w===CEILDOWN);b.onclick=()=>{CEILDOWN=b.dataset.w;try{localStorage.setItem("mixmoCeilDown",CEILDOWN)}catch(e){}
  document.querySelectorAll("#ceilDown button").forEach(x=>x.classList.toggle("on",x===b))}});
@@ -1768,10 +1775,14 @@ function buildRobot(p,ph){
   // Lying flat (fix 2026-11-13, user: legs swapped but the body stayed put) he turns end over end, half a turn: the
   // ends really change places and the hips go with them (before, the body stayed still and the hips slid along it).
   // The end that grabs first rises (going up); coming down, the end in front goes down first
+  // Roll belly-up (user, 2026-11-13: both, with a toggle): half a roll along his length instead; each end stays where it
+  // is and each limb takes over from the one beside it (left for right), not from the other end
+  if(FLIP.roll===undefined)FLIP.roll=LYING.has(mode)&&CEILTURN==="roll";
+  const RO=FLIP.roll,PX=RO?[0,2,1,3,5,4]:PM,rotB=RO?rotZ:rotX,Pz=v=>[v[2],v[1],v[0]],SW=RO?Pz:(v=>v);
   const lyS=FLIP.kind==="up"?(FLIP.ge||(DIR<0?"B":"T"))==="T"?-1:1:(DIR<0?1:-1),
-   tip=(LYING.has(mode)?lyS*Math.PI:-2*(p.lean||0)*R)*eB,TB=v=>add(cMid,rotX(sub3(v,cMid),tip)),TF=v=>add(cMid,rotX(sub3(v,cMid),tip/Math.max(1e-6,eB)));
-  if(tip)for(const q of prims){if(!/^Body/.test(q.nm||""))continue;const same=q.b===q.a;q.a=TB(q.a);if(q.b)q.b=same?q.a:TB(q.b);if(q.pts)q.pts=q.pts.map(TB);if(q.fn)q.fn=rotX(q.fn,tip);if(q.n)q.n=rotX(q.n,tip)}
-  chains.forEach((c,i)=>{const pc=src[PM[i]].map(v=>[v[0],2*cMid[1]-v[1],v[2]]),own=src[i],e=eOf(i);
+   tip=(LYING.has(mode)?lyS*Math.PI:-2*(p.lean||0)*R)*eB,TB=v=>add(cMid,rotB(sub3(v,cMid),tip)),TF=v=>add(cMid,rotB(sub3(v,cMid),tip/Math.max(1e-6,eB)));
+  if(tip)for(const q of prims){if(!/^Body/.test(q.nm||""))continue;const same=q.b===q.a;q.a=TB(q.a);if(q.b)q.b=same?q.a:TB(q.b);if(q.pts)q.pts=q.pts.map(TB);if(q.fn)q.fn=rotB(q.fn,tip);if(q.n)q.n=rotB(q.n,tip)}
+  chains.forEach((c,i)=>{const pc=src[PX[i]].map(v=>[v[0],2*cMid[1]-v[1],v[2]]),own=src[i],e=eOf(i);
    // the hip rides on the turning body (before: blended in a straight line to where the partner's hip ends up, so it
    // left the body mid-move, up to 70 units in the jump); the small leftover to the hanging pose is eased in
    const out=[add(TB(own[0]),mul(sub3(pc[0],eB>1e-6?TF(own[0]):pc[0]),eB))];
@@ -1780,16 +1791,16 @@ function buildRobot(p,ph){
     // (fix 2026-11-13: averaging the two directions, or turning the short way round, made a limb whose two poses point
     // nearly opposite ways swing out sideways one frame and forwards the next, up to 100 units in a frame). Which way
     // round it swings is picked when the move starts and kept
-    const ua=la>1e-6?mul(a,1/la):[0,-1,0],ub=lb>1e-6?mul(b,1/lb):ua,cl=x=>Math.max(-1,Math.min(1,x));
+    const ua=SW(la>1e-6?mul(a,1/la):[0,-1,0]),ub=lb>1e-6?SW(mul(b,1/lb)):ua,cl=x=>Math.max(-1,Math.min(1,x));   // rolling: the same swing, about his length
     const ea=Math.asin(cl(ua[0])),eb=Math.asin(cl(ub[0])),fa=Math.atan2(ua[2],ua[1]),fb=Math.atan2(ub[2],ub[1]);
     let df=Math.atan2(Math.sin(fb-fa),Math.cos(fb-fa));const key=i+"/"+j,S=FLIP.sns||(FLIP.sns={});
     if(S[key]===undefined)S[key]=df>=0?1:-1;else if((df>=0?1:-1)!==S[key]&&Math.abs(df)>Math.PI/2)df+=S[key]*2*Math.PI;   // keep the way round
     if(S[key+"d"]!==undefined){while(df-S[key+"d"]>Math.PI)df-=2*Math.PI;while(df-S[key+"d"]<-Math.PI)df+=2*Math.PI}S[key+"d"]=df;   // nearest last frame's turn
-    const el=ea+(eb-ea)*e,f=fa+df*e,d=[Math.sin(el),Math.cos(el)*Math.cos(f),Math.cos(el)*Math.sin(f)];
+    const el=ea+(eb-ea)*e,f=fa+df*e,d=SW([Math.sin(el),Math.cos(el)*Math.cos(f),Math.cos(el)*Math.sin(f)]);
     out.push(add(out[j-1],mul(d,la*(1-e)+lb*e)))}
-   c.chain=out;if(chains[PM[i]].q.curve)c.flex=true;
-   if(e>0.5){c.dRole=RLIMBS[PM[i]].role;c.dW=chains[PM[i]].q.w}})   // past half way each limb is drawn as the part it takes over (no head block popping up where a tail was)
-  {const rl=chains.map(c=>c.restL.slice());chains.forEach((c,i)=>{const e=eOf(i);c.restL=rl[i].map((l,j)=>l*(1-e)+rl[PM[i]][j]*e)})}}
+   c.chain=out;if(chains[PX[i]].q.curve)c.flex=true;
+   if(e>0.5){c.dRole=RLIMBS[PX[i]].role;c.dW=chains[PX[i]].q.w}})   // past half way each limb is drawn as the part it takes over (no head block popping up where a tail was)
+  {const rl=chains.map(c=>c.restL.slice());chains.forEach((c,i)=>{const e=eOf(i);c.restL=rl[i].map((l,j)=>l*(1-e)+rl[PX[i]][j]*e)})}}
  // bone rule: no bone may stretch or shrink past the allowed amount (the kangaroo's curled tail is exempt)
  BONEBAD=0;
  for(const c of chains){c.bad=[];if(c.q.curve||c.flex)continue;
