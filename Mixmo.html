@@ -165,6 +165,8 @@ html.desk .sl .rs{min-height:22px;min-width:30px;padding:0 6px;font-size:14px}
 <p class="sub dev" style="margin:4px 0 0">Applies to the mode picked under "Editing".</p>
 <div class="sl"><label>Flip: handspring at this ground speed and up (below it: walkover)</label><input type="range" id="flipV" min="20" max="250" step="5" value="100"><span class="val" id="flipVV">100</span></div>
 <p class="sub" style="margin:2px 0 6px">Ground speed in units a second (his body is 100 long).<span class="dev"> The speedometer in the corner of the view (Dev mode only) shows his ground speed and which flip the Flip button would play. The red tick is this setting.</span></p>
+<div class="row dev" style="margin:10px 0 0;flex-wrap:nowrap"><span class="lbl">Dev, to compare: when he skids into a 180&deg; on 4, 5 or 6 legs, the end that sinks:</span></div>
+<div class="grid2 dev" id="skidEnd"><button data-k="same" class="on">Same end every time (now)</button><button data-k="behind">The end behind him (fix)</button></div>
 <div class="row" style="margin:10px 0 0;flex-wrap:nowrap"><span class="lbl">180&deg; when on 4, 5 or 6 legs:</span></div>
 <div class="grid2" id="lyingTurn"><button data-t="swap" class="on">Swap ends</button><button data-t="turn">Turn round</button><button data-t="swapKeep" style="grid-column:1/3">Swap ends, raised limbs stay put (variant)</button></div>
 <p class="sub" style="margin:4px 0">Swap ends: he stops and the other end leads; a raised tail moves to the new back end. The variant keeps raised limbs where they are, so it looks like the opposite 5-leg run. Turn round: the body swings round; a shorter body turns faster.</p>
@@ -174,10 +176,10 @@ html.desk .sl .rs{min-height:22px;min-width:30px;padding:0 6px;font-size:14px}
 <div class="row" style="margin:10px 0 0;flex-wrap:nowrap"><span class="lbl">Runs on 4, 5 or 6 legs, to and from the ceiling:</span></div>
 <div class="grid2" id="ceilTurn"><button data-c="flip" class="on">End over end</button><button data-c="roll">Roll belly-up</button></div>
 <p class="sub" style="margin:4px 0">End over end: he turns head over tail, so his ends change places. Roll belly-up: he rolls over along his length, so each end stays where it is.</p>
-<div class="row" style="margin:10px 0 0;flex-wrap:nowrap"><span class="lbl">Leaving the ceiling:</span></div>
-<div class="grid2" id="ceilDown"><button data-w="cat" class="on">Cat drop</button><button data-w="swing">Swing down</button><button data-w="float" style="grid-column:1/3">Float down (as before)</button></div>
-<p class="sub" style="margin:4px 0">Cat drop: he lets go, falls, turns over on the way and lands on his feet, the end that hung lowest first. Swing down: he keeps his grip while his body and other limbs swing down, then lets go and drops. Float down: the old slow turn-over.</p>
-<div class="row" style="margin:10px 0 0;flex-wrap:nowrap"><span class="lbl">Dinosaur and Kangaroo, leaving the ceiling:</span></div>
+<div class="row" style="margin:10px 0 0;flex-wrap:nowrap"><span class="lbl">When leaving the ceiling:</span></div>
+<div class="grid2" id="ceilDown"><button data-w="cat" class="on">Cat drop</button><button data-w="swing">Swing down</button></div>
+<p class="sub" style="margin:4px 0">Cat drop: he lets go, falls, turns over on the way and lands on his feet, the end that hung lowest first. Swing down: he keeps his grip while his body and other limbs swing down, then lets go and drops.</p>
+<div class="row" style="margin:10px 0 0;flex-wrap:nowrap"><span class="lbl">When in Dinosaur and Kangaroo mode, leaving the ceiling:</span></div>
 <div class="grid2" id="ceilDrop"><button data-d="flip" class="on">Like the others</button><button data-d="four">Drop onto all fours</button><button data-d="six" style="grid-column:1/3">Drop onto all six</button></div>
 <div class="row" style="margin:6px 0 0;flex-wrap:nowrap"><span class="lbl">Dropping, roll belly-down:</span><div class="seg" id="ceilRoll"><button data-r="1" class="on">Yes</button><button data-r="0">No</button></div></div>
 <p class="sub" style="margin:4px 0">Like the others: as set above. Drop: he lets go, falls straight down and lands on four legs (head and tail up) or on all six. Rolling: his body rolls half a turn along its length on the way, so he comes down belly first. Not rolling: his body only tilts level (the short way), and the legs that held the ceiling swing over to its underside.</p>
@@ -409,7 +411,7 @@ function showStatus(){
   parts.push(`${modeName(BLENDFROM)} → ${modeName(mode)}, frame ${Math.min(BLENDTOT,Math.floor(blendU*BLENDTOT)+1)}/${BLENDTOT}`)}
  if(typeof FLIP!=="undefined"&&FLIP){const t=flipT(),tot=Math.max(1,Math.round(FLIP.len*FPC));
   const pp=morphParts(FLIP.kind),pi=pp?partAt(pp,t):0;
-  if(t>=0&&t<1)parts.push(`${{ends:"Somersault",spring:"Front handspring",jump:"Jump (ceiling out of reach)",up:FLIP.jump?"Jump and grab the ceiling":"Flip up to ceiling",fall:(FLIP.tgt==="run6"?"Drop onto all six":"Drop onto all fours")+(FLIP.roll===false?" (no roll)":""),down:FLIP.cat?"Cat drop from the ceiling":FLIP.jump?"Swing down from the ceiling":"Drop from ceiling",rise:"Rise onto front end"}[FLIP.kind]}${pp?` part ${pi+1}/${pp.length} (${pp[pi][1]})`:""}, frame ${Math.min(tot,Math.floor(t*tot)+1)}/${tot}`)}
+  if(t>=0&&t<1)parts.push(`${{ends:"Somersault",spring:"Front handspring",jump:"Jump (ceiling out of reach)",up:FLIP.jump?"Jump and grab the ceiling":"Flip up to ceiling",fall:(FLIP.tgt==="run6"?"Drop onto all six":"Drop onto all fours")+(FLIP.roll===false?" (no roll)":""),down:FLIP.cat?"Cat drop from the ceiling":"Swing down from the ceiling",rise:"Rise onto front end"}[FLIP.kind]}${pp?` part ${pi+1}/${pp.length} (${pp[pi][1]})`:""}, frame ${Math.min(tot,Math.floor(t*tot)+1)}/${tot}`)}
  if(typeof WALKOVER!=="undefined"&&WALKOVER)parts.unshift("Flip ends: "+(WALKOVER.stage===1?"dropping onto all six":"rising onto the other end")+(FLIPQ>0?` (${FLIPQ} more queued)`:""));
  if(typeof TURNM!=="undefined"&&TURNM){const T=TURNM,tot=Math.max(1,Math.round(T.len*FPC)),t=Math.max(0,Math.min(1,(phase-T.p0)/T.len)),st=turnShape(T,t)[3];
   const pp=T.skid?morphParts("skid"):null,pi=pp?partAt(pp,t):0;
@@ -1280,7 +1282,10 @@ const FALL_T=1.0,FALL_TF=0.62;
 let CEILTURN="flip";try{if(localStorage.getItem("mixmoCeilTurn")==="roll")CEILTURN="roll"}catch(e){}   // lying runs: end over end or roll (user, 2026-11-13)
 document.querySelectorAll("#ceilTurn button").forEach(b=>{b.classList.toggle("on",b.dataset.c===CEILTURN);b.onclick=()=>{CEILTURN=b.dataset.c;try{localStorage.setItem("mixmoCeilTurn",CEILTURN)}catch(e){}
  document.querySelectorAll("#ceilTurn button").forEach(x=>x.classList.toggle("on",x===b))}});
-let CEILDOWN="cat";try{const v=localStorage.getItem("mixmoCeilDown");if(v==="swing"||v==="float"||v==="cat")CEILDOWN=v}catch(e){}
+let SKIDEND="same";try{if(localStorage.getItem("mixmoSkidEnd")==="behind")SKIDEND="behind"}catch(e){}
+document.querySelectorAll("#skidEnd button").forEach(b=>{b.classList.toggle("on",b.dataset.k===SKIDEND);b.onclick=()=>{SKIDEND=b.dataset.k;try{localStorage.setItem("mixmoSkidEnd",SKIDEND)}catch(e){}
+ document.querySelectorAll("#skidEnd button").forEach(x=>x.classList.toggle("on",x===b))}});
+let CEILDOWN="cat";try{const v=localStorage.getItem("mixmoCeilDown");if(v==="swing")CEILDOWN=v}catch(e){}   // Float down removed (user, 2026-11-13): a saved "float" becomes the cat drop
 document.querySelectorAll("#ceilDown button").forEach(b=>{b.classList.toggle("on",b.dataset.w===CEILDOWN);b.onclick=()=>{CEILDOWN=b.dataset.w;try{localStorage.setItem("mixmoCeilDown",CEILDOWN)}catch(e){}
  document.querySelectorAll("#ceilDown button").forEach(x=>x.classList.toggle("on",x===b))}});
 let CEILROLL=true;try{CEILROLL=localStorage.getItem("mixmoCeilRoll")!=="0"}catch(e){}
@@ -1313,7 +1318,7 @@ function startCeil(){if(FLIP||CHAR!=="robot")return;
   // cat drop: the ceiling's way down (ends trade jobs, legs swing over, the body turns), falling with gravity, the legs
   // ready by touchdown, his body spring taking the landing. Swing down: the jump and grab played backwards
   if(CEILDOWN==="cat")Object.assign(FLIP,{cat:true,landed:false,vImp:0.25*2*h/(FALL_TF*Math.max(0.3,FLIP.len/Math.max(0.05,effSpeed())))});
-  else if(CEILDOWN==="swing")Object.assign(FLIP,{jump:true,ge:DIR<0?"B":"T",landed:false});
+  else Object.assign(FLIP,{jump:true,ge:DIR<0?"B":"T",landed:false});
   return}
  const reach=ceilReach();
  if(CEIL>reach+2){// out of reach: a jump that reaches up and lands again
@@ -2176,7 +2181,9 @@ function turnShape(T,t){   // -> [heading fraction, travel factor, lean back, su
  if(T.kind==="S")return[smt(t),1-Math.sin(Math.PI*t),0,"spinning"];
  // the skid sinks the end behind him (fix 2026-11-13, user: it sank the same end every time, so on every other 180
  // the end in front went down): his lean is drawn in his own frame, so it follows which end was leading
- if(T.kind==="U6"){const lean=T.skidSw?-26*(T.d0<0?-1:1)*Math.sin(Math.PI*Math.min(1,t/0.55)):0;return[0,1,lean,t<0.5?(T.skidSw?"skidding":"slowing"):"other end leading"]}
+ // To compare (user, 2026-11-13: "compare your fix with the current one first"): Dev, "180 on 4-6 legs, the skid
+ // sinks": the same end every time (as before, the default) or the end behind him (the fix)
+ if(T.kind==="U6"){const lean=T.skidSw?-26*(SKIDEND==="behind"&&T.d0<0?-1:1)*Math.sin(Math.PI*Math.min(1,t/0.55)):0;return[0,1,lean,t<0.5?(T.skidSw?"skidding":"slowing"):"other end leading"]}
  return[smt(t),1,0,""]}
 function turnStep(){
  if(!TURNM&&SPIN){const t=(phase-SPIN.p0)/SPIN.len;HEAD=SPIN.h0+2*Math.PI*t;HEAD_T=HEAD;TRAVK=0;BOOST=SPIN.ts;
