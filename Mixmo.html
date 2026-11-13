@@ -369,8 +369,8 @@ const springHold=(t,F)=>{const sm=x=>{x=Math.max(0,Math.min(1,x));return x*x*(3-
  // stage C: when he ends standing on his hands (no flight), they stay down and hand over to the gait at the very end
  return Math.min(on,F&&F.init&&!F.fl?1-sm((t-0.82)/0.18):1-sm((t-HSP_P)/(HSP_PAD*1.4)))};
 // how much the trailing end's limbs take on the shared tuck: up while the hands go down, held over the top, opening for the landing
-const springTuck=(t,F)=>{const sm=x=>{x=Math.max(0,Math.min(1,x));return x*x*(3-2*x)};return F.fl?Math.min(sm((t-0.08)/0.2),1-sm((t-0.6)/0.26)):Math.min(sm((t-0.08)/0.25),1-sm((t-0.68)/0.27))};
-const springTravel=()=>FLIP&&FLIP.kind==="spring"&&flipT()>=0&&flipT()<1?0:1;   // the path moves him instead of the gait
+const springTuck=(t,F)=>{const sm=x=>{x=Math.max(0,Math.min(1,x));return x*x*(3-2*x)};return F.fl?Math.min(sm((t-0.18)/0.18),1-sm((t-0.62)/0.24)):Math.min(sm((t-0.18)/0.18),1-sm((t-0.7)/0.26))};
+const springTravel=()=>FLIP&&FLIP.kind==="spring"&&FLIP.init&&flipT()>=0&&flipT()<1?0:1;   // (until the path is set up, the gait still carries him)   // the path moves him instead of the gait
 // parts of multi-part morphs, as [start (0-1), name]; markers on the scrubber show where each begins
 function morphParts(kind){return({
  skid:[[0,"skidding"],[0.35,"whipping round"],[0.65,"speeding off"]],
@@ -1287,7 +1287,7 @@ function buildRobot(p,ph){
  if(LIMBSW&&LYING.has(mode)){const r=(1-dirNow())/2,a=p.tailUse||0,b=p.frontTail||0;p.tailUse=a+(b-a)*r;p.frontTail=b+(a-b)*r;
   headHide=(p.frontHead||0)>0&&r>0.5}   // TEMPORARY: a head can't move to the other end yet, so once the ends have swapped it is hidden
  const ft0=flipT(),flipping=FLIP&&ft0>=0&&ft0<1,ft=flipping?ft0:0,ends=flipping&&(FLIP.kind==="ends"||FLIP.kind==="rise"||FLIP.kind==="spring"),
-  tuck=flipping&&(FLIP.kind==="ends"||FLIP.kind==="spring")?Math.sin(Math.PI*ft):0;
+  tuck=flipping&&FLIP.kind==="ends"?Math.sin(Math.PI*ft):0;   // (the handspring shapes its limbs itself: no stand-in tuck)
  let RISEDY=0,RISEW=0;   // rise: how far the red paws' grip lowers him, and how much (set below)
  const riseAng=()=>{const s=ft*ft*(3-2*ft),to=(P[mode]&&P[mode].lean)||0;return((1-s)*from.lean+s*(to+180)-cur.lean)*R};   // see the rise below
  // hanging from the ceiling: gravity pulls the body down, so the planted legs hang nearly straight instead of crouching
@@ -1539,28 +1539,46 @@ function buildRobot(p,ph){
   // rise = a plain forward pitch (no twist): partners are matched left-to-left, and each hip glides
   // along the body to where its partner's hip will be, so nothing snaps when the ends trade jobs
   const rise=FLIP.kind==="rise",spr=FLIP.kind==="spring",fx=rise||spr;
-  if(spr&&!FLIP.init){const F=FLIP,E0=B(F.sg>0?[0,BODY_L,0]:[0,0,0]),rel=sub3(E0,cMid);springInit(F,[F.sg*rel[2],rel[1]],cMid[1],p.lean)}
+  if(spr&&!FLIP.init){const F=FLIP,E0=B(F.sg>0?[0,BODY_L,0]:[0,0,0]),rel=sub3(E0,cMid);springInit(F,[F.sg*rel[2],rel[1]],cMid[1],p.lean);F.dz=springPath(F,ft)[0]}   // the gait already carried him this far
   const e=spr?springAng(FLIP,ft)/Math.PI:ft*ft*(3-2*ft),M=v=>add(cMid,(fx?rotX:rotZ)(sub3(v,cMid),Math.PI)),src=chains.map(c=>c.chain.map(v=>[...v])),PM=fx?[3,4,5,0,1,2]:[3,5,4,0,2,1];   // hop: a plain forward flip, no twist (partners left-to-left, like the rise)
   const rl=chains.map(c=>c.restL.slice());chains.forEach((c,i)=>{const pc=src[PM[i]].map(M);{const r0=add(mul(c.chain[0],1-e),mul(pc[0],e));c.chain=[r0,...blendBones(r0,c.chain.slice(1),pc.slice(1),e,c.chain[0],pc[0])]}if(chains[PM[i]].q.curve)c.flex=true;c.restL=rl[i].map((l,j)=>l*(1-e)+rl[PM[i]][j]*e)})
   // handspring, stage B: the leading end's limbs reach down to fixed spots on the ground and hold them while he turns over
   // them. The spots are just ahead of where the leading end is held, under each limb's hip. Worked out where they will be
   // drawn (after the turn and the path's height), then turned back into the builder's frame for the reach.
-  // handspring, stage C: the trailing end's three limbs move as one shape. Each blends (bone by bone, lengths kept) into the
-  // same slightly tucked shape, pointing straight out from that end of the body, knees bent towards his front; they ride
-  // over the top together and open together into the pose they land in (no separate kicks: the reverted walkover lesson)
-  if(spr&&FLIP.init){const F=FLIP,wt=springTuck(ft,F);
-   if(wt>0){const lead=F.sg>0?"T":"B",ax=norm3(sub3(B([0,BODY_L,0]),B([0,0,0]))),fw=norm3(bodyDir([0,0,F.sg]));
-    for(const c of chains){if(c.L.end===lead)continue;const out=c.L.end==="B"?mul(ax,-1):ax,kn=norm3(add(out,mul(fw,0.9))),ch=c.chain,rl=c.restL;
-     const k=add(ch[0],mul(out,rl[0])),h=add(k,mul(kn,rl[1])),pw=add(h,mul(out,rl[2])),to=add(pw,mul(out,rl[3]));
-     c.chain=[ch[0],...blendBones(ch[0],ch.slice(1),[k,h,pw,to],wt)]}}}
-  if(spr&&FLIP.init){const F=FLIP,w=springHold(ft,FLIP);
-   if(w>0){const a=F.sg*springAng(F,ft),P=springPath(F,ft),dy=P[1]-F.cy0,lead=F.sg>0?"T":"B";
-    const back=v=>add(cMid,rotX(sub3(sub3(v,[0,dy,0]),cMid),-a));
-    for(const c of chains){if(c.L.end!==lead)continue;const ch=c.chain,x=ch[0][0]*1.15,z=cMid[2]+F.sg*(F.Ef+4-P[0]);
-     const T=back([x,ground(x,z)+3.2,z]),bl=c.restL.slice(0,3),rc=reachChain(ch.slice(0,4),T,bl);
-     const nb=blendBones(ch[0],ch.slice(1,4),rc.slice(1),w),tl=Math.hypot(...sub3(ch[4],ch[3]));
-     const tf=sub3(back([x,ground(x,z+F.sg*tl)+3.4,z+F.sg*tl]),T),toe0=sub3(ch[4],ch[3]),td=add(mul(toe0,1-w),mul(norm3(tf),tl*w));   // toe lies flat, pointing on
-     c.chain=[ch[0],...nb,add(nb[2],mul(norm3(td),tl))]}}}
+  // ---- handspring limbs (stage C, revised 12:03 after the user's review) ----
+  if(spr&&FLIP.init){const F=FLIP,a=F.sg*springAng(F,ft),Pp=springPath(F,ft),dy=Pp[1]-F.cy0,lead=F.sg>0?"T":"B";
+   const sm=x=>{x=Math.max(0,Math.min(1,x));return x*x*(3-2*x)};
+   const back=v=>add(cMid,rotX(sub3(sub3(v,[0,dy,0]),cMid),-a)),dirB=v=>rotX(v,-a);   // a point / direction as drawn -> the builder's frame
+   const zAt=Fp=>cMid[2]+F.sg*(Fp-Pp[0]);   // builder z of a spot at path-forward Fp
+   // a paw put on a ground spot (x, z as drawn), bones kept; the toe lies flat, pointing along his travel. w = how much
+   const plant=(c,x,z,w)=>{const ch=c.chain,T=back([x,ground(x,z)+3.2,z]),rc=reachChain(ch.slice(0,4),T,c.restL.slice(0,3));
+    const nb=blendBones(ch[0],ch.slice(1,4),rc.slice(1),w),tl=Math.hypot(...sub3(ch[4],ch[3]));
+    const tf=sub3(back([x,ground(x,z+F.sg*tl)+3.4,z+F.sg*tl]),T),td=add(mul(sub3(ch[4],ch[3]),1-w),mul(norm3(tf),tl*w));
+    c.chain=[ch[0],...nb,add(nb[2],mul(norm3(td),tl))]};
+   // 1) each limb is drawn as what it is turning into (half way through the turn it takes its partner's job: a head stays a
+   //    head on top, a tail a tail at the back), and a head stays level, looking the way he travels (it was looking down
+   //    in the last frames for the dinosaur and the kangaroo)
+   chains.forEach((c,i)=>{if(e>0.5){c.dRole=RLIMBS[PM[i]].role;c.dW=chains[PM[i]].q.w}c.hFw=dirB([0,0,F.sg]);c.hUp=dirB([0,1,0])});
+   // 2) trailing end: the legs push off like a dog's or a horse's hind legs. Planted paws stay on their spots while he tips
+   //    forward, so the legs straighten out behind him; then, all together, they kick back, fold up into one tuck over the
+   //    top, and open into the pose they land in
+   if(!F.tp)F.tp=chains.map(c=>{if(c.L.end===lead||c.q.w<0.5)return null;const pw=c.chain[3];if(pw[1]-ground(pw[0],pw[2])>6)return null;
+    return[pw[0],F.sg*(pw[2]-cMid[2])+Pp[0]]});
+   const wt=springTuck(ft,F),wk=1-sm((ft-0.36)/0.22);   // shape weight; kick (1) -> tuck (0)
+   const ax=norm3(sub3(B([0,BODY_L,0]),B([0,0,0]))),fw=norm3(bodyDir([0,0,F.sg]));
+   chains.forEach((c,i)=>{if(c.L.end===lead)return;const ch=c.chain,rl=c.restL,hip=ch[0],out=c.L.end==="B"?mul(ax,-1):ax;
+    const raisedAfter=chains[PM[i]].q.w<0.5,wtc=raisedAfter?Math.min(wt,1-sm((ft-0.45)/0.22)):wt;   // a head / raised tail-to-be opens out early, so it's in its own pose (head level) well before the end
+    if(wtc>0){const chainOf=ds=>{const o=[];let p=hip;for(let k=0;k<4;k++){p=add(p,mul(ds[k],rl[k]));o.push(p)}return o};
+     const kd=dirB(norm3([0,0.35,-F.sg])),kick=chainOf([kd,kd,kd,kd]);   // straight out behind him, a little up, toes pointed
+     const tuck=chainOf([norm3(add(fw,mul(out,0.35))),norm3(sub3(out,mul(fw,0.2))),out,out]);   // thighs under the belly, shins back
+     c.chain=[hip,...blendBones(hip,ch.slice(1),blendBones(hip,tuck,kick,wk),wtc)]}
+    const sp=F.tp[i],wp=sp?1-sm((ft-0.2)/0.14):0;if(wp>0)plant(c,sp[0],zAt(sp[1]),wp)});
+   // 3) leading end: the hands go down in the tripod this end will stand in (the rest spots of the legs whose jobs they take
+   //    over), not in a line. Limbs that won't be standing legs afterwards (a raised tail, a head) let go at push-off
+   chains.forEach((c,i)=>{if(c.L.end!==lead)return;const pi=PM[i],Lp=RLIMBS[pi],tp=P[mode],stands=chains[pi].q.w>0.5;
+    const w=springHold(ft,stands?F:{...F,fl:true});if(w<=0)return;
+    const r=restAt({...tp,tailCurve:0},Lp),o0=rotX([0,Lp.end==="T"?BODY_L:0,0],tp.lean*R);   // relative to that end's hips
+    plant(c,r[0]-o0[0],zAt(F.Ef)+(r[1]-o0[2]),w)})}
   // rise: all three red paws hold the ground while he tips over onto them (user, 2026-11-11: one red leg was lifting
   // the whole body while the others stepped). Each red leg: steps onto the ground where it is (0-15% of the rise), holds
   // that spot, steps in towards the middle of the body as he comes up (one leg after another, ~42-62%), holds again,
