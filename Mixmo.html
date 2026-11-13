@@ -2136,16 +2136,18 @@ let SPIN=null;const SPINSTEP=45;   // how far (around the circle) each paw may b
 // Turning Spin off keeps him turning until he faces the next of the four main directions (a multiple of 90°), then
 // stops there (SPIN.stopH). Pressing Spin again while he winds down carries on spinning. now=true stops at once.
 function spinEnd(){SPIN=null;HEAD_T=HEAD;OMEGA=0;TRAVK=1;BOOST=0;$("tS").classList.remove("on")}
-function toggleSpin(now){if(SPIN){
+// dir: +1 (the Spin button, as before) or -1; the joystick passes the way round it was circled (fix 2026-11-13, user:
+// circling the stick the other way round still spun him the same way)
+function toggleSpin(now,dir){if(SPIN){
   if(now){spinEnd();return}
   if(SPIN.stopH!==undefined){delete SPIN.stopH;$("tS").classList.add("on");return}   // pressed again: keep spinning
-  const q=Math.PI/2;SPIN.stopH=Math.ceil((HEAD+1e-3)/q)*q;$("tS").classList.remove("on");turnStep();return}
+  const q=Math.PI/2,sd=SPIN.dir||1;SPIN.stopH=sd>0?Math.ceil((HEAD+1e-3)/q)*q:Math.floor((HEAD-1e-3)/q)*q;$("tS").classList.remove("on");turnStep();return}
  if((FLIP&&FLIP.nu)||dropOn())return;   // rising over his planted front paws (or dropping onto them): a spin would pull him off them, so it waits for the next press
  if(FLIP&&FLIP.kind==="spring"){say("Spin waits until the handspring is done.");return}
  if(FLIP&&FLIP.kind==="fall"){say("Spin waits until he has landed.");return}
  const ts=Math.max(cur.speed,2.2),pz=CHAR==="robot"?LASTMID[2]:0;
  const rmax=CHAR==="robot"?Math.max(15,...LASTHIPS.map(a=>Math.hypot(a[0],a[2]-pz)+25)):15;
- SPIN={p0:phase,h0:HEAD,len:Math.max(1.1*ts,2*Math.PI*rmax/SPINSTEP),ts,pz,W:[POS[0]+Math.sin(HEAD)*pz,POS[1]+Math.cos(HEAD)*pz]};$("tS").classList.add("on");turnStep()}
+ SPIN={dir:dir<0?-1:1,p0:phase,h0:HEAD,len:Math.max(1.1*ts,2*Math.PI*rmax/SPINSTEP),ts,pz,W:[POS[0]+Math.sin(HEAD)*pz,POS[1]+Math.cos(HEAD)*pz]};$("tS").classList.add("on");turnStep()}
 function startTurn(kind,exact){   // exact: turn by exactly this angle (the game's reversal), no squaring up
  if(TURNM)return;   // a turn is playing: let it finish (pressing Spin mid-turn used to make him jump at the end)
  if((FLIP&&FLIP.nu)||dropOn())return;   // rising over his planted front paws (1.4 s), or dropping onto them: turning would pull him off them, so turns wait until he is up
@@ -2186,13 +2188,13 @@ function turnShape(T,t){   // -> [heading fraction, travel factor, lean back, su
  if(T.kind==="U6"){const lean=T.skidSw?-26*(T.d0<0?-1:1)*(SKIDEND==="front"?-1:1)*Math.sin(Math.PI*Math.min(1,t/0.55)):0;return[0,1,lean,t<0.5?(T.skidSw?"skidding":"slowing"):"other end leading"]}
  return[smt(t),1,0,""]}
 function turnStep(){
- if(!TURNM&&SPIN){const t=(phase-SPIN.p0)/SPIN.len;HEAD=SPIN.h0+2*Math.PI*t;HEAD_T=HEAD;TRAVK=0;BOOST=SPIN.ts;
-  if(SPIN.stopH!==undefined&&HEAD>=SPIN.stopH-1e-9){HEAD=SPIN.stopH;   // reached the main direction: stop, square on
+ if(!TURNM&&SPIN){const t=(phase-SPIN.p0)/SPIN.len,sd=SPIN.dir||1;HEAD=SPIN.h0+sd*2*Math.PI*t;HEAD_T=HEAD;TRAVK=0;BOOST=SPIN.ts;
+  if(SPIN.stopH!==undefined&&sd*(HEAD-SPIN.stopH)>=-1e-9){HEAD=SPIN.stopH;   // reached the main direction: stop, square on
    POS[0]=SPIN.W[0]-Math.sin(HEAD)*SPIN.pz;POS[1]=SPIN.W[1]-Math.cos(HEAD)*SPIN.pz;const then=SPIN.then;spinEnd();TURN={st:null,t:0};
    if(then)startTurn(then);return}   // a 180 pressed during the wind-down (swap ends) plays now
   // pivot round the middle of the body, not the hips: the middle stays put in the world
   POS[0]=SPIN.W[0]-Math.sin(HEAD)*SPIN.pz;POS[1]=SPIN.W[1]-Math.cos(HEAD)*SPIN.pz;
-  OMEGA=2*Math.PI/(SPIN.len/SPIN.ts);TURN={st:null,t:0};return}
+  OMEGA=sd*2*Math.PI/(SPIN.len/SPIN.ts);TURN={st:null,t:0};return}
  if(!TURNM){if(!LYING.has(mode)&&DIR!==1&&blendU>=1)DIR=1;BOOST=0;TURN={st:null,t:0};return}
  const T=TURNM,t=(phase-T.p0)/T.len;
  const end=h=>{HEAD=h;HEAD_T=h;TRAVK=1;SKIDLEAN=0;OMEGA=0;BOOST=0;TURNM=null;TURN={st:null,t:0}};
@@ -2294,7 +2296,9 @@ const STICK={x:0,y:0,on:false,id:null,ang:null,turn:0,last:0,cx:0,cy:0};
 let STICKSPIN=false;
 function stickSpinStep(){const now=performance.now();
  if(!STICKSPIN&&now-STICK.last>400)STICK.turn=0;   // stopped circling a while ago: start counting afresh
- if(!STICKSPIN&&Math.abs(STICK.turn)>3*Math.PI&&!TURNM){STICK.turn=0;STICKSPIN=true;if(!SPIN)toggleSpin();else if(SPIN.stopH!==undefined)toggleSpin()}
+ if(!STICKSPIN&&Math.abs(STICK.turn)>3*Math.PI&&!TURNM){const sd=STICK.turn<0?-1:1;STICK.turn=0;STICKSPIN=true;
+  // circled the other way while he winds down: stop that spin and start one the new way round
+  if(SPIN&&(SPIN.dir||1)!==sd){toggleSpin(true);toggleSpin(false,sd)}else if(!SPIN)toggleSpin(false,sd);else if(SPIN.stopH!==undefined)toggleSpin()}
  else if(STICKSPIN&&(!STICK.on||now-STICK.last>400)){STICKSPIN=false;if(SPIN&&SPIN.stopH===undefined)toggleSpin()}}
 // ---- Robot forms (Game): which of his animations walking, the in-between speed and running use; T-pose emote ----
 const FORMS={walk:"walk",mid:"dino",run:"run4dog"};   // Game: running is on fours like a dog by default (user, 2026-11-13)
