@@ -115,15 +115,20 @@ html.desk .sl .rs{min-height:22px;min-width:30px;padding:0 6px;font-size:14px}
 #view.holding{border-color:var(--accent);box-shadow:inset 0 0 0 3px var(--accent);animation:holdPulse .35s ease-out}
 @keyframes holdPulse{0%{box-shadow:inset 0 0 0 10px var(--accent)}100%{box-shadow:inset 0 0 0 3px var(--accent)}}
 #cv3{position:absolute;inset:0;width:100%;height:100%;display:none;pointer-events:none}
+#speedo{position:absolute;right:8px;bottom:6px;z-index:1;pointer-events:none;font:600 12px/1.25 -apple-system,system-ui,sans-serif;color:var(--ink);background:rgba(251,246,234,.85);border:1px solid var(--ink);border-radius:8px;padding:4px 7px;min-width:118px;font-variant-numeric:tabular-nums}
+#speedo .bar{position:relative;height:5px;margin-top:3px;border-radius:3px;background:#e2cfa6;overflow:hidden}
+#speedo .fill{position:absolute;left:0;top:0;bottom:0;background:var(--ink);border-radius:3px}
+#speedo .tick{position:absolute;top:-1px;bottom:-1px;width:2px;margin-left:-1px;background:var(--accent)}
+#speedo.fast .fill{background:var(--accent)}
 #r3msg{position:absolute;left:8px;right:8px;top:8px;display:none;padding:8px 10px;border-radius:8px;background:rgba(251,246,234,.92);border:1px solid var(--ink);font-size:13px;pointer-events:none}
 </style>
 </head>
 <body>
 <div id="app"><div id="top">
 <div class="row" style="margin:8px 16px;flex-wrap:nowrap;gap:6px"><select id="charSel" aria-label="Character" class="pick" style="flex:0.8"></select><select id="modeSel" aria-label="Animation" class="pick anim"></select><button id="play" class="on">Pause</button></div>
-<div class="row anim" style="margin:0 16px 8px;flex-wrap:nowrap;gap:6px"><button class="tb" id="tL" aria-label="Turn left 90 degrees">&#8630; 90&deg;</button><button class="tb" id="tR" aria-label="Turn right 90 degrees">90&deg; &#8631;</button><button class="tb" id="tU" aria-label="Turn around">&#10226; 180&deg;</button><button class="tb" id="tS" aria-label="Spin on the spot">Spin</button><button class="tb" id="tF" aria-label="Walk over onto the other end" hidden>Over</button><button class="tb" id="tC" aria-label="Flip up onto the ceiling" hidden>Ceiling</button></div>
+<div class="row anim" style="margin:0 16px 8px;flex-wrap:nowrap;gap:6px"><button class="tb" id="tL" aria-label="Turn left 90 degrees">&#8630; 90&deg;</button><button class="tb" id="tR" aria-label="Turn right 90 degrees">90&deg; &#8631;</button><button class="tb" id="tU" aria-label="Turn around">&#10226; 180&deg;</button><button class="tb" id="tS" aria-label="Spin on the spot">Spin</button><button class="tb" id="tF" aria-label="Flip ends: drop onto all six and rise onto the other end. Tap again while flipping to queue more" title="Flip ends (tap again while flipping to queue more)" hidden>Flip<span id="tFq"></span></button><button class="tb" id="tC" aria-label="Flip up onto the ceiling" hidden>Ceiling</button></div>
 <input type="checkbox" switch id="hapSw" tabindex="-1" aria-hidden="true" style="position:fixed;left:0;top:0;width:1px;height:1px;opacity:0;pointer-events:none;margin:0"><label for="hapSw" id="hapLb" aria-hidden="true" style="position:fixed;left:0;top:0;width:1px;height:1px;opacity:0;pointer-events:none;overflow:hidden"></label>
-<div id="view"><canvas id="cv"></canvas><canvas id="cv3"></canvas><div id="r3msg"></div><button id="emoteBtn" aria-label="Emote: T-pose">T-pose</button><div id="stickZone" class="fresh" aria-label="Touch control area: tap and drag here to move"><div class="zl">Tap and drag here to move.</div><div id="stick"><div id="stickKnob"></div></div></div><div id="hint">1 finger / drag: orbit - 2 fingers / wheel: zoom - 2 fingers / right-drag: pan - double-tap: reset</div></div>
+<div id="view"><canvas id="cv"></canvas><canvas id="cv3"></canvas><div id="r3msg"></div><div id="speedo" aria-live="off"><div id="spTxt">0 u/s</div><div id="spFlip"></div><div class="bar"><div class="fill" id="spFill"></div><div class="tick" id="spTick"></div></div></div><button id="emoteBtn" aria-label="Emote: T-pose">T-pose</button><div id="stickZone" class="fresh" aria-label="Touch control area: tap and drag here to move"><div class="zl">Tap and drag here to move.</div><div id="stick"><div id="stickKnob"></div></div></div><div id="hint">1 finger / drag: orbit - 2 fingers / wheel: zoom - 2 fingers / right-drag: pan - double-tap: reset</div></div>
 <div class="row" style="margin:6px 16px 0;flex-wrap:nowrap;align-items:center"><button id="prevF" aria-label="Previous frame" title="Step back (left arrow key)">&#9664;</button><span id="scrubWrap"><input type="range" id="scrub" min="0" max="1" step="0.001" value="0"><span id="scrubMarks"></span></span><button id="nextF" aria-label="Next frame" title="Step forward (right arrow key)">&#9654;</button><span class="val" id="scrubV" hidden>0</span><button id="stepBlend" class="dev on" aria-label="How mode switches play while paused" style="padding:0 6px;font-size:13px;line-height:1.1">Switch:<br>by frame</button></div>
 <div id="status"><span id="stTag">LOOP</span><span id="stText" aria-live="polite">Walk</span><div class="seg" id="rateSeg" role="group" aria-label="Playback speed"><button data-r="1" class="on" title="Normal speed">1&times;</button><button data-r="0.5" title="Half speed">&frac12;</button><button data-r="0.25" title="Quarter speed">&frac14;</button></div></div>
 <div class="row" id="moodRow" style="margin:2px 16px 0;flex-wrap:nowrap;align-items:center"><span class="lbl">Tired</span><input type="range" id="mood" min="0" max="1" step="0.01" value="1" style="flex:1"><span class="lbl">Happy</span></div>
@@ -156,6 +161,8 @@ html.desk .sl .rs{min-height:22px;min-width:30px;padding:0 6px;font-size:14px}
 <div class="crow"><label>Paws, end A<input type="color" id="cPawA" value="#2d2a26"></label><label>Paws, end B<input type="color" id="cPawB" value="#c4462f"></label></div>
 <div class="row" style="margin:8px 0 0;flex-wrap:nowrap"><span class="lbl">Six-leg gait:</span><div class="seg" id="gaitStyle"><button data-g="dog">Dog</button><button data-g="insect">Spider / insect</button></div></div>
 <p class="sub dev" style="margin:4px 0 0">Applies to the mode picked under "Editing".</p>
+<div class="sl"><label>Flip: handspring at this ground speed and up (below it: walkover)</label><input type="range" id="flipV" min="20" max="250" step="5" value="100"><span class="val" id="flipVV">100</span></div>
+<p class="sub" style="margin:2px 0 6px">The speedometer in the corner of the view shows his ground speed (units a second; his body is 100 long) and which flip the Flip button would play. The red tick is this setting.</p>
 <div class="row" style="margin:10px 0 0;flex-wrap:nowrap"><span class="lbl">180&deg; when on 4, 5 or 6 legs:</span></div>
 <div class="grid2" id="lyingTurn"><button data-t="swap" class="on">Swap ends</button><button data-t="turn">Turn round</button><button data-t="swapKeep" style="grid-column:1/3">Swap ends, raised limbs stay put (variant)</button></div>
 <p class="sub" style="margin:4px 0">Swap ends: he stops and the other end leads; a raised tail moves to the new back end. The variant keeps raised limbs where they are, so it looks like the opposite 5-leg run. Turn round: the body swings round; a shorter body turns faster.</p>
@@ -336,8 +343,8 @@ function showStatus(){
   parts.push(`${modeName(BLENDFROM)} → ${modeName(mode)}, frame ${Math.min(BLENDTOT,Math.floor(blendU*BLENDTOT)+1)}/${BLENDTOT}`)}
  if(typeof FLIP!=="undefined"&&FLIP){const t=flipT(),tot=Math.max(1,Math.round(FLIP.len*FPC));
   const pp=morphParts(FLIP.kind),pi=pp?partAt(pp,t):0;
-  if(t>=0&&t<1)parts.push(`${{ends:"Flip",up:"Flip up to ceiling",down:"Drop from ceiling",rise:"Rise onto front end"}[FLIP.kind]}${pp?` part ${pi+1}/${pp.length} (${pp[pi][1]})`:""}, frame ${Math.min(tot,Math.floor(t*tot)+1)}/${tot}`)}
- if(typeof WALKOVER!=="undefined"&&WALKOVER)parts.unshift("Over: "+(WALKOVER.stage===1?"dropping onto all six":"rising onto the other end"));
+  if(t>=0&&t<1)parts.push(`${{ends:"Somersault",up:"Flip up to ceiling",down:"Drop from ceiling",rise:"Rise onto front end"}[FLIP.kind]}${pp?` part ${pi+1}/${pp.length} (${pp[pi][1]})`:""}, frame ${Math.min(tot,Math.floor(t*tot)+1)}/${tot}`)}
+ if(typeof WALKOVER!=="undefined"&&WALKOVER)parts.unshift("Flip ends: "+(WALKOVER.stage===1?"dropping onto all six":"rising onto the other end")+(FLIPQ>0?` (${FLIPQ} more queued)`:""));
  if(typeof TURNM!=="undefined"&&TURNM){const T=TURNM,tot=Math.max(1,Math.round(T.len*FPC)),t=Math.max(0,Math.min(1,(phase-T.p0)/T.len)),st=turnShape(T,t)[3];
   const pp=T.skid?morphParts("skid"):null,pi=pp?partAt(pp,t):0;
   parts.push(`${T.label}${pp?` part ${pi+1}/${pp.length} (${pp[pi][1]})`:""}, frame ${Math.min(tot,Math.floor(t*tot)+1)}/${tot}`)}
@@ -1156,13 +1163,20 @@ const goMode=m=>{const sel=$("modeSel");sel.value=m;sel.onchange()};
 // along that coast he is, by blend progress), each red limb comes straight down onto the spot it will hold during the
 // rise (its place in the stool) and stays there; each black paw takes one step to where it rests lying down.
 const DROP_G=u=>1-(1-u)**3,dropOn=()=>!!(WALKOVER&&WALKOVER.stage===1&&WALKOVER.pd);
-$("tF").onclick=()=>{if(WALKOVER||FLIP||CHAR!=="robot")return;if(!playing&&!STEPBLEND)$("play").onclick();
+// Flip queue (user, 2026-11-13): tapping Flip while a flip (or a ceiling move) is still playing no longer does nothing:
+// each tap adds one more flip, shown on the button as "+N", and they play back to back as soon as the one before ends
+let FLIPQ=0;
+const flipQUI=()=>{const e=$("tFq");if(e)setText("tFq",FLIPQ>0?" +"+FLIPQ:"")};
+const flipQClear=()=>{FLIPQ=0;flipQUI()};
+function flipQStep(){if(FLIPQ>0&&!WALKOVER&&!FLIP&&CHAR==="robot"){FLIPQ--;flipQUI();startOver()}}
+$("tF").onclick=()=>{if(CHAR!=="robot")return;if(WALKOVER||FLIP){FLIPQ=Math.min(99,FLIPQ+1);flipQUI();if(!playing&&!STEPBLEND)$("play").onclick();return}startOver()};
+function startOver(){if(WALKOVER||FLIP||CHAR!=="robot")return;if(!playing&&!STEPBLEND)$("play").onclick();
  WALKOVER={stage:1,back:mode==="run6"?"run":mode,saved:STANDEND};
  if(!LYING.has(mode)&&!GECKO&&!SPIN&&!TURNM&&DIR===1&&ROBCH&&ROBCH.ph===phase&&ROBCH.ch.length===6){
   const c=Math.cos(HEAD),sn=Math.sin(HEAD),bt=+$("blend").value;
   WALKOVER.pd={hd:HEAD,p0:[...POS],dz:0,Dc:Math.min(40,Math.max(0,cur.travel*TRAVK*bt/3)),w0:[...ROBCH.w],C:null,T:null,
    A:ROBCH.ch.map(ch=>{const v=ch[3];return[POS[0]+v[0]*c+v[2]*sn,POS[1]-v[0]*sn+v[2]*c,Math.max(0,v[1]-ground(v[0],v[2])-3.2)]})}}
- if(mode!=="run6")goMode("run6")};
+ if(mode!=="run6")goMode("run6")}
 function walkoverStep(){if(!WALKOVER)return;
  if(dropOn()){const q=WALKOVER.pd,d=q.Dc*DROP_G(Math.min(1,blendU>=0.999?1:blendU)),dd=d-q.dz;   // the coast, tied to the blend so it also runs backwards
   if(dd){POS[0]+=Math.sin(q.hd)*dd;POS[1]+=Math.cos(q.hd)*dd;groundOff+=dd;q.dz=d}}
@@ -1176,6 +1190,21 @@ function flipStep(){if(!FLIP)return;const t=flipT();
  if(t<0){if(FLIP.kind==="down")SWAP=!SWAP;FLIP=null;return}   // scrubbed back past the start: cancel
  if(t>=1){if(FLIP.kind==="ends"||FLIP.kind==="rise")SWAP=!SWAP;else{GECKO=FLIP.kind==="up";if(GECKO)SWAP=!SWAP}FLIP=null;$("tC").textContent=GECKO?"Drop":"Ceiling"}}
 
+// ---------- speedometer (user, 2026-11-13): his ground speed right now, and which flip the Flip button would play ----------
+// Speed = distance per cycle x cycles a second, so it is exact while paused, stepping or rewound too. Fast (at or above
+// FLIPV) = front handspring, slower = front walkover. (The handspring itself is coming; for now Flip still plays the walkover.)
+let FLIPV=100;try{const v=+localStorage.getItem("mixmoFlipV");if(v>=20&&v<=250)FLIPV=v}catch(e){}
+const groundSpeed=()=>Math.abs(perCycle()*effSpeed());
+const flipKind=()=>groundSpeed()>=FLIPV?"handspring":"walkover";
+let SPD=0;const SPMAX=250;
+function speedoUI(dt){const v=groundSpeed();SPD+=(v-SPD)*Math.min(1,(dt||0)*8+(playing?0:1));if(Math.abs(SPD-v)<0.05)SPD=v;
+ const fast=SPD>=FLIPV,rob=CHAR==="robot";setText("spTxt","Speed "+Math.round(SPD)+" u/s");
+ setText("spFlip",rob?"Flip: "+(fast?"handspring":"walkover"):"");
+ const el=$("speedo");if(el.classList.contains("fast")!==(rob&&fast))el.classList.toggle("fast",rob&&fast);
+ const w=Math.min(100,SPD/SPMAX*100).toFixed(1)+"%";if($("spFill").style.width!==w)$("spFill").style.width=w;
+ const t=(FLIPV/SPMAX*100).toFixed(1)+"%",tk=$("spTick");if(tk.style.left!==t)tk.style.left=t;tk.style.display=rob?"":"none"}
+$("flipV").value=FLIPV;$("flipVV").textContent=FLIPV;
+$("flipV").oninput=()=>{FLIPV=+$("flipV").value;$("flipVV").textContent=FLIPV;try{localStorage.setItem("mixmoFlipV",FLIPV)}catch(e){}PDIRTY++};
 // --- shading helpers for boxy faces ---
 const hexRGB=h=>[1,3,5].map(i=>parseInt(h.slice(i,i+2),16));
 function shade(h,f){const [r,g,b]=hexRGB(h);return`rgb(${Math.min(255,r*f)|0},${Math.min(255,g*f)|0},${Math.min(255,b*f)|0})`}
@@ -1881,7 +1910,7 @@ function hRecord(dt){if(HPOS>=0)return;const adv=playing||HFORCE;if(adv)HCLOCK+=
 const hLive=()=>HPOS<0;
 const hNow=()=>HPOS<0?HIST.length-1:HPOS;
 // a real change while rewound: forget the frames after this one and carry on live from here
-function hBranch(){if(HPOS<0)return;HIST.length=HPOS+1;HPOS=-1;NOWSTEPS.length=0;HSTEPS.length=0}
+function hBranch(){if(HPOS<0)return;if(typeof flipQClear==="function")flipQClear();HIST.length=HPOS+1;HPOS=-1;NOWSTEPS.length=0;HSTEPS.length=0}
 function hClear(){HIST.length=0;HPOS=-1;HCLOCK=0;NOWSTEPS.length=0;HSTEPS.length=0}
 // step back / forward by about one frame of the gait (1/24 of a cycle), or one recorded frame if he wasn't moving
 // steps back remember where they came from, so stepping forward retraces them exactly (back 5, forward 5 = same frame)
@@ -1954,7 +1983,7 @@ function formsUI(){const rob=CHAR==="robot";$("formsBox").hidden=!rob;
  document.querySelectorAll("#fMid button").forEach(b=>b.classList.toggle("on",b.dataset.m===FORMS.mid));
  const sel=$("fRun");if(!sel.options.length)for(const k of RUNS_R){const o=document.createElement("option");o.value=k;o.textContent=(MODES_R.find(m=>m[0]===k)||[k,k])[1];sel.appendChild(o)}
  sel.value=FORMS.run}
-$("charSel").addEventListener("change",()=>{EMOTE=false;formsUI()});
+$("charSel").addEventListener("change",()=>{EMOTE=false;formsUI();flipQClear()});
 const formsSave=()=>{try{localStorage.setItem("mixmoForms",JSON.stringify(FORMS))}catch(e){}formsUI();GAMEMODE=null};
 document.querySelectorAll("#fWalk button").forEach(b=>b.onclick=()=>{FORMS.walk=b.dataset.m;formsSave()});
 document.querySelectorAll("#fMid button").forEach(b=>b.onclick=()=>{FORMS.mid=b.dataset.m;formsSave()});
@@ -2019,7 +2048,7 @@ function frame(t){
  if(HPOS>=0){// rewound: show recorded frames (Play replays them until "now", then carries on live)
   if(playing){HPOS++;if(HPOS>=HIST.length-1)HPOS=-1}
   hRestore(HIST[HPOS<0?HIST.length-1:HPOS]);showFrame();
-  charDef().build({...cur},phase);render();drawGait();showStatus();requestAnimationFrame(frame);return}
+  charDef().build({...cur},phase);render();drawGait();showStatus();speedoUI(dt);requestAnimationFrame(frame);return}
  const bt=+$("blend").value;
  // 'Frame' blend mode: while paused, the switch only moves when you step/scrub (see advance)
  if(playing||!STEPBLEND)blendU=bt<=0?1:Math.min(1,blendU+dt/bt);
@@ -2036,12 +2065,13 @@ function frame(t){
   SPLITE+=((idl&&GROW>=0.999&&!tt?SPLIT:0)-SPLITE)*Math.min(1,dt*6);if(Math.abs(SPLITE)<1e-4&&!SPLIT)SPLITE=0}
  turnStep();gameStep(dt);
  if(typeof walkoverStep==="function")walkoverStep();
+ if(typeof flipQStep==="function")flipQStep();
  if(playing)advance(dt*effSpeed());
  showFrame();
  flipStep();
  hPre();charDef().build({...cur},phase);
  if(POWER){const sg=powerSig();if(sg===PSIG){hRecord(dt);requestAnimationFrame(frame);return}PSIG=sg}   // nothing changed: keep the last picture
- render();drawGait();showStatus();hRecord(dt);
+ render();drawGait();showStatus();speedoUI(dt);hRecord(dt);
  requestAnimationFrame(frame);
 }
 // ---------- three.js renderer (draws the same prims as the canvas renderer; loaded from jsDelivr) ----------
