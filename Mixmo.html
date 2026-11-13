@@ -775,6 +775,17 @@ function planFootstep(rx,rz,U,liftAmt,FR,D,seek){const n=Math.floor(U),u=U-n;
 // splay a leg outwards by turning it at the hip (rather than shearing it, which stretched the bones)
 function splayV(v,out,sp){if(!sp)return v;const k=norm3(cross3([0,-1,0],out)),a=Math.atan(sp),c=Math.cos(a),s=Math.sin(a);
  return add(add(mul(v,c),mul(cross3(k,v),s)),mul(k,dot3(k,v)*(1-c)))}
+// like blendBones, but each bone turns at a steady rate from one direction to the other (the plain mix sped up through
+// the middle when the two pointed far apart: the kangaroo's neck, 45 units a frame in the rolling drop, 2026-11-13).
+// Nearly opposite directions turn about the axis picked on the first frame (kept in F.sns), so the way round holds
+function slerpBones(root,A,B,w,F,key){const out=[];let prev=root;const S=F.sns||(F.sns={});
+ for(let j=1;j<A.length;j++){const a=sub3(A[j],A[j-1]),b=sub3(B[j],B[j-1]),la=Math.hypot(...a),lb=Math.hypot(...b);
+  const ua=la>1e-6?mul(a,1/la):[0,-1,0],ub=lb>1e-6?mul(b,1/lb):ua,c=Math.max(-1,Math.min(1,dot3(ua,ub)));
+  let ax=cross3(ua,ub);const al=Math.hypot(...ax),k=key+"/"+j;
+  if(al>0.2)ax=mul(ax,1/al);else{const o=S[k];ax=o?o:(Math.abs(ua[2])<0.9?norm3(cross3(ua,[0,0,1])):[1,0,0]);if(al>1e-6&&dot3(ax,mul(cross3(ua,ub),1/al))<0)ax=mul(ax,-1)}
+  S[k]=ax;const an=Math.acos(c)*w,d=rotAxis(ua,ax,an);
+  const q=add(prev,mul(d,la*(1-w)+lb*w));out.push(q);prev=q}
+ return out}
 function blendBones(root,A,B,w,ra=root,rb=root){const out=[];let prev=root,pa=ra,pb=rb;
  for(let i=0;i<A.length;i++){const a=sub3(A[i],pa),b=sub3(B[i],pb),la=Math.hypot(...a),lb=Math.hypot(...b);
   let d=add(mul(a,(1-w)/(la||1)),mul(b,w/(lb||1)));const ld=Math.hypot(...d);d=ld>1e-6?mul(d,1/ld):(la?mul(a,1/la):[0,-1,0]);
@@ -1733,7 +1744,7 @@ function buildRobot(p,ph){
    const root=own[0];
    // not rolling, a leg that held the ceiling swings round to the underside (nearly opposite directions): steady swing in
    // the front-to-back plane, as in the Ceiling move; rolling, the two poses are close, so the usual bone-by-bone blend
-   c.chain=[root,...(F.roll===false?swingSag(root,S,own,w,F,"f"+i):blendBones(root,S.slice(1),own.slice(1),w,S[0],own[0]))];
+   c.chain=[root,...(F.roll===false?swingSag(root,S,own,w,F,"f"+i):slerpBones(root,S,own,w,F,"r"+i))];
    if(w<1&&LR[i]===0&&(P[F.m0]||{}).tailCurve>0.5)c.flex=true})}   // the kangaroo's curled tail uncurling: exempt from the bone rule, as it always is
  if(jumpK){// a jump that can't reach: the end nearest the ceiling reaches straight up (bone lengths kept), then lowers again
   const F=FLIP,sm=x=>{x=Math.max(0,Math.min(1,x));return x*x*(3-2*x)},w=Math.sin(Math.PI*sm((ft-0.12)/0.78))**1.3;
