@@ -168,7 +168,8 @@ html.desk .sl .rs{min-height:22px;min-width:30px;padding:0 6px;font-size:14px}
 <p class="sub" style="margin:4px 0">Swap ends: he stops and the other end leads; a raised tail moves to the new back end. The variant keeps raised limbs where they are, so it looks like the opposite 5-leg run. Turn round: the body swings round; a shorter body turns faster.</p>
 <div class="row" style="margin:10px 0 0;flex-wrap:nowrap"><span class="lbl">Dinosaur and Kangaroo, leaving the ceiling:</span></div>
 <div class="grid2" id="ceilDrop"><button data-d="flip" class="on">Flip over</button><button data-d="four">Drop onto all fours</button><button data-d="six" style="grid-column:1/3">Drop onto all six</button></div>
-<p class="sub" style="margin:4px 0">Flip over: he turns over on the way down, as before. Drop: he lets go, falls straight down, rolls belly-down on the way (no flip) and lands on four legs (head and tail up) or on all six.</p>
+<div class="row" style="margin:6px 0 0;flex-wrap:nowrap"><span class="lbl">Dropping, roll belly-down:</span><div class="seg" id="ceilRoll"><button data-r="1" class="on">Yes</button><button data-r="0">No</button></div></div>
+<p class="sub" style="margin:4px 0">Flip over: he turns over on the way down, as before. Drop: he lets go, falls straight down and lands on four legs (head and tail up) or on all six. Rolling: his body rolls half a turn along its length on the way, so he comes down belly first. Not rolling: his body only tilts level (the short way), and the legs that held the ceiling swing over to its underside.</p>
 <div class="row" style="margin:10px 0 0;flex-wrap:nowrap"><span class="lbl">Leaving six legs, stand on:</span></div>
 <div class="grid2" id="standEnd"><button data-e="keep" class="on">Back end</button><button data-e="front">Front end</button><button data-e="A">End A</button><button data-e="B">End B</button></div>
 <p class="sub" style="margin:4px 0 0">Back end tips him back onto the end behind him. Front end rises forward over his front legs, so he ends up the other way up, looking exactly the same but with the paw colours swapped. End A / End B pick a paw colour, whichever end it is on.</p>
@@ -398,7 +399,7 @@ function showStatus(){
   parts.push(`${modeName(BLENDFROM)} → ${modeName(mode)}, frame ${Math.min(BLENDTOT,Math.floor(blendU*BLENDTOT)+1)}/${BLENDTOT}`)}
  if(typeof FLIP!=="undefined"&&FLIP){const t=flipT(),tot=Math.max(1,Math.round(FLIP.len*FPC));
   const pp=morphParts(FLIP.kind),pi=pp?partAt(pp,t):0;
-  if(t>=0&&t<1)parts.push(`${{ends:"Somersault",spring:"Front handspring",fall:FLIP.tgt==="run6"?"Drop onto all six":"Drop onto all fours",up:"Flip up to ceiling",down:"Drop from ceiling",rise:"Rise onto front end"}[FLIP.kind]}${pp?` part ${pi+1}/${pp.length} (${pp[pi][1]})`:""}, frame ${Math.min(tot,Math.floor(t*tot)+1)}/${tot}`)}
+  if(t>=0&&t<1)parts.push(`${{ends:"Somersault",spring:"Front handspring",fall:(FLIP.tgt==="run6"?"Drop onto all six":"Drop onto all fours")+(FLIP.roll===false?" (no roll)":""),up:"Flip up to ceiling",down:"Drop from ceiling",rise:"Rise onto front end"}[FLIP.kind]}${pp?` part ${pi+1}/${pp.length} (${pp[pi][1]})`:""}, frame ${Math.min(tot,Math.floor(t*tot)+1)}/${tot}`)}
  if(typeof WALKOVER!=="undefined"&&WALKOVER)parts.unshift("Flip ends: "+(WALKOVER.stage===1?"dropping onto all six":"rising onto the other end")+(FLIPQ>0?` (${FLIPQ} more queued)`:""));
  if(typeof TURNM!=="undefined"&&TURNM){const T=TURNM,tot=Math.max(1,Math.round(T.len*FPC)),t=Math.max(0,Math.min(1,(phase-T.p0)/T.len)),st=turnShape(T,t)[3];
   const pp=T.skid?morphParts("skid"):null,pi=pp?partAt(pp,t):0;
@@ -1251,16 +1252,25 @@ function walkoverStep(){if(!WALKOVER)return;
 // share of the move spent falling (the rest is the landing)
 let CEILDROP="flip";try{const v=localStorage.getItem("mixmoCeilDrop");if(v==="four"||v==="six")CEILDROP=v}catch(e){}
 const FALL_T=1.0,FALL_TF=0.62;
-const ceilDropUI=()=>document.querySelectorAll("#ceilDrop button").forEach(b=>b.classList.toggle("on",b.dataset.d===CEILDROP));
+let CEILROLL=true;try{CEILROLL=localStorage.getItem("mixmoCeilRoll")!=="0"}catch(e){}
+const ceilDropUI=()=>{document.querySelectorAll("#ceilDrop button").forEach(b=>b.classList.toggle("on",b.dataset.d===CEILDROP));
+ document.querySelectorAll("#ceilRoll button").forEach(b=>b.classList.toggle("on",(b.dataset.r==="1")===CEILROLL))};
+document.querySelectorAll("#ceilRoll button").forEach(b=>b.onclick=()=>{CEILROLL=b.dataset.r==="1";try{localStorage.setItem("mixmoCeilRoll",CEILROLL?"1":"0")}catch(e){}ceilDropUI()});
 document.querySelectorAll("#ceilDrop button").forEach(b=>b.onclick=()=>{CEILDROP=b.dataset.d;try{localStorage.setItem("mixmoCeilDrop",CEILDROP)}catch(e){}ceilDropUI()});ceilDropUI();
-function startFall(tgt){if(FLIP||CHAR!=="robot"||!GECKO||!ROBCH||ROBCH.ch.length!==6)return;if(!playing&&!STEPBLEND)$("play").onclick();
+function startFall(tgt,roll){if(FLIP||CHAR!=="robot"||!GECKO||!ROBCH||ROBCH.ch.length!==6)return;if(!playing&&!STEPBLEND)$("play").onclick();
  const c0=[...LASTMID],sp=(effSpeed()+Math.max(0.05,P[tgt].speed||0))/2,h=Math.max(0,CEIL-2*c0[1]);
+ // not rolling: hanging looks like his floor pose pitched forward by a0 = 180 - 2 x lean (front end down; the box body is
+ // the same top and bottom). The body tilts back by a0 as he falls, so the front end stays in front, and each limb goes
+ // from where it hung (mirrored across the body) to its own landing pose
+ const a0=LYING.has(mode)?0:(Math.PI-2*(cur.lean||0)*R);
+ if(roll===false){const src=ROBCH.ch.map(ch=>ch.map(v=>rotX([v[0]-c0[0],-(v[1]-c0[1]),v[2]-c0[2]],-a0)));
+  FLIP={kind:"fall",roll:false,a0,p0:phase,len:Math.max(0.15,FALL_T*sp),m0:mode,tgt,src,c0,CEIL0:CEIL,landed:false,vImp:0.25*2*h/(FALL_TF*FALL_T)};GECKO=false;goMode(tgt);return}
  // how he hung, relative to his middle and mirrored left to right (hanging is the floor pose turned upside down, which
  // swaps his left and right; the landing pose is matched limb by limb with the other side's)
  const src=ROBCH.ch.map(ch=>ch.map(v=>[-(v[0]-c0[0]),v[1]-c0[1],v[2]-c0[2]]));
- FLIP={kind:"fall",p0:phase,len:Math.max(0.15,FALL_T*sp),m0:mode,tgt,src,c0,CEIL0:CEIL,landed:false,vImp:0.25*2*h/(FALL_TF*FALL_T)};
+ FLIP={kind:"fall",roll:true,p0:phase,len:Math.max(0.15,FALL_T*sp),m0:mode,tgt,src,c0,CEIL0:CEIL,landed:false,vImp:0.25*2*h/(FALL_TF*FALL_T)};
  GECKO=false;goMode(tgt)}
-$("tC").onclick=()=>{if(GECKO&&(mode==="dino"||mode==="roo")&&CEILDROP!=="flip"){startFall(CEILDROP==="four"?"run4dog":"run6");return}startFlip(GECKO?"down":"up")};
+$("tC").onclick=()=>{if(GECKO&&(mode==="dino"||mode==="roo")&&CEILDROP!=="flip"){startFall(CEILDROP==="four"?"run4dog":"run6",CEILROLL);return}startFlip(GECKO?"down":"up")};
 function flipStep(){if(!FLIP)return;const t=flipT();
  if(FLIP.nu){// planted rise: his hips (the point POS follows) end up where his front end was, so move him there as he pitches over
   const d=t<=0?0:t>=1?FLIP.D:FLIP.D-riseZT(riseTau()),dd=d-FLIP.dz;
@@ -1291,6 +1301,18 @@ $("flipV").oninput=()=>{FLIPV=+$("flipV").value;$("flipVV").textContent=FLIPV;tr
 const hexRGB=h=>[1,3,5].map(i=>parseInt(h.slice(i,i+2),16));
 function shade(h,f){const [r,g,b]=hexRGB(h);return`rgb(${Math.min(255,r*f)|0},${Math.min(255,g*f)|0},${Math.min(255,b*f)|0})`}
 const norm3=v=>{const l=Math.hypot(...v)||1;return[v[0]/l,v[1]/l,v[2]/l]};
+// a limb going from pose A to pose B (points after the root, roots ra / rb) when the two can point nearly opposite ways:
+// each bone swings about the side-to-side axis, its sideways lean blended on its own, the way round fixed the first
+// time (kept in F.sns under key), so the halfway pose is always well defined
+function swingSag(root,A,B,w,F,key){const out=[];let prev=root,pa=A[0],pb=B[0];const S=F.sns||(F.sns={}),cl=x=>Math.max(-1,Math.min(1,x));
+ for(let j=1;j<A.length;j++){const a=sub3(A[j],pa),b=sub3(B[j],pb),la=Math.hypot(...a),lb=Math.hypot(...b);
+  const ua=la>1e-6?mul(a,1/la):[0,-1,0],ub=lb>1e-6?mul(b,1/lb):ua;
+  const ea=Math.asin(cl(ua[0])),eb=Math.asin(cl(ub[0])),fa=Math.atan2(ua[2],ua[1]),fb=Math.atan2(ub[2],ub[1]);
+  let df=Math.atan2(Math.sin(fb-fa),Math.cos(fb-fa));const k=key+"/"+j;
+  if(S[k]===undefined)S[k]=df>=0?1:-1;else if((df>=0?1:-1)!==S[k]&&Math.abs(df)>Math.PI/2)df+=S[k]*2*Math.PI;
+  const el=ea+(eb-ea)*w,f=fa+df*w,d=[Math.sin(el),Math.cos(el)*Math.cos(f),Math.cos(el)*Math.sin(f)];
+  const q=add(prev,mul(d,la*(1-w)+lb*w));out.push(q);prev=q;pa=A[j];pb=B[j]}
+ return out}
 const rotAxis=(v,ax,an)=>{const c=Math.cos(an),s=Math.sin(an),k=ax;return add(add(mul(v,c),mul([k[1]*v[2]-k[2]*v[1],k[2]*v[0]-k[0]*v[2],k[0]*v[1]-k[1]*v[0]],s)),mul(k,(k[0]*v[0]+k[1]*v[1]+k[2]*v[2])*(1-c)))};   // turn v about the unit axis ax by an
 const cross3=(a,b)=>[a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]];
 const dot3=(a,b)=>a[0]*b[0]+a[1]*b[1]+a[2]*b[2];
@@ -1665,9 +1687,12 @@ function buildRobot(p,ph){
  if(fallK){// dropping from the ceiling: each limb goes from how it hung (held as it was, relative to his middle) to the
   // landing pose, bone by bone; it has the landing pose by touchdown. Hanging swapped left and right, so each limb
   // starts from the other side's
-  const F=FLIP,sm=x=>{x=Math.max(0,Math.min(1,x));return x*x*(3-2*x)},w=sm((ft-0.06)/(FALL_TF-0.06)),LR=[0,2,1,3,5,4];
+  const F=FLIP,sm=x=>{x=Math.max(0,Math.min(1,x));return x*x*(3-2*x)},w=sm((ft-0.06)/(FALL_TF-0.06)),LR=F.roll===false?[0,1,2,3,4,5]:[0,2,1,3,5,4];
   chains.forEach((c,i)=>{const sq=F.src[LR[i]];if(!sq||sq.length!==c.chain.length)return;const S=sq.map(v=>add(cMid,v)),own=c.chain;
-   const root=add(mul(S[0],1-w),mul(own[0],w));c.chain=[root,...blendBones(root,S.slice(1),own.slice(1),w,S[0],own[0])];
+   const root=add(mul(S[0],1-w),mul(own[0],w));
+   // not rolling, a leg that held the ceiling swings round to the underside (nearly opposite directions): steady swing in
+   // the front-to-back plane, as in the Ceiling move; rolling, the two poses are close, so the usual bone-by-bone blend
+   c.chain=[root,...(F.roll===false?swingSag(root,S,own,w,F,"f"+i):blendBones(root,S.slice(1),own.slice(1),w,S[0],own[0]))];
    if(w<1&&LR[i]===0&&(P[F.m0]||{}).tailCurve>0.5)c.flex=true})}   // the kangaroo's curled tail uncurling: exempt from the bone rule, as it always is
  if(flipping&&!ends&&!fallK){
   // (the whole robot is then lifted so the middle ends up where the hanging pose has it)
@@ -1773,9 +1798,10 @@ function buildRobot(p,ph){
    const gw=RISEW,dy=-(lo-3.2)*Math.sin(Math.PI*ft)*(1-gw)+RISEDY*gw;xf(v=>[v[0],v[1]+dy,v[2]],n=>n);for(const q of prims)if(q.t===2)q.a=[q.a[0],0.1,q.a[2]]}}
  else if(fallK){// dropping: half a roll along his length (belly up -> belly down) while he falls with gravity from where
   // he hung (his middle at CEIL minus its floor height) to the floor
-  const F=FLIP,sm=x=>{x=Math.max(0,Math.min(1,x));return x*x*(3-2*x)},f=ft<FALL_TF?(ft/FALL_TF)**2:1,roll=Math.PI*(1-sm(ft/(FALL_TF*0.9)));
+  const F=FLIP,sm=x=>{x=Math.max(0,Math.min(1,x));return x*x*(3-2*x)},f=ft<FALL_TF?(ft/FALL_TF)**2:1,k=1-sm(ft/(FALL_TF*0.9));
   const dy=(F.CEIL0-F.c0[1]-cMid[1])*(1-f);
-  xf(v=>add(add(cMid,rotZ(sub3(v,cMid),roll)),[0,dy,0]),n=>rotZ(n,roll));
+  if(F.roll===false){const a=F.a0*k;xf(v=>add(add(cMid,rotX(sub3(v,cMid),a)),[0,dy,0]),n=>rotX(n,a))}   // tilts level, the short way
+  else{const roll=Math.PI*k;xf(v=>add(add(cMid,rotZ(sub3(v,cMid),roll)),[0,dy,0]),n=>rotZ(n,roll))}
   {let lo=1e9;for(const q of prims){if(q.t===2)continue;for(const v of (q.pts||[q.a]))lo=Math.min(lo,v[1]-ground(v[0],v[2]))}
    const up=Math.max(0,-1.2-lo);if(up)xf(v=>[v[0],v[1]+up,v[2]],n=>n)}
   for(const q of prims)if(q.t===2)q.a=[q.a[0],ground(q.a[0],q.a[2])+0.1,q.a[2]]}
@@ -2332,7 +2358,7 @@ void tubeEval(out vec3 P,out vec3 N){float t=position.z,t2=t*t,t3=t2*t;
  for(const m of [segM,segOM,balls,ballsO,panels,edges,groundM,grid,shadows])m.frustumCulled=false;
  for(const m of [segM,balls,panels])m.castShadow=true;
  sc.add(groundM,grid,shadows,segM,segOM,balls,ballsO,panels,edges);
- Object.assign(R3,{rd,sc,cam,sun,MAT,ink,catcher,segG,segM,segOM,NI,balls,ballsO,pg,panels,eg,edges,groundM,grG,grBase,gridG,grid,shadows,N,SEG,col:{}});
+ Object.assign(R3,{par:!!rd.compileAsync&&rd.extensions.has("KHR_parallel_shader_compile"),rd,sc,cam,sun,MAT,ink,catcher,segG,segM,segOM,NI,balls,ballsO,pg,panels,eg,edges,groundM,grG,grBase,gridG,grid,shadows,N,SEG,col:{}});
  r3applyLook()}
 // Build every shader the 3D look switches can need (both styles, outlines, both shadow kinds, both grounds, robot
 // panels) in the background, so pressing a switch later never stops the page to compile one. Uses three.js
@@ -2344,14 +2370,16 @@ function r3warm(){const R=R3,T=R.T,M=R.MAT;
   add(R.segM,[M.toon.seg,M.soft.seg]);add(R.segOM,[R.segOM.material]);add(R.balls,[M.toon.plain,M.soft.plain]);add(R.ballsO,[R.ballsO.material]);
   add(R.panels,[M.toon.panel,M.soft.panel]);add(R.edges,[R.edges.material]);add(R.groundM,[M.toon.ground,M.soft.ground,R.catcher]);
   add(R.grid,[R.grid.material]);add(R.shadows,[R.shadows.material]);return W};
- const go=W=>R.rd.compileAsync?R.rd.compileAsync(W,R.cam):Promise.resolve(R.rd.compile(W,R.cam));
+ // background builds need the GPU feature KHR_parallel_shader_compile; without it (e.g. the Pixel 6a's Mali GPU in Chrome)
+ // three.js builds them at once anyway and logs a warning, so build them directly then (same result, no warning)
+ const go=W=>R.par?R.rd.compileAsync(W,R.cam):Promise.resolve(R.rd.compile(W,R.cam));
  return Promise.all([go(mk(true)),go(mk(false))]).catch(()=>{})}
 // A model just added: build its shaders (with and without the sun's real shadows) and upload its textures now, in
 // the background, so the first frame that shows it (for example when the drawer is pulled down and the view
 // appears) doesn't stop to do it (user's suggestion, 2026-11-10).
 function mdlWarm(M){const R=R3;if(!R.rd||!M.grp)return Promise.resolve();
  M.grp.traverse(o=>{for(const m of [].concat(o.material||[]))for(const k in m){const v=m[k];if(v&&v.isTexture)try{R.rd.initTexture(v)}catch(_){}}});
- const go=()=>R.rd.compileAsync?R.rd.compileAsync(R.sc,R.cam):Promise.resolve(R.rd.compile(R.sc,R.cam));
+ const go=()=>R.par?R.rd.compileAsync(R.sc,R.cam):Promise.resolve(R.rd.compile(R.sc,R.cam));   // see r3warm
  const was=R.sun.castShadow,a=go();R.sun.castShadow=!was;const b=go();R.sun.castShadow=was;   // both variants start compiling now
  // Then draw the scene once with the sun's real shadows on and once with them off, right away (not after waiting for
  // compileAsync). Safari only really builds a shader the first time it draws with it, and never reports one as ready
