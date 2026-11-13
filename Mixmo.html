@@ -349,8 +349,12 @@ function springAng(F,t){const K=F.K;t=Math.max(0,Math.min(1,t));let i=0;while(i<
  const [t0,a0,s0]=K[i],[t1,a1,s1]=K[i+1],h=t1-t0||1e-6,u=(t-t0)/h;return herm(a0,s0*h,a1,s1*h,u)}
 function springAngD(F,t){const K=F.K;t=Math.max(0,Math.min(1,t));let i=0;while(i<K.length-2&&t>K[i+1][0])i++;
  const [t0,a0,s0]=K[i],[t1,a1,s1]=K[i+1],h=t1-t0||1e-6,u=(t-t0)/h;return hermD(a0,s0*h,a1,s1*h,u)/h}
-function springInit(F,r0,cy0,lean0){const ac=Math.max(0.08*Math.PI,Math.min(0.6*Math.PI,Math.PI/2-lean0*R)),ap=Math.min(0.97*Math.PI,ac+0.55*Math.PI);
- const sl=(a,b)=>(b[1]-a[1])/(b[0]-a[0]),k=[[0,0],[HSP_C,ac],[HSP_P,ap],[1,Math.PI]];
+function springInit(F,r0,cy0,lean0){const ac=Math.max(0.08*Math.PI,Math.min(0.6*Math.PI,Math.PI/2-lean0*R));
+ // lying (user, 2026-11-13: the red feet lifted at push-off, about frame 32, and the black feet came down too fast): no
+ // flight off the hands any more. The body keeps turning over the planted hands until the trailing feet land in front;
+ // the hands are then his back feet. Upright he ends standing on the hands, as before
+ const Pt=F.lying?0.85:HSP_P,ap=F.lying?0.93*Math.PI:Math.min(0.97*Math.PI,ac+0.55*Math.PI);F.Pt=Pt;
+ const sl=(a,b)=>(b[1]-a[1])/(b[0]-a[0]),k=[[0,0],[HSP_C,ac],[Pt,ap],[1,Math.PI]];
  const m=k.map((q,i)=>i===0||i===k.length-1?0:(()=>{const s1=sl(k[i-1],q),s2=sl(q,k[i+1]);return s1*s2<=0?0:2*s1*s2/(s1+s2)})());   // smooth, never overshooting
  F.K=k.map((q,i)=>[q[0],q[1],m[i]]);F.r0=r0;F.cy0=cy0;
  const reach=(L1+L2+L3)*0.82,TS=F.TS||HSP.len,vf=F.v*TS;   // forward speed per unit of the move's time
@@ -358,16 +362,17 @@ function springInit(F,r0,cy0,lean0){const ac=Math.max(0.08*Math.PI,Math.min(0.6*
  const Ec=hspRot(r0,ac);F.Ef=vf*HSP_C+Ec[0];          // where the leading end is held (forward)
  // the path's state at hands down and at push-off
  const st=t=>{const a=springAng(F,t),da=springAngD(F,t),E=hspRot(r0,a),dE=hspRotD(r0,a);return{f:F.Ef-E[0],y:F.Ey-E[1],vf:-dE[0]*da,vy:-dE[1]*da}};
- F.Sc=st(HSP_C);F.Sp=st(HSP_P);F.vfa=vf;F.fl=!!F.lying;F.init=true}   // fl: a flight off the hands (lying on 4-6 legs, landing on six); upright, he ends standing on them
+ F.Sc=st(HSP_C);F.Sp=st(Pt);F.vfa=vf;F.fl=!!F.lying;F.init=true}   // fl: a flight off the hands (lying on 4-6 legs, landing on six); upright, he ends standing on them
 // cMid's place on the path at move time t: [forward, height]
 function springPath(F,t){if(!F.init)return[0,F.cy0||0];t=Math.max(0,Math.min(1,t));
  if(t<=HSP_C){const u=t/HSP_C,h=HSP_C;return[herm(0,F.vfa*h,F.Sc.f,F.Sc.vf*h,u),herm(F.cy0,0,F.Sc.y,F.Sc.vy*h,u)]}
- if(t<=HSP_P){const a=springAng(F,t),E=hspRot(F.r0,a);return[F.Ef-E[0],F.Ey-E[1]]}
- const u=(t-HSP_P)/(1-HSP_P),h=1-HSP_P,f1=F.Sp.f+0.5*(F.Sp.vf+F.vfa)*h;return[herm(F.Sp.f,F.Sp.vf*h,f1,F.vfa*h,u),herm(F.Sp.y,F.Sp.vy*h,F.cy0,0,u)]}
+ const Pt=F.Pt||HSP_P;if(t<=Pt){const a=springAng(F,t),E=hspRot(F.r0,a);return[F.Ef-E[0],F.Ey-E[1]]}
+ const u=(t-Pt)/(1-Pt),h=1-Pt,f1=F.Sp.f+0.5*(F.Sp.vf+F.vfa)*h;return[herm(F.Sp.f,F.Sp.vf*h,f1,F.vfa*h,u),herm(F.Sp.y,F.Sp.vy*h,F.cy0,0,u)]}
 // how planted the hands are (0-1): reaching down just before hands down, held, letting go just after push-off
-const springHold=(t,F)=>{const sm=x=>{x=Math.max(0,Math.min(1,x));return x*x*(3-2*x)};const on=sm((t-(HSP_C-HSP_PAD))/HSP_PAD);
- // stage C: when he ends standing on his hands (no flight), they stay down and hand over to the gait at the very end
- return Math.min(on,F&&F.init&&!F.fl?1-sm((t-0.82)/0.18):1-sm((t-HSP_P)/(HSP_PAD*1.4)))};
+const springHold=(t,F,early)=>{const sm=x=>{x=Math.max(0,Math.min(1,x));return x*x*(3-2*x)};const on=sm((t-(HSP_C-HSP_PAD))/HSP_PAD);
+ // the hands stay down and hand over to the gait at the very end (upright: they're his standing legs; lying: his back
+ // feet once the trailing feet have landed). early: a limb that won't be a standing leg lets go at push-off
+ return Math.min(on,early?1-sm((t-HSP_P)/(HSP_PAD*1.4)):F&&F.lying?1-sm((t-0.86)/0.14):1-sm((t-0.82)/0.18))};
 // how much the trailing end's limbs take on the shared tuck: up while the hands go down, held over the top, opening for the landing
 const springTuck=(t,F)=>{const sm=x=>{x=Math.max(0,Math.min(1,x));return x*x*(3-2*x)};return F.fl?Math.min(sm((t-0.18)/0.18),1-sm((t-0.62)/0.24)):Math.min(sm((t-0.18)/0.18),1-sm((t-0.7)/0.26))};
 const springTravel=()=>FLIP&&FLIP.kind==="spring"&&FLIP.init&&flipT()>=0&&flipT()<1?0:1;   // (until the path is set up, the gait still carries him)   // the path moves him instead of the gait
@@ -1579,7 +1584,7 @@ function buildRobot(p,ph){
    // 3) leading end: the hands go down in the tripod this end will stand in (the rest spots of the legs whose jobs they take
    //    over), not in a line. Limbs that won't be standing legs afterwards (a raised tail, a head) let go at push-off
    chains.forEach((c,i)=>{if(c.L.end!==lead)return;const pi=PM[i],Lp=RLIMBS[pi],tp=P[mode],stands=chains[pi].q.w>0.5;
-    const w=springHold(ft,stands?F:{...F,fl:true});if(w<=0)return;
+    const w=springHold(ft,F,!stands);if(w<=0)return;
     const r=restAt({...tp,tailCurve:0},Lp),o0=rotX([0,Lp.end==="T"?BODY_L:0,0],tp.lean*R);   // relative to that end's hips
     plant(c,r[0]-o0[0],zAt(F.Ef)+(r[1]-o0[2]),w);c.held=w;if(w>0.5)c.dW=1})   // while it is a hand it is drawn as a paw (not a head)
    // 4) floor guard, per limb: a limb that isn't fully planted (letting go, kicking, tucking) must not dip into the ground.
