@@ -1739,14 +1739,22 @@ function buildRobot(p,ph){
   // jump and grab (2026-11-13, user: like a gecko, the feet nearest the ceiling win): the end nearest the ceiling
   // reaches up during the jump and has its grip by half way; the other end's limbs and the body follow after
   const smJ=x=>{x=Math.max(0,Math.min(1,x));return x*x*(3-2*x)},J=!!FLIP.jump,tt=FLIP.kind==="up"?ft:1-ft;   // swing down: the jump and grab backwards
-  const eOf=i=>J?(RLIMBS[i].end===FLIP.ge?smJ((tt-0.2)/0.32):smJ((tt-0.42)/0.5)):e,eB=J?smJ((tt-0.4)/0.55):e;
+  // (fix 2026-11-13, user: the legs swapped but the body didn't move with them) the body turns with the end that grabs
+  // first, so its hips stay on the body; the other end's limbs follow later
+  const eB=J?smJ((tt-0.18)/0.5):e,eOf=i=>J?(RLIMBS[i].end===FLIP.ge?eB:smJ((tt-0.42)/0.5)):e;
   // the body tips from its lean on the floor to its lean hanging (the floor pose mirrored top to bottom: a body leaning
   // forward by L hangs leaning back by L), steadily about his middle. Before (fix 2026-11-13) it kept its floor lean
   // and snapped round on the frame the ends swapped: 104 degrees for the dinosaur. The hips ride along with the body
-  const tip=LYING.has(mode)?0:-2*(p.lean||0)*R*eB,TB=v=>add(cMid,rotX(sub3(v,cMid),tip));   // lying flat, the hanging body is flat too: no tip
+  // Lying flat (fix 2026-11-13, user: legs swapped but the body stayed put) he turns end over end, half a turn: the
+  // ends really change places and the hips go with them (before, the body stayed still and the hips slid along it).
+  // The end that grabs first rises (going up); coming down, the end in front goes down first
+  const lyS=FLIP.kind==="up"?(FLIP.ge||(DIR<0?"B":"T"))==="T"?-1:1:(DIR<0?1:-1),
+   tip=(LYING.has(mode)?lyS*Math.PI:-2*(p.lean||0)*R)*eB,TB=v=>add(cMid,rotX(sub3(v,cMid),tip)),TF=v=>add(cMid,rotX(sub3(v,cMid),tip/Math.max(1e-6,eB)));
   if(tip)for(const q of prims){if(!/^Body/.test(q.nm||""))continue;const same=q.b===q.a;q.a=TB(q.a);if(q.b)q.b=same?q.a:TB(q.b);if(q.pts)q.pts=q.pts.map(TB);if(q.fn)q.fn=rotX(q.fn,tip);if(q.n)q.n=rotX(q.n,tip)}
   chains.forEach((c,i)=>{const pc=src[PM[i]].map(v=>[v[0],2*cMid[1]-v[1],v[2]]),own=src[i],e=eOf(i);
-   const out=[add(mul(TB(own[0]),1-e),mul(pc[0],e))];
+   // the hip rides on the turning body (before: blended in a straight line to where the partner's hip ends up, so it
+   // left the body mid-move, up to 70 units in the jump); the small leftover to the hanging pose is eased in
+   const out=[add(TB(own[0]),mul(sub3(pc[0],eB>1e-6?TF(own[0]):pc[0]),eB))];
    for(let j=1;j<own.length;j++){const a=sub3(own[j],own[j-1]),b=sub3(pc[j],pc[j-1]),la=Math.hypot(...a),lb=Math.hypot(...b);
     // each bone swings in his front-to-back plane (about the side-to-side axis), its sideways lean blended on its own
     // (fix 2026-11-13: averaging the two directions, or turning the short way round, made a limb whose two poses point
