@@ -331,6 +331,9 @@ const perCycle=()=>effSpeed()>0.01?cur.travel*TRAVK*(typeof springTravel==="func
 // for now the body still does the stand-in flip across the whole move.
 const HSP={len:0.9,parts:[[0,"hurdle"],[0.15,"hands down"],[0.35,"over the top"],[0.6,"push-off"],[0.8,"landing"]]};
 const hspPart=t=>HSP.parts[partAt(HSP.parts,t)][1];
+// how long a handspring takes (seconds), per animation (user, 2026-11-13: slower for the dinosaur and the kangaroo, which
+// are heavier, bouncier movers); anything not listed takes HSP.len
+HSP.by={dino:1.4,roo:1.4};const hspLen=m=>HSP.by[m]||HSP.len;
 // ---- stage B: the body's path over the hands ----
 // Worked in 2D: f = forward along his travel (from where he started), y = height. The move is one half turn (pi) about his
 // middle (cMid), on a schedule: pitch forward until the leading end is down (hands down), turn over the planted hands
@@ -350,7 +353,7 @@ function springInit(F,r0,cy0,lean0){const ac=Math.max(0.08*Math.PI,Math.min(0.6*
  const sl=(a,b)=>(b[1]-a[1])/(b[0]-a[0]),k=[[0,0],[HSP_C,ac],[HSP_P,ap],[1,Math.PI]];
  const m=k.map((q,i)=>i===0||i===k.length-1?0:(()=>{const s1=sl(k[i-1],q),s2=sl(q,k[i+1]);return s1*s2<=0?0:2*s1*s2/(s1+s2)})());   // smooth, never overshooting
  F.K=k.map((q,i)=>[q[0],q[1],m[i]]);F.r0=r0;F.cy0=cy0;
- const reach=(L1+L2+L3)*0.82,TS=HSP.len,vf=F.v*TS;   // forward speed per unit of the move's time
+ const reach=(L1+L2+L3)*0.82,TS=F.TS||HSP.len,vf=F.v*TS;   // forward speed per unit of the move's time
  F.Ey=reach;                                          // the leading end's height while the hands are down
  const Ec=hspRot(r0,ac);F.Ef=vf*HSP_C+Ec[0];          // where the leading end is held (forward)
  // the path's state at hands down and at push-off
@@ -1080,7 +1083,7 @@ function reachChain(ch,T,L0){const n=ch.length,L=L0||[];if(!L0)for(let j=1;j<n;j
   if(Math.hypot(...sub3(p[n-1],T))<0.05)break}
  return p}
 function startFlip(kind){if(FLIP||CHAR!=="robot")return;const v0=groundSpeed();if(!playing&&!STEPBLEND)$("play").onclick();
- let len=Math.max(0.15,(kind==="ends"?0.9:kind==="spring"?HSP.len:kind==="rise"?1.0:1.1)*effSpeed()),nu=null;
+ let len=Math.max(0.15,(kind==="ends"?0.9:kind==="spring"?hspLen(mode):kind==="rise"?1.0:1.1)*effSpeed()),nu=null;
  // Rise onto the front end, planted version (2026-11-11): he pivots over his front paws, which step into a stool and
  // stay put; the back legs push off, then become the arms. Needs the pose he is in right now (ROBCH), so it is only
  // used from the floor, going forwards (not mid-turn), to an upright animation; anything else keeps the older blended rise.
@@ -1095,7 +1098,7 @@ function startFlip(kind){if(FLIP||CHAR!=="robot")return;const v0=groundSpeed();i
    // each paw's spot in the world (and how high it was, if it was in the air), and which way its knee points
    A:ROBCH.ch.map(ch=>{const v=ch[3];return[POS[0]+v[0]*c+v[2]*sn,POS[1]-v[0]*sn+v[2]*c,Math.max(0,v[1]-ground(v[0],v[2])-3.2)]}),
    h:ROBCH.ch.map(ch=>{const a=sub3(ch[3],ch[0]),k=sub3(ch[1],ch[0]);return sub3(k,mul(a,dot3(k,a)/(dot3(a,a)||1)))})}}
- FLIP={kind,p0:phase,len,...nu};if(kind==="spring"){FLIP.sg=DIR<0?-1:1;FLIP.v=v0;FLIP.dz=0}   // handspring: over whichever end is leading
+ FLIP={kind,p0:phase,len,...nu};if(kind==="spring"){FLIP.sg=DIR<0?-1:1;FLIP.v=v0;FLIP.dz=0;FLIP.TS=hspLen(mode)}   // handspring: over whichever end is leading
  // ceiling: the top (front) end reaches up and grabs, so the ends trade jobs. Going up they swap on landing;
  // coming down they swap at the start, so the move can run as "up" played backwards
  if(kind==="down")SWAP=!SWAP}
