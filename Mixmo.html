@@ -780,13 +780,16 @@ function blendBones(root,A,B,w,ra=root,rb=root){const out=[];let prev=root,pa=ra
   let d=add(mul(a,(1-w)/(la||1)),mul(b,w/(lb||1)));const ld=Math.hypot(...d);d=ld>1e-6?mul(d,1/ld):(la?mul(a,1/la):[0,-1,0]);
   const p=add(prev,mul(d,la*(1-w)+lb*w));out.push(p);prev=p;pa=A[i];pb=B[i]}
  return out}
-function solveLegIK(err,start){let x=start||[0,0];
- for(let it=0;it<20;it++){const e=err(x[0],x[1]),e1=err(x[0]+1,x[1]),e2=err(x[0],x[1]+1);
+// keeps the best answer it found (fix 2026-11-13: with the paw nearly out of reach, as in the drop onto all fours, the
+// steps could run off and end with the leg flipped straight up for one frame)
+function solveLegIK(err,start){let x=start||[0,0],best=x,bE=1e18;
+ for(let it=0;it<20;it++){const e=err(x[0],x[1]),e1=err(x[0]+1,x[1]),e2=err(x[0],x[1]+1);{const m=Math.abs(e[0])+Math.abs(e[1]);if(m<bE){bE=m;best=x}}
   const j11=e1[0]-e[0],j21=e1[1]-e[1],j12=e2[0]-e[0],j22=e2[1]-e[1],det=j11*j22-j12*j21;if(Math.abs(det)<1e-6)break;
   const dx=(-e[0]*j22+e[1]*j12)/det,dy=(-e[1]*j11+e[0]*j21)/det;
   x=[Math.max(-110,Math.min(110,x[0]+0.8*Math.max(-15,Math.min(15,dx)))),Math.max(-45,Math.min(115,x[1]+0.8*Math.max(-15,Math.min(15,dy))))];
   if(Math.abs(e[0])+Math.abs(e[1])<0.05)break}
- return x}
+ {const e=err(x[0],x[1]),m=Math.abs(e[0])+Math.abs(e[1]);if(m<=bE)return x}
+ return best}
 // smooth minimum (no sudden kinks when the limiting value switches)
 const smin=(a,b,k=4)=>{const d=a-b;return d>160?b:b-k*Math.log(1+Math.exp(-d/k))};
 // turn everything that was built facing his own forward so it faces his heading in the world
