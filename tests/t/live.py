@@ -5,7 +5,7 @@ with sync_playwright() as pw:
     for dev,r2d in [(None,False),(None,True),("iPhone 13",False)]:
         b=pw.chromium.launch()
         ctx=b.new_context(**(pw.devices[dev] if dev else {"viewport":{"width":1200,"height":800}}))
-        pg=ctx.new_page();errs=[]
+        pg=ctx.new_page();pg.add_init_script("try{if(!localStorage.getItem('mixmoTier'))localStorage.setItem('mixmoTier','anim')}catch(e){}");errs=[]
         pg.on("pageerror",lambda e:errs.append(str(e)));pg.on("console",lambda m:errs.append("console: "+m.text) if m.type=="error" else None)
         pg.goto(url);pg.wait_for_timeout(2500)
         if r2d:pg.evaluate("R3.want='2d'")

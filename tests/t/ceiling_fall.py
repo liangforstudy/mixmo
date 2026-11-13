@@ -7,7 +7,7 @@ async def main():
     mode,opt,out,n=sys.argv[1],sys.argv[2],sys.argv[3],int(sys.argv[4]);roll=sys.argv[5] if len(sys.argv)>5 else '1'
     async with async_playwright() as p:
         b=await p.chromium.launch(executable_path="/usr/bin/google-chrome",args=["--no-sandbox"])
-        pg=await b.new_page(viewport={"width":360,"height":700});errs=[];pg.on("pageerror",lambda e:errs.append(str(e)))
+        pg=await b.new_page(viewport={"width":360,"height":700});await pg.add_init_script("try{if(!localStorage.getItem('mixmoTier'))localStorage.setItem('mixmoTier','anim')}catch(e){}");errs=[];pg.on("pageerror",lambda e:errs.append(str(e)))
         await pg.goto("http://localhost:8765/Mixmo.html");await pg.wait_for_timeout(400)
         await pg.evaluate(f"""()=>{{document.querySelector('#rendSw [data-r=canvas]').click();document.querySelector('#ceilDrop [data-d={opt}]').click();document.querySelector('#ceilRoll [data-r="{roll}"]').click();const s=document.getElementById('charSel');s.value='robot';s.onchange();const m=document.getElementById('modeSel');m.value='{mode}';m.onchange();yaw=1.57;pitch=0.1;zoom=0.7}}""")
         await pg.wait_for_timeout(1300);await pg.evaluate("$('tC').onclick()")
