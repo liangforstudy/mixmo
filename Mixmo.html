@@ -1214,9 +1214,11 @@ const DROP_G=u=>1-(1-u)**3,dropOn=()=>!!(WALKOVER&&WALKOVER.stage===1&&WALKOVER.
 let FLIPQ=0;
 const flipQUI=()=>{const e=$("tFq");if(e)setText("tFq",FLIPQ>0?" +"+FLIPQ:"")};
 const flipQClear=()=>{FLIPQ=0;flipQUI()};
-function flipQStep(){if(FLIPQ>0&&!WALKOVER&&!FLIP&&CHAR==="robot"){FLIPQ--;flipQUI();startOver()}}
+function flipQStep(){if(FLIPQ>0&&!WALKOVER&&!FLIP&&!TURNM&&CHAR==="robot"){FLIPQ--;flipQUI();startOver()}}
 $("tF").onclick=()=>{if(CHAR!=="robot")return;if(WALKOVER||FLIP){FLIPQ=Math.min(99,FLIPQ+1);flipQUI();if(!playing&&!STEPBLEND)$("play").onclick();return}startOver()};
 function startOver(){if(WALKOVER||FLIP||CHAR!=="robot")return;
+ if(SPIN){say("Stop spinning first, then flip.");flipQClear();return}
+ if(TURNM){FLIPQ=Math.max(1,FLIPQ+1);flipQUI();return}   // mid-turn: the flip waits for the turn to finish (queued)
  if(GECKO){say("Drop from the ceiling first, then flip.");flipQClear();return}
  // fast (speedometer at or above the threshold), or lying on 4-6 legs: front handspring (stand-in for now), staying in
  // the same animation; slow and upright: front walkover, back into the animation he was in
@@ -1551,9 +1553,10 @@ function buildRobot(p,ph){
    const back=v=>add(cMid,rotX(sub3(sub3(v,[0,dy,0]),cMid),-a)),dirB=v=>rotX(v,-a);   // a point / direction as drawn -> the builder's frame
    const zAt=Fp=>cMid[2]+F.sg*(Fp-Pp[0]);   // builder z of a spot at path-forward Fp
    // a paw put on a ground spot (x, z as drawn), bones kept; the toe lies flat, pointing along his travel. w = how much
-   const plant=(c,x,z,w)=>{const ch=c.chain,T=back([x,ground(x,z)+3.2,z]),rc=reachChain(ch.slice(0,4),T,c.restL.slice(0,3));
+   const PAWH=4.4;   // a planted paw's centre above the ground (a little higher than in the gait: turned over, the paw block's corners reached 2 below)
+   const plant=(c,x,z,w)=>{const ch=c.chain,T=back([x,ground(x,z)+PAWH,z]),rc=reachChain(ch.slice(0,4),T,c.restL.slice(0,3));
     const nb=blendBones(ch[0],ch.slice(1,4),rc.slice(1),w),tl=Math.hypot(...sub3(ch[4],ch[3]));
-    const tf=sub3(back([x,ground(x,z+F.sg*tl)+3.4,z+F.sg*tl]),T),td=add(mul(sub3(ch[4],ch[3]),1-w),mul(norm3(tf),tl*w));
+    const tf=sub3(back([x,ground(x,z+F.sg*tl)+PAWH+0.2,z+F.sg*tl]),T),td=add(mul(sub3(ch[4],ch[3]),1-w),mul(norm3(tf),tl*w));
     c.chain=[ch[0],...nb,add(nb[2],mul(norm3(td),tl))]};
    // 1) each limb is drawn as what it is turning into (half way through the turn it takes its partner's job: a head stays a
    //    head on top, a tail a tail at the back), and a head stays level, looking the way he travels (it was looking down
@@ -1578,7 +1581,17 @@ function buildRobot(p,ph){
    chains.forEach((c,i)=>{if(c.L.end!==lead)return;const pi=PM[i],Lp=RLIMBS[pi],tp=P[mode],stands=chains[pi].q.w>0.5;
     const w=springHold(ft,stands?F:{...F,fl:true});if(w<=0)return;
     const r=restAt({...tp,tailCurve:0},Lp),o0=rotX([0,Lp.end==="T"?BODY_L:0,0],tp.lean*R);   // relative to that end's hips
-    plant(c,r[0]-o0[0],zAt(F.Ef)+(r[1]-o0[2]),w)})}
+    plant(c,r[0]-o0[0],zAt(F.Ef)+(r[1]-o0[2]),w);c.held=w;if(w>0.5)c.dW=1})   // while it is a hand it is drawn as a paw (not a head)
+   // 4) floor guard, per limb: a limb that isn't fully planted (letting go, kicking, tucking) must not dip into the ground.
+   //    Seen as drawn; it swings up at the hip until it clears, a turn, so no bone changes length
+   const fwdD=v=>add(add(cMid,rotX(sub3(v,cMid),a)),[0,dy,0]);
+   const rad=k=>k>=3?3.6:(LS[k-1]?LS[k-1][1]+0.6:4);
+   const pen=pts=>{let worst=0,at=-1;for(let k=1;k<pts.length;k++){const d=ground(pts[k][0],pts[k][2])+rad(k)-pts[k][1];if(d>worst){worst=d;at=k}}return[worst,at]};
+   chains.forEach((c,i)=>{const held=c.L.end===lead?(c.held||0):(F.tp[i]?1-sm((ft-0.2)/0.14):0);if(held>=0.999)return;
+    const D=c.chain.map(fwdD),hip=D[0],[d,at]=pen(D);if(d<=0)return;
+    let ax=cross3(sub3(D[at],hip),[0,1,0]);const al=Math.hypot(...ax);if(al<1e-6)return;ax=mul(ax,1/al);
+    const rot=(q,an)=>{const w=sub3(q,hip),c2=Math.cos(an),s2=Math.sin(an);return add(hip,add(add(mul(w,c2),mul(cross3(ax,w),s2)),mul(ax,dot3(ax,w)*(1-c2))))};
+    for(let k=1;k<=60;k++){const np=D.map((q,j)=>j?rot(q,k*2*R):q);if(pen(np)[0]<=0){c.chain=np.map(back);return}}})}
   // rise: all three red paws hold the ground while he tips over onto them (user, 2026-11-11: one red leg was lifting
   // the whole body while the others stepped). Each red leg: steps onto the ground where it is (0-15% of the rise), holds
   // that spot, steps in towards the middle of the body as he comes up (one leg after another, ~42-62%), holds again,
@@ -1930,12 +1943,14 @@ function toggleSpin(now){if(SPIN){
   if(SPIN.stopH!==undefined){delete SPIN.stopH;$("tS").classList.add("on");return}   // pressed again: keep spinning
   const q=Math.PI/2;SPIN.stopH=Math.ceil((HEAD+1e-3)/q)*q;$("tS").classList.remove("on");turnStep();return}
  if((FLIP&&FLIP.nu)||dropOn())return;   // rising over his planted front paws (or dropping onto them): a spin would pull him off them, so it waits for the next press
+ if(FLIP&&FLIP.kind==="spring"){say("Spin waits until the handspring is done.");return}
  const ts=Math.max(cur.speed,2.2),pz=CHAR==="robot"?LASTMID[2]:0;
  const rmax=CHAR==="robot"?Math.max(15,...LASTHIPS.map(a=>Math.hypot(a[0],a[2]-pz)+25)):15;
  SPIN={p0:phase,h0:HEAD,len:Math.max(1.1*ts,2*Math.PI*rmax/SPINSTEP),ts,pz,W:[POS[0]+Math.sin(HEAD)*pz,POS[1]+Math.cos(HEAD)*pz]};$("tS").classList.add("on");turnStep()}
 function startTurn(kind,exact){   // exact: turn by exactly this angle (the game's reversal), no squaring up
  if(TURNM)return;   // a turn is playing: let it finish (pressing Spin mid-turn used to make him jump at the end)
  if((FLIP&&FLIP.nu)||dropOn())return;   // rising over his planted front paws (1.4 s), or dropping onto them: turning would pull him off them, so turns wait until he is up
+ if(FLIP&&FLIP.kind==="spring"){say("Turns wait until the handspring is done.");return}   // hands planted: a turn would swing him off them
  if(kind==="S"){toggleSpin();return}
  const lying=CHAR==="robot"&&LYING.has(mode),bodyK=Math.max(0.6,Math.min(2.2,BODY_L/100));   // body length 100 = normal
  // swapping ends doesn't turn the body, so it can't square up a spin cut short: let the spin wind down first, then swap
