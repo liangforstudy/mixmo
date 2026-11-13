@@ -80,7 +80,7 @@ JS=r"""async()=>{
    for(let i=0;i<900&&(WALKOVER||FLIP||morphNow());i++)step(1);
    if(WALKOVER||FLIP)fails.push(lbl+": over never finished");
    if(SWAP===sw0)fails.push(lbl+": over did not swap ends");
-   const expect=m==="run6"?"run":m;if(mode!==expect)fails.push(lbl+": over ended in "+mode+" (want "+expect+")");
+   const expect=m;if(mode!==expect)   /* 2026-11-13: Flip keeps the animation (from run6: a handspring back onto six, ends swapped) */fails.push(lbl+": over ended in "+mode+" (want "+expect+")");
    chk(lbl+" over")}
   // 4) leaving six legs with each stand-up choice
   for(const se of ["keep","front","A","B"]){const sel=$("modeSel");SWAP=false;GECKO=false;FLIP=null;
