@@ -325,12 +325,45 @@ let DIR=1;   // +1: he travels toward his front end; -1: on all six, the other e
 let HEAD=0,HEAD_T=0,OMEGA=0,POS=[0,0],TRAVK=1,SKIDLEAN=0,BOOST=0,TURN={st:null,t:0,fast:false};
 const effSpeed=()=>Math.max(cur.speed,BOOST);
 const dirNow=()=>((typeof LYING!=="undefined"&&LYING.has(mode))||(TURNM&&TURNM.kind==="U6"))?DIR:DIR+(1-DIR)*ease(blendU);   // leaving all six while reversed: ease back to forwards
-const perCycle=()=>effSpeed()>0.01?cur.travel*TRAVK*(typeof dropOn==="function"&&dropOn()?0:1)*riseK()*(typeof riseTravel==="function"?riseTravel():1)*dirNow()/effSpeed():0;   // a rise (Over) stops him while his front paws hold the ground (riseK: planted rise; riseTravel: the gripping rise)
+const perCycle=()=>effSpeed()>0.01?cur.travel*TRAVK*(typeof springTravel==="function"&&typeof FLIP!=="undefined"?springTravel():1)*(typeof dropOn==="function"&&dropOn()?0:1)*riseK()*(typeof riseTravel==="function"?riseTravel():1)*dirNow()/effSpeed():0;   // a rise (Over) stops him while his front paws hold the ground (riseK: planted rise; riseTravel: the gripping rise)
 // Front handspring timeline (plan stage A, 2026-11-13): when each part starts, as a share (0-1) of the move, and how
 // long the move takes in seconds (turned into cycles at the speed he has when it starts). Stages B-C fill the parts in;
 // for now the body still does the stand-in flip across the whole move.
 const HSP={len:0.9,parts:[[0,"hurdle"],[0.15,"hands down"],[0.35,"over the top"],[0.6,"push-off"],[0.8,"landing"]]};
 const hspPart=t=>HSP.parts[partAt(HSP.parts,t)][1];
+// ---- stage B: the body's path over the hands ----
+// Worked in 2D: f = forward along his travel (from where he started), y = height. The move is one half turn (pi) about his
+// middle (cMid), on a schedule: pitch forward until the leading end is down (hands down), turn over the planted hands
+// (the leading end stays put in the world), a short flight to finish the turn (push-off), then landing. r0 = the leading
+// end relative to his middle when the move started; v = his ground speed then. Everything here is set when the move
+// starts (springInit), so it plays, steps and scrubs the same both ways.
+const HSP_C=0.15,HSP_P=0.6,HSP_PAD=0.06;   // hands down at 15%, push-off at 60% of the move
+const hspRot=(r,a)=>{const c=Math.cos(a),s=Math.sin(a);return[r[0]*c+r[1]*s,-r[0]*s+r[1]*c]};   // forward pitch by a, in (f, y)
+const hspRotD=(r,a)=>{const c=Math.cos(a),s=Math.sin(a);return[-r[0]*s+r[1]*c,-r[0]*c-r[1]*s]};
+const herm=(p0,v0,p1,v1,u)=>{const u2=u*u,u3=u2*u;return p0*(2*u3-3*u2+1)+v0*(u3-2*u2+u)+p1*(-2*u3+3*u2)+v1*(u3-u2)};
+const hermD=(p0,v0,p1,v1,u)=>{const u2=u*u;return p0*(6*u2-6*u)+v0*(3*u2-4*u+1)+p1*(-6*u2+6*u)+v1*(3*u2-2*u)};
+function springAng(F,t){const K=F.K;t=Math.max(0,Math.min(1,t));let i=0;while(i<K.length-2&&t>K[i+1][0])i++;   // through the keyframes, smoothly
+ const [t0,a0,s0]=K[i],[t1,a1,s1]=K[i+1],h=t1-t0||1e-6,u=(t-t0)/h;return herm(a0,s0*h,a1,s1*h,u)}
+function springAngD(F,t){const K=F.K;t=Math.max(0,Math.min(1,t));let i=0;while(i<K.length-2&&t>K[i+1][0])i++;
+ const [t0,a0,s0]=K[i],[t1,a1,s1]=K[i+1],h=t1-t0||1e-6,u=(t-t0)/h;return hermD(a0,s0*h,a1,s1*h,u)/h}
+function springInit(F,r0,cy0,lean0){const ac=Math.max(0.08*Math.PI,Math.min(0.6*Math.PI,Math.PI/2-lean0*R)),ap=Math.min(0.97*Math.PI,ac+0.55*Math.PI);
+ const sl=(a,b)=>(b[1]-a[1])/(b[0]-a[0]),k=[[0,0],[HSP_C,ac],[HSP_P,ap],[1,Math.PI]];
+ const m=k.map((q,i)=>i===0||i===k.length-1?0:(()=>{const s1=sl(k[i-1],q),s2=sl(q,k[i+1]);return s1*s2<=0?0:2*s1*s2/(s1+s2)})());   // smooth, never overshooting
+ F.K=k.map((q,i)=>[q[0],q[1],m[i]]);F.r0=r0;F.cy0=cy0;
+ const reach=(L1+L2+L3)*0.82,TS=HSP.len,vf=F.v*TS;   // forward speed per unit of the move's time
+ F.Ey=reach;                                          // the leading end's height while the hands are down
+ const Ec=hspRot(r0,ac);F.Ef=vf*HSP_C+Ec[0];          // where the leading end is held (forward)
+ // the path's state at hands down and at push-off
+ const st=t=>{const a=springAng(F,t),da=springAngD(F,t),E=hspRot(r0,a),dE=hspRotD(r0,a);return{f:F.Ef-E[0],y:F.Ey-E[1],vf:-dE[0]*da,vy:-dE[1]*da}};
+ F.Sc=st(HSP_C);F.Sp=st(HSP_P);F.vfa=vf;F.init=true}
+// cMid's place on the path at move time t: [forward, height]
+function springPath(F,t){if(!F.init)return[0,F.cy0||0];t=Math.max(0,Math.min(1,t));
+ if(t<=HSP_C){const u=t/HSP_C,h=HSP_C;return[herm(0,F.vfa*h,F.Sc.f,F.Sc.vf*h,u),herm(F.cy0,0,F.Sc.y,F.Sc.vy*h,u)]}
+ if(t<=HSP_P){const a=springAng(F,t),E=hspRot(F.r0,a);return[F.Ef-E[0],F.Ey-E[1]]}
+ const u=(t-HSP_P)/(1-HSP_P),h=1-HSP_P,f1=F.Sp.f+0.5*(F.Sp.vf+F.vfa)*h;return[herm(F.Sp.f,F.Sp.vf*h,f1,F.vfa*h,u),herm(F.Sp.y,F.Sp.vy*h,F.cy0,0,u)]}
+// how planted the hands are (0-1): reaching down just before hands down, held, letting go just after push-off
+const springHold=t=>{const sm=x=>{x=Math.max(0,Math.min(1,x));return x*x*(3-2*x)};return Math.min(sm((t-(HSP_C-HSP_PAD))/HSP_PAD),1-sm((t-HSP_P)/(HSP_PAD*1.4)))};
+const springTravel=()=>FLIP&&FLIP.kind==="spring"&&flipT()>=0&&flipT()<1?0:1;   // the path moves him instead of the gait
 // parts of multi-part morphs, as [start (0-1), name]; markers on the scrubber show where each begins
 function morphParts(kind){return({
  skid:[[0,"skidding"],[0.35,"whipping round"],[0.65,"speeding off"]],
@@ -768,7 +801,7 @@ function splitLegs(e){const mid=ATT[LEGS[0].k];
   if(!L.copy){L.att={x:oa.x+cx,y:oa.y,z:oa.z};continue}
   const tx=cx-oa.x,tyaw=360-out.yaw;L.att={x:mid.x+(tx-mid.x)*e,y:mid.y+(oa.y-mid.y)*e,z:mid.z+(oa.z-mid.z)*e};L.yaw=180+(tyaw-180)*e;L.tail=e<0.5?1:0}
  return SPLIT_LEGS}
-let REC=null;
+let REC=null,SPRDBG=null;
 function buildRig(p,ph){
  p=moodMix(p);
  prims=[];G=0;PNAME="";REC=CHAR==="sergal2"?{legs:{},arms:{}}:null;   // REC: his skeleton, for an imported model to copy (M2)
@@ -1046,7 +1079,7 @@ function reachChain(ch,T,L0){const n=ch.length,L=L0||[];if(!L0)for(let j=1;j<n;j
   p[0]=[...root];for(let j=1;j<n;j++){const d=norm3(sub3(p[j],p[j-1]));p[j]=add(p[j-1],mul(d,L[j-1]))}
   if(Math.hypot(...sub3(p[n-1],T))<0.05)break}
  return p}
-function startFlip(kind){if(FLIP||CHAR!=="robot")return;if(!playing&&!STEPBLEND)$("play").onclick();
+function startFlip(kind){if(FLIP||CHAR!=="robot")return;const v0=groundSpeed();if(!playing&&!STEPBLEND)$("play").onclick();
  let len=Math.max(0.15,(kind==="ends"?0.9:kind==="spring"?HSP.len:kind==="rise"?1.0:1.1)*effSpeed()),nu=null;
  // Rise onto the front end, planted version (2026-11-11): he pivots over his front paws, which step into a stool and
  // stay put; the back legs push off, then become the arms. Needs the pose he is in right now (ROBCH), so it is only
@@ -1062,7 +1095,7 @@ function startFlip(kind){if(FLIP||CHAR!=="robot")return;if(!playing&&!STEPBLEND)
    // each paw's spot in the world (and how high it was, if it was in the air), and which way its knee points
    A:ROBCH.ch.map(ch=>{const v=ch[3];return[POS[0]+v[0]*c+v[2]*sn,POS[1]-v[0]*sn+v[2]*c,Math.max(0,v[1]-ground(v[0],v[2])-3.2)]}),
    h:ROBCH.ch.map(ch=>{const a=sub3(ch[3],ch[0]),k=sub3(ch[1],ch[0]);return sub3(k,mul(a,dot3(k,a)/(dot3(a,a)||1)))})}}
- FLIP={kind,p0:phase,len,...nu};if(kind==="spring")FLIP.sg=DIR<0?-1:1;   // handspring: over whichever end is leading
+ FLIP={kind,p0:phase,len,...nu};if(kind==="spring"){FLIP.sg=DIR<0?-1:1;FLIP.v=v0;FLIP.dz=0}   // handspring: over whichever end is leading
  // ceiling: the top (front) end reaches up and grabs, so the ends trade jobs. Going up they swap on landing;
  // coming down they swap at the start, so the move can run as "up" played backwards
  if(kind==="down")SWAP=!SWAP}
@@ -1198,6 +1231,8 @@ function flipStep(){if(!FLIP)return;const t=flipT();
  if(FLIP.nu){// planted rise: his hips (the point POS follows) end up where his front end was, so move him there as he pitches over
   const d=t<=0?0:t>=1?FLIP.D:FLIP.D-riseZT(riseTau()),dd=d-FLIP.dz;
   if(dd){POS[0]+=Math.sin(HEAD)*dd;POS[1]+=Math.cos(HEAD)*dd;groundOff+=dd;FLIP.dz=d}}
+ if(FLIP.kind==="spring"&&FLIP.init){// handspring: the path moves him (forward along his travel); the gait's own travel is paused
+  const f=springPath(FLIP,t)[0],dd=f-FLIP.dz;if(dd){const d=FLIP.sg*dd;POS[0]+=Math.sin(HEAD)*d;POS[1]+=Math.cos(HEAD)*d;groundOff+=d;FLIP.dz=f}}
  if(t<0){if(FLIP.kind==="down")SWAP=!SWAP;FLIP=null;return}   // scrubbed back past the start: cancel
  if(t>=1){if(FLIP.kind==="ends"||FLIP.kind==="rise"||FLIP.kind==="spring")SWAP=!SWAP;else{GECKO=FLIP.kind==="up";if(GECKO)SWAP=!SWAP}FLIP=null;$("tC").textContent=GECKO?"Drop":"Ceiling"}}
 
@@ -1496,8 +1531,21 @@ function buildRobot(p,ph){
   // half turn every limb is exactly where its partner stood: no snap when the ends swap roles
   // rise = a plain forward pitch (no twist): partners are matched left-to-left, and each hip glides
   // along the body to where its partner's hip will be, so nothing snaps when the ends trade jobs
-  const rise=FLIP.kind==="rise",fx=rise||FLIP.kind==="spring",e=ft*ft*(3-2*ft),M=v=>add(cMid,(fx?rotX:rotZ)(sub3(v,cMid),Math.PI)),src=chains.map(c=>c.chain.map(v=>[...v])),PM=fx?[3,4,5,0,1,2]:[3,5,4,0,2,1];   // hop: a plain forward flip, no twist (partners left-to-left, like the rise)
+  const rise=FLIP.kind==="rise",spr=FLIP.kind==="spring",fx=rise||spr;
+  if(spr&&!FLIP.init){const F=FLIP,E0=B(F.sg>0?[0,BODY_L,0]:[0,0,0]),rel=sub3(E0,cMid);springInit(F,[F.sg*rel[2],rel[1]],cMid[1],p.lean)}
+  const e=spr?springAng(FLIP,ft)/Math.PI:ft*ft*(3-2*ft),M=v=>add(cMid,(fx?rotX:rotZ)(sub3(v,cMid),Math.PI)),src=chains.map(c=>c.chain.map(v=>[...v])),PM=fx?[3,4,5,0,1,2]:[3,5,4,0,2,1];   // hop: a plain forward flip, no twist (partners left-to-left, like the rise)
   const rl=chains.map(c=>c.restL.slice());chains.forEach((c,i)=>{const pc=src[PM[i]].map(M);{const r0=add(mul(c.chain[0],1-e),mul(pc[0],e));c.chain=[r0,...blendBones(r0,c.chain.slice(1),pc.slice(1),e,c.chain[0],pc[0])]}if(chains[PM[i]].q.curve)c.flex=true;c.restL=rl[i].map((l,j)=>l*(1-e)+rl[PM[i]][j]*e)})
+  // handspring, stage B: the leading end's limbs reach down to fixed spots on the ground and hold them while he turns over
+  // them. The spots are just ahead of where the leading end is held, under each limb's hip. Worked out where they will be
+  // drawn (after the turn and the path's height), then turned back into the builder's frame for the reach.
+  if(spr&&FLIP.init){const F=FLIP,w=springHold(ft);
+   if(w>0){const a=F.sg*springAng(F,ft),P=springPath(F,ft),dy=P[1]-F.cy0,lead=F.sg>0?"T":"B";
+    const back=v=>add(cMid,rotX(sub3(sub3(v,[0,dy,0]),cMid),-a));
+    for(const c of chains){if(c.L.end!==lead)continue;const ch=c.chain,x=ch[0][0]*1.15,z=cMid[2]+F.sg*(F.Ef+4-P[0]);
+     const T=back([x,ground(x,z)+3.2,z]),bl=c.restL.slice(0,3),rc=reachChain(ch.slice(0,4),T,bl);
+     const nb=blendBones(ch[0],ch.slice(1,4),rc.slice(1),w),tl=Math.hypot(...sub3(ch[4],ch[3]));
+     const tf=sub3(back([x,ground(x,z+F.sg*tl)+3.4,z+F.sg*tl]),T),toe0=sub3(ch[4],ch[3]),td=add(mul(toe0,1-w),mul(norm3(tf),tl*w));   // toe lies flat, pointing on
+     c.chain=[ch[0],...nb,add(nb[2],mul(norm3(td),tl))]}}}
   // rise: all three red paws hold the ground while he tips over onto them (user, 2026-11-11: one red leg was lifting
   // the whole body while the others stepped). Each red leg: steps onto the ground where it is (0-15% of the rise), holds
   // that spot, steps in towards the middle of the body as he comes up (one leg after another, ~42-62%), holds again,
@@ -1613,12 +1661,13 @@ function buildRobot(p,ph){
  // a plain half turn first tipped him back towards the black end and lifted the red paws ~40 off the ground. Instead
  // the turn makes up whatever the switch hasn't: the tilt you see goes smoothly from lying to standing on the red end
  if(RZ){xf(RZ.X,n=>rotX(n,RZ.angE));for(const q of prims)if(q.t===2)q.a=[q.a[0],ground(q.a[0],q.a[2])+0.1,q.a[2]]}
- else if(ends&&FLIP.kind==="spring"){// handspring, stage A (2026-11-13): its own timeline (HSP) and parts, but it still moves like the stand-in: a forward flip over the leading end,
-  // half a turn about his middle, so he lands on the other end's legs in the same animation. Kept clear of the ground,
-  // with a hop on top; he keeps travelling the whole time
-  const ang=FLIP.sg*Math.PI*ft*ft*(3-2*ft);xf(v=>add(cMid,rotX(sub3(v,cMid),ang)),n=>rotX(n,ang));
-  let lo=1e9;for(const q of prims){if(q.t===2)continue;for(const v of (q.pts||[q.a]))lo=Math.min(lo,v[1]-ground(v[0],v[2]))}
-  const dy=Math.max(0,3.2-lo)*Math.sin(Math.PI*Math.min(1,ft*1.15))+30*Math.sin(Math.PI*ft);xf(v=>[v[0],v[1]+dy,v[2]],n=>n);
+ else if(ends&&FLIP.kind==="spring"){// front handspring, stage B: half a turn about his middle on the path's schedule, at the
+  // path's height (springPath). While the hands are down the leading end stays put; otherwise nothing may dip into the ground
+  const F=FLIP,ang=F.init?F.sg*springAng(F,ft):F.sg*Math.PI*ft*ft*(3-2*ft),dy=F.init?springPath(F,ft)[1]-F.cy0:0,w=F.init?springHold(ft):0;
+  xf(v=>add(cMid,rotX(sub3(v,cMid),ang)),n=>rotX(n,ang));xf(v=>[v[0],v[1]+dy,v[2]],n=>n);
+  if(w<1){let lo=1e9;for(const q of prims){if(q.t===2)continue;for(const v of (q.pts||[q.a]))lo=Math.min(lo,v[1]-ground(v[0],v[2]))}
+   const up=Math.max(0,3.2-lo)*(1-w);if(up)xf(v=>[v[0],v[1]+up,v[2]],n=>n)}
+  {const lead=F.sg>0?"T":"B";SPRDBG=chains.filter(c=>c.L.end===lead).map(c=>{const v=add(add(cMid,rotX(sub3(c.chain[3],cMid),ang)),[0,dy,0]);return[v[0],v[1],v[2]]})}   // debug: the hands as drawn (before any lift)
   for(const q of prims)if(q.t===2)q.a=[q.a[0],ground(q.a[0],q.a[2])+0.1,q.a[2]]}
  else if(ends){const ang=FLIP.kind==="rise"?riseAng():Math.PI*ft*ft*(3-2*ft),lift=[0,(FLIP.kind==="rise"?0:50)*Math.sin(Math.PI*ft),0];
   // somersault with a half twist: end over end and turned round, so he lands facing the same way
