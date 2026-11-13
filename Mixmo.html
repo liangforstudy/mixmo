@@ -169,10 +169,13 @@ html.desk .sl .rs{min-height:22px;min-width:30px;padding:0 6px;font-size:14px}
 <div class="sl"><label>Ceiling height</label><input type="range" id="ceilH" min="150" max="600" step="5" value="295"><span class="val" id="ceilHV">295</span></div>
 <div class="sl"><label>Jump height (how far up he can jump to grab the ceiling)</label><input type="range" id="jumpH" min="20" max="300" step="5" value="160"><span class="val" id="jumpHV">160</span></div>
 <p class="sub" style="margin:2px 0 6px">Ceiling: he crouches, jumps, and the feet nearest the ceiling grab it first. Out of reach, he jumps, reaches up and lands again.</p>
+<div class="row" style="margin:10px 0 0;flex-wrap:nowrap"><span class="lbl">Leaving the ceiling:</span></div>
+<div class="grid2" id="ceilDown"><button data-w="cat" class="on">Cat drop</button><button data-w="swing">Swing down</button><button data-w="float" style="grid-column:1/3">Float down (as before)</button></div>
+<p class="sub" style="margin:4px 0">Cat drop: he lets go, falls, turns over on the way and lands on his feet, the end that hung lowest first. Swing down: he keeps his grip while his body and other limbs swing down, then lets go and drops. Float down: the old slow turn-over.</p>
 <div class="row" style="margin:10px 0 0;flex-wrap:nowrap"><span class="lbl">Dinosaur and Kangaroo, leaving the ceiling:</span></div>
-<div class="grid2" id="ceilDrop"><button data-d="flip" class="on">Flip over</button><button data-d="four">Drop onto all fours</button><button data-d="six" style="grid-column:1/3">Drop onto all six</button></div>
+<div class="grid2" id="ceilDrop"><button data-d="flip" class="on">Like the others</button><button data-d="four">Drop onto all fours</button><button data-d="six" style="grid-column:1/3">Drop onto all six</button></div>
 <div class="row" style="margin:6px 0 0;flex-wrap:nowrap"><span class="lbl">Dropping, roll belly-down:</span><div class="seg" id="ceilRoll"><button data-r="1" class="on">Yes</button><button data-r="0">No</button></div></div>
-<p class="sub" style="margin:4px 0">Flip over: he turns over on the way down, as before. Drop: he lets go, falls straight down and lands on four legs (head and tail up) or on all six. Rolling: his body rolls half a turn along its length on the way, so he comes down belly first. Not rolling: his body only tilts level (the short way), and the legs that held the ceiling swing over to its underside.</p>
+<p class="sub" style="margin:4px 0">Like the others: as set above. Drop: he lets go, falls straight down and lands on four legs (head and tail up) or on all six. Rolling: his body rolls half a turn along its length on the way, so he comes down belly first. Not rolling: his body only tilts level (the short way), and the legs that held the ceiling swing over to its underside.</p>
 <div class="row" style="margin:10px 0 0;flex-wrap:nowrap"><span class="lbl">Leaving six legs, stand on:</span></div>
 <div class="grid2" id="standEnd"><button data-e="keep" class="on">Back end</button><button data-e="front">Front end</button><button data-e="A">End A</button><button data-e="B">End B</button></div>
 <p class="sub" style="margin:4px 0 0">Back end tips him back onto the end behind him. Front end rises forward over his front legs, so he ends up the other way up, looking exactly the same but with the paw colours swapped. End A / End B pick a paw colour, whichever end it is on.</p>
@@ -402,7 +405,7 @@ function showStatus(){
   parts.push(`${modeName(BLENDFROM)} → ${modeName(mode)}, frame ${Math.min(BLENDTOT,Math.floor(blendU*BLENDTOT)+1)}/${BLENDTOT}`)}
  if(typeof FLIP!=="undefined"&&FLIP){const t=flipT(),tot=Math.max(1,Math.round(FLIP.len*FPC));
   const pp=morphParts(FLIP.kind),pi=pp?partAt(pp,t):0;
-  if(t>=0&&t<1)parts.push(`${{ends:"Somersault",spring:"Front handspring",jump:"Jump (ceiling out of reach)",up:FLIP.jump?"Jump and grab the ceiling":"Flip up to ceiling",fall:(FLIP.tgt==="run6"?"Drop onto all six":"Drop onto all fours")+(FLIP.roll===false?" (no roll)":""),down:"Drop from ceiling",rise:"Rise onto front end"}[FLIP.kind]}${pp?` part ${pi+1}/${pp.length} (${pp[pi][1]})`:""}, frame ${Math.min(tot,Math.floor(t*tot)+1)}/${tot}`)}
+  if(t>=0&&t<1)parts.push(`${{ends:"Somersault",spring:"Front handspring",jump:"Jump (ceiling out of reach)",up:FLIP.jump?"Jump and grab the ceiling":"Flip up to ceiling",fall:(FLIP.tgt==="run6"?"Drop onto all six":"Drop onto all fours")+(FLIP.roll===false?" (no roll)":""),down:FLIP.cat?"Cat drop from the ceiling":FLIP.jump?"Swing down from the ceiling":"Drop from ceiling",rise:"Rise onto front end"}[FLIP.kind]}${pp?` part ${pi+1}/${pp.length} (${pp[pi][1]})`:""}, frame ${Math.min(tot,Math.floor(t*tot)+1)}/${tot}`)}
  if(typeof WALKOVER!=="undefined"&&WALKOVER)parts.unshift("Flip ends: "+(WALKOVER.stage===1?"dropping onto all six":"rising onto the other end")+(FLIPQ>0?` (${FLIPQ} more queued)`:""));
  if(typeof TURNM!=="undefined"&&TURNM){const T=TURNM,tot=Math.max(1,Math.round(T.len*FPC)),t=Math.max(0,Math.min(1,(phase-T.p0)/T.len)),st=turnShape(T,t)[3];
   const pp=T.skid?morphParts("skid"):null,pi=pp?partAt(pp,t):0;
@@ -1255,6 +1258,9 @@ function walkoverStep(){if(!WALKOVER)return;
 // share of the move spent falling (the rest is the landing)
 let CEILDROP="flip";try{const v=localStorage.getItem("mixmoCeilDrop");if(v==="four"||v==="six")CEILDROP=v}catch(e){}
 const FALL_T=1.0,FALL_TF=0.62;
+let CEILDOWN="cat";try{const v=localStorage.getItem("mixmoCeilDown");if(v==="swing"||v==="float"||v==="cat")CEILDOWN=v}catch(e){}
+document.querySelectorAll("#ceilDown button").forEach(b=>{b.classList.toggle("on",b.dataset.w===CEILDOWN);b.onclick=()=>{CEILDOWN=b.dataset.w;try{localStorage.setItem("mixmoCeilDown",CEILDOWN)}catch(e){}
+ document.querySelectorAll("#ceilDown button").forEach(x=>x.classList.toggle("on",x===b))}});
 let CEILROLL=true;try{CEILROLL=localStorage.getItem("mixmoCeilRoll")!=="0"}catch(e){}
 const ceilDropUI=()=>{document.querySelectorAll("#ceilDrop button").forEach(b=>b.classList.toggle("on",b.dataset.d===CEILDROP));
  document.querySelectorAll("#ceilRoll button").forEach(b=>b.classList.toggle("on",(b.dataset.r==="1")===CEILROLL))};
@@ -1281,7 +1287,12 @@ $("jumpH").oninput=()=>{JUMPH=+$("jumpH").value;$("jumpHV").textContent=JUMPH;tr
 // how high he can reach in a jump: his higher end, a limb's length straight up, and the jump
 function ceilReach(){const l=(cur.lean||0)*R,top=LASTMID[1]+BODY_L/2*Math.abs(Math.cos(l)),limb=(L1+L2+L3)*Math.max(1,RLOOK.mid);return top+limb+JUMPH}
 function startCeil(){if(FLIP||CHAR!=="robot")return;
- if(GECKO){startFlip("down");return}
+ if(GECKO){const h=Math.max(0,CEIL-2*LASTMID[1]);startFlip("down");if(!FLIP||FLIP.kind!=="down")return;
+  // cat drop: the ceiling's way down (ends trade jobs, legs swing over, the body turns), falling with gravity, the legs
+  // ready by touchdown, his body spring taking the landing. Swing down: the jump and grab played backwards
+  if(CEILDOWN==="cat")Object.assign(FLIP,{cat:true,landed:false,vImp:0.25*2*h/(FALL_TF*Math.max(0.3,FLIP.len/Math.max(0.05,effSpeed())))});
+  else if(CEILDOWN==="swing")Object.assign(FLIP,{jump:true,ge:DIR<0?"B":"T",landed:false});
+  return}
  const reach=ceilReach();
  if(CEIL>reach+2){// out of reach: a jump that reaches up and lands again
   if(!playing&&!STEPBLEND)$("play").onclick();
@@ -1295,7 +1306,8 @@ function flipStep(){if(!FLIP)return;const t=flipT();
   if(dd){POS[0]+=Math.sin(HEAD)*dd;POS[1]+=Math.cos(HEAD)*dd;groundOff+=dd;FLIP.dz=d}}
  if(FLIP.kind==="spring"&&FLIP.init){// handspring: the path moves him (forward along his travel); the gait's own travel is paused
   const f=springPath(FLIP,t)[0],dd=f-FLIP.dz;if(dd){const d=FLIP.sg*dd;POS[0]+=Math.sin(HEAD)*d;POS[1]+=Math.cos(HEAD)*d;groundOff+=d;FLIP.dz=f}}
- if((FLIP.jump||FLIP.kind==="jump")&&t>=0&&!FLIP.kicked){FLIP.kicked=true;SPR.v-=60}   // crouch before the jump: his body spring dips
+ if(((FLIP.jump&&FLIP.kind==="up")||FLIP.kind==="jump")&&t>=0&&!FLIP.kicked){FLIP.kicked=true;SPR.v-=60}   // crouch before the jump: his body spring dips
+ if(FLIP.kind==="down"&&(FLIP.cat||FLIP.jump)){const tl=FLIP.cat?FALL_TF:0.85;if(t>=tl&&!FLIP.landed){FLIP.landed=true;SPR.v-=FLIP.cat?FLIP.vImp:60}else if(t<tl)FLIP.landed=false}   // touchdown
  if(FLIP.kind==="jump"){if(t>=0.9&&!FLIP.landed){FLIP.landed=true;SPR.v-=50}else if(t<0.9)FLIP.landed=false}
  if(FLIP.kind==="fall"){if(t>=FALL_TF&&!FLIP.landed){FLIP.landed=true;SPR.v-=FLIP.vImp}else if(t<FALL_TF)FLIP.landed=false}   // touchdown: the body spring takes it
  if(t<0&&FLIP.kind==="fall"){const m0=FLIP.m0;FLIP=null;GECKO=true;const sel=$("modeSel");sel.value=m0;sel.onchange();blendU=1;cur={...P[m0]};from={...cur};BLENDFROM=null;return}   // scrubbed back past letting go: hanging again
@@ -1723,11 +1735,11 @@ function buildRobot(p,ph){
   // (the whole robot is then lifted so the middle ends up where the hanging pose has it)
   // top end grabs the ceiling: each limb moves to where its partner at the other end will be once he hangs
   // (that partner's pose, mirrored top-to-bottom). Blended segment by segment, keeping bone lengths
-  const s=FLIP.kind==="up"?ft:1-ft,e=s*s*(3-2*s),PM=[3,4,5,0,1,2],src=chains.map(c=>c.chain.map(v=>[...v]));
+  const s=FLIP.kind==="up"?ft:FLIP.cat?1-Math.min(1,ft/FALL_TF):1-ft,e=s*s*(3-2*s),PM=[3,4,5,0,1,2],src=chains.map(c=>c.chain.map(v=>[...v]));   // cat drop: legs ready by touchdown
   // jump and grab (2026-11-13, user: like a gecko, the feet nearest the ceiling win): the end nearest the ceiling
   // reaches up during the jump and has its grip by half way; the other end's limbs and the body follow after
-  const smJ=x=>{x=Math.max(0,Math.min(1,x));return x*x*(3-2*x)},J=FLIP.kind==="up"&&FLIP.jump;
-  const eOf=i=>J?(RLIMBS[i].end===FLIP.ge?smJ((ft-0.2)/0.32):smJ((ft-0.42)/0.5)):e,eB=J?smJ((ft-0.4)/0.55):e;
+  const smJ=x=>{x=Math.max(0,Math.min(1,x));return x*x*(3-2*x)},J=!!FLIP.jump,tt=FLIP.kind==="up"?ft:1-ft;   // swing down: the jump and grab backwards
+  const eOf=i=>J?(RLIMBS[i].end===FLIP.ge?smJ((tt-0.2)/0.32):smJ((tt-0.42)/0.5)):e,eB=J?smJ((tt-0.4)/0.55):e;
   // the body tips from its lean on the floor to its lean hanging (the floor pose mirrored top to bottom: a body leaning
   // forward by L hangs leaning back by L), steadily about his middle. Before (fix 2026-11-13) it kept its floor lean
   // and snapped round on the frame the ends swapped: 104 degrees for the dinosaur. The hips ride along with the body
@@ -1836,8 +1848,8 @@ function buildRobot(p,ph){
    const up=Math.max(0,-1.2-lo);if(up)xf(v=>[v[0],v[1]+up,v[2]],n=>n)}
   for(const q of prims)if(q.t===2)q.a=[q.a[0],ground(q.a[0],q.a[2])+0.1,q.a[2]]}
  else if(flipping){// grabbing the ceiling: the body itself just rises (limbs were blended above)
-  const s=FLIP.kind==="up"?ft:1-ft,J=FLIP.kind==="up"&&FLIP.jump,tj=Math.max(0,Math.min(1,(ft-0.15)/0.4)),
-   e=J?1-(1-tj)**2:s*s*(3-2*s),sh=mul(sub3(mir(cMid),cMid),e);   // jump: takes off at 15% (after the crouch), at the ceiling by 55%
+  const s=FLIP.kind==="up"?ft:1-ft,J=!!FLIP.jump,tj=Math.max(0,Math.min(1,(s-0.15)/0.4)),
+   e=J?1-(1-tj)**2:FLIP.cat?1-Math.min(1,(ft/FALL_TF)**2):s*s*(3-2*s),sh=mul(sub3(mir(cMid),cMid),e);   // cat drop: gravity   // jump: takes off at 15% (after the crouch), at the ceiling by 55%
   xf(v=>add(v,sh),n=>n);
   // nothing below the floor (the tipping body, 2026-11-13, pushed a leg or the kangaroo's tail up to 6 into it near the
   // landing): lift him clear, allowing the usual ~1 that a paw block's corners sink
