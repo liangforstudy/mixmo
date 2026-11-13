@@ -27,9 +27,7 @@ button.on{background:var(--ink);color:#fff}
 #view{position:relative;flex:1;min-height:0;margin:0 12px;border:2px solid var(--ink);border-radius:14px;overflow:hidden;background:#dff0f5;touch-action:none}
 #view,#view *{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
 #cv{position:absolute;inset:0;width:100%;height:100%;display:block}
-#readout{position:absolute;left:8px;top:8px;margin:0;padding:6px 8px;border-radius:8px;background:rgba(246,251,252,.82);font:10px/1.35 ui-monospace,Menlo,Consolas,monospace;pointer-events:none;white-space:pre;overflow:hidden}
 #hint{position:absolute;left:10px;right:150px;bottom:8px;font-size:12px;opacity:.75;pointer-events:none}
-#msg3{position:absolute;left:8px;right:8px;top:40%;display:none;padding:10px 12px;border-radius:10px;background:rgba(246,251,252,.95);border:1px solid var(--ink);font-size:14px;text-align:center}
 #vTop{position:absolute;right:8px;top:8px;display:flex;gap:0}
 #vTop button{background:rgba(246,251,252,.85);min-width:44px;padding:0 8px;border-radius:0;margin-left:-2px}
 #vTop button:first-child{border-radius:10px 0 0 10px;margin-left:0}
@@ -51,8 +49,12 @@ input[type=range]{width:100%;height:44px;margin:0;accent-color:var(--accent);tou
 .val{font-size:14px;text-align:right;font-variant-numeric:tabular-nums}
 .crow{display:flex;gap:10px;margin:8px 0}.crow label{display:flex;flex-direction:column;gap:4px;font-size:14px;flex:1}
 .crow input[type=color]{width:100%;height:44px;border:2px solid var(--ink);border-radius:10px;background:var(--btn);padding:2px;font-size:16px}
-ul.moves{margin:4px 0;padding-left:20px;font-size:14px;line-height:1.5}
 [hidden]{display:none!important}
+/* POOLTOY CSS begin (pt_sync.py copies these into Mixmo, scoped to the pooltoy) */
+#readout{position:absolute;left:8px;top:8px;margin:0;padding:6px 8px;border-radius:8px;background:rgba(246,251,252,.82);font:10px/1.35 ui-monospace,Menlo,Consolas,monospace;pointer-events:none;white-space:pre;overflow:hidden}
+#msg3{position:absolute;left:8px;right:8px;top:40%;display:none;padding:10px 12px;border-radius:10px;background:rgba(246,251,252,.95);border:1px solid var(--ink);font-size:14px;text-align:center}
+ul.moves{margin:4px 0;padding-left:20px;font-size:14px;line-height:1.5}
+/* POOLTOY CSS end */
 html.game .anim,html.game #row1{display:none!important}   /* Game: the test tools are hidden */
 html:not(.game) .gameOnly{display:none!important}
 #gameTip{margin:6px 14px 8px;font-size:14px;line-height:1.4}
@@ -69,7 +71,7 @@ html.game:not(.fine) #stickZone{display:block}
 </head>
 <body>
 <div id="app"><div id="top">
-<div id="view"><canvas id="cv"></canvas><pre id="readout"></pre><div id="msg3"></div>
+<div id="view"><canvas id="cv"></canvas><!-- POOLTOY VIEW begin --><pre id="readout"></pre><div id="msg3"></div><!-- POOLTOY VIEW end -->
 <div id="vTop"><button id="pause" aria-label="Pause or play">Pause</button><button data-r="1" class="on" aria-label="Normal speed">1&times;</button><button data-r="0.5" aria-label="Half speed">&frac12;</button><button data-r="0.25" aria-label="Quarter speed">&frac14;</button></div>
 <button id="dragBtn" aria-label="What a one-finger drag does">Drag: camera</button>
 <div id="stickZone" class="fresh" aria-label="Touch control area: tap and drag here to move"><div class="zl">Tap and drag here to move.</div><div id="stick"><div id="stickKnob"></div></div></div>
@@ -83,6 +85,7 @@ html.game:not(.fine) #stickZone{display:block}
 <h1>Pooltoy Water Lab</h1>
 <p class="sub">Water inside a see-through pooltoy. Press <b>Test run</b> to play every test move in a row, or set <b>Drag</b> to "shake him" and throw him about with a finger.</p>
 
+<!-- POOLTOY PANEL begin -->
 <fieldset><legend>Look</legend>
 <div class="row"><span class="lbl">Body</span><div class="seg" id="shapeSeg"><button data-v="toy">Pooltoy</button><button data-v="capsule">Capsule</button><button data-v="glb" disabled>GLB model</button></div></div>
 <div id="glbBox"><div class="row"><button id="glbPick" style="flex:1">Choose a .glb file</button><button id="glbDel" style="flex:0 0 auto;color:var(--warn)" hidden>Remove the model</button></div>
@@ -123,6 +126,7 @@ html.game:not(.fine) #stickZone{display:block}
 <div class="row"><span class="lbl">Water in</span><div class="seg" id="limbSeg"><button data-v="own">Each limb its own</button><button data-v="shared">One shared</button></div></div>
 <p class="sub">Each limb its own: the body, head, arms, legs and tail each hold their own water with their own surface. Water only passes between a limb and the body through the joint, when it reaches it, so a tilted surface in the body no longer fills an arm from nowhere. Water that has run into a hanging arm stays there until he is tipped. One shared: one surface cuts through everything (the first version; no waves).</p>
 <div id="slR"></div></fieldset>
+<!-- POOLTOY PANEL end -->
 
 <fieldset><legend>Start fresh</legend>
 <p class="sub">Forget this lab's saved choices in this browser and reload.</p>
@@ -133,8 +137,13 @@ html.game:not(.fine) #stickZone{display:block}
 </div></div>
 
 <script>
-(function(){"use strict";
-const $=id=>document.getElementById(id);
+(function(HOST){"use strict";
+// POOLTOY BLOCK begin. pt_sync.py copies everything from here to "POOLTOY BLOCK end" into Mixmo.html, leaving out the
+// "LAB ONLY" parts (Mixmo has its own controls, camera, Game mode and rig matcher). Edit it only here, in the lab.
+// HOST: nothing in the lab on its own. Inside Mixmo: prefix (the pooltoy's element ids start with it), ownLoop (false:
+// Mixmo's frame loop runs it) and flag (sets the pooltoy's own classes, instead of "game" / "fine" on the page).
+const H=Object.assign({prefix:"",ownLoop:true,flag:(n,on)=>document.documentElement.classList.toggle(n,on)},HOST||{});
+const $=id=>document.getElementById(H.prefix+id);
 // ---------- settings (remembered) ----------
 const KEY="pwlabSettings";
 const DEF={shape:"toy",fill:0.45,alpha:0.4,skin:"#ff9d3c",accent:"#fff1d0",water:"#1fb0ff",readout:"on",mode:"lab",
@@ -724,6 +733,7 @@ function draw(toy){const R=R3,T=R.T;if(!R.ok)return;
 // - It stands still (rest pose, moved as one piece): animating its bones is later (P3-c).
 // Bone names are read with Mixmo's rig matcher (copied from Mixmo.html, 2026-11-13).
 // =====================================================================
+// LAB ONLY begin: the rig matcher, the same code as Mixmo's (checked 2026-11-14); inside Mixmo, Mixmo's own is used
 const boneKey=n=>String(n).replace(/(_\d+)+$/,"").toLowerCase().replace(/[^a-z0-9]/g,"");
 const MD_SIDES=(m,l,r)=>{const o={};for(const [k,v] of Object.entries(m)){o[k+"L"]=l(v);o[k+"R"]=r(v)}return o};
 const MPRESETS=[
@@ -759,6 +769,7 @@ function mdlRig(bones){const byKey=new Map();for(const b of bones){const k=boneK
   for(const [part,k] of Object.entries(P.map)){if(Array.isArray(k)){const l=k.map(x=>byKey.get(x)).filter(Boolean);if(l.length)out[part]=l}else if(byKey.has(k))out[part]=byKey.get(k)}
   return{preset:P,map:out}}
  return{preset:null,map:mdlGuess(bones)}}
+// LAB ONLY end
 
 const GLB_H=150;   // a model is shown this tall (ears included), about the toy's height
 const GLBU={};     // its uniforms, shared by every piece and pass: each container's surface and flatness
@@ -971,7 +982,7 @@ async function glbLoad(buf,name){
   const gltf=await new Promise((ok,no)=>ld.parse(buf,"",ok,no)).catch(e=>{throw{user:"This file couldn't be read as a GLB ("+String(e&&e.message||e).slice(0,120)+")."}});
   glbMsg("Fitting the inside shape to "+name+"'s bones...");await new Promise(r=>setTimeout(r,30));
   const M=glbBake(gltf,R3.T,name,buf.byteLength);GLBM=M;glbMeshes(M);
-  const b=document.querySelector('#shapeSeg button[data-v="glb"]');b.disabled=false;
+  const b=$("shapeSeg").querySelector('button[data-v="glb"]');b.disabled=false;
   if(S.shape==="glb"){buildLift();B.init=false;waveClear();flatUI()}else b.click();
   glbMsg(name+": "+M.pieces.length+" piece"+(M.pieces.length===1?"":"s")+", "+M.tris.toLocaleString()+" triangles, "+M.bones+" bones ("+M.rig+"). Room inside: "+(ROOM/1000).toFixed(1)+" L."+
    (R3.ok?"":" (No picture: the 3D view isn't running.)")+(texBad?" "+texBad+" of its pictures (textures) couldn't be read, so those parts are plain.":"")+" Not kept: reloading the page forgets it (nothing is uploaded).");
@@ -1002,7 +1013,7 @@ function glbRemove(){if(!GLBM)return;const was=S.shape==="glb";
  if(GLB3.grp){R3.sc.remove(GLB3.grp);const tex=new Set();GLB3.grp.traverse(o=>{if(o.material){const u=o.material.uniforms;if(u&&u.uMap&&u.uMap.value)tex.add(u.uMap.value);o.material.dispose()}});
   const geos=new Set();GLB3.grp.traverse(o=>{if(o.geometry)geos.add(o.geometry)});for(const g of geos)g.dispose();for(const t of tex)t.dispose();GLB3.grp=null}
  const name=GLBM.name;GLBM=null;delete DESC.glb;
- const b=document.querySelector('#shapeSeg button[data-v="glb"]');if(was)document.querySelector('#shapeSeg button[data-v="toy"]').click();b.disabled=true;
+ const b=$("shapeSeg").querySelector('button[data-v="glb"]');if(was)$("shapeSeg").querySelector('button[data-v="toy"]').click();b.disabled=true;
  $("glbParts").innerHTML="";$("glbDel").hidden=true;glbMsg(name+" removed.")}
 // the pieces the file is made of, each one shown or hidden (things inside a head show through a see-through skin)
 function glbParts(){const host=$("glbParts");host.innerHTML="";if(!GLBM)return;
@@ -1013,13 +1024,14 @@ function glbParts(){const host=$("glbParts");host.innerHTML="";if(!GLBM)return;
 // ---------- the loop: fixed small steps for the motion and the springs, one picture per frame ----------
 const HSTEP=1/240;let last=performance.now(),accum=0,paused=false,RATE=1,frameN=0,TOY=null,fpsT=0,fpsN=0,FPS=0;
 let XF=null;
+let UI_HOOK=null,GAME_STEP=null;   // the lab's own buttons and Game mode (LAB ONLY parts below); Mixmo drives the pooltoy itself
 function pose(){const loc=buildToy(S.shape,B.phase,B.amp),xf=makeXf();XF=xf;
  {const o=xf([0,0,0]);FLX=norm(sub(xf([1,0,0]),o));FLZ=norm(sub(xf([0,0,1]),o));
   const gx=S.shape==="glb"&&GLBM?GLBM.axes:null;for(let i=0;i<NC;i++){const C=CO[i],a=gx&&gx[i];C.ax=a?norm(sub(xf(a.e),o)):null;C.az=a?norm(sub(xf(a.t),o)):null}}   // his own sideways and front-to-back directions (for flattening)
  TOY={T:loc.T.map(t=>({a:xf(t.a),b:xf(t.b),ra:t.ra,rb:t.rb,c:t.c,m:t.m})),Bl:loc.Bl.map(b=>({a:xf(b.a),r:b.r,c:b.c,m:b.m})),Po:loc.Po.map(p=>({a:p.a,b:p.b,r:p.r,p:xf(p.p)}))};ballsFrom(TOY.T,TOY.Bl)}
 function frame(t){requestAnimationFrame(frame);const real=Math.min(0.05,(t-last)/1000);last=t;let dt=0;
  fpsN++;fpsT+=real;if(fpsT>=0.5){FPS=Math.round(fpsN/fpsT);fpsN=0;fpsT=0}
- if(!paused){dt=real*RATE;gameStep(dt);accum+=dt;let n=0;while(accum>=HSTEP&&n<16){stepBody(HSTEP);waterStep(B,HSTEP);seqStep(HSTEP);W.rip+=HSTEP;accum-=HSTEP;n++}if(n===16)accum=0}
+ if(!paused){dt=real*RATE;if(GAME_STEP)GAME_STEP(dt);accum+=dt;let n=0;while(accum>=HSTEP&&n<16){stepBody(HSTEP);waterStep(B,HSTEP);seqStep(HSTEP);W.rip+=HSTEP;accum-=HSTEP;n++}if(n===16)accum=0}
  pose();levels(dt);
  try{draw(TOY)}catch(e){if(R3.ok){R3.ok=false;console.error(e);msg3("The 3D view stopped ("+String(e&&e.message||e).slice(0,90)+"). The controls and numbers still work.")}}
  if(frameN++%6===0)ui()}
@@ -1029,7 +1041,7 @@ function ui(){if(FLATSYNC){FLATSYNC=false;slSync("flat");slSync("fill");save()}
  const n=W.n,tilt=Math.acos(clamp(n[1],-1,1))*180/Math.PI,g=v=>(v/G).toFixed(2);
  const lvl=Math.abs(n[1])>0.1?(W.c-n[0]*W.A[0]-n[2]*W.A[2])/n[1]-Math.max(0,B.y+B.sh[1]):NaN;
  const ro=$("readout");ro.hidden=S.readout==="off";
- if(S.readout==="fps"){const t=FPS+" fps"+(S.shape==="glb"&&GLBM?"  ("+GLBM.tris.toLocaleString()+" tri x 5)":"");if(t!==lastTxt){lastTxt=t;ro.textContent=t}}
+ if(S.readout==="fps"){const t=FPS+" fps"+(S.shape==="glb"&&GLBM?"  ("+GLBM.tris.toLocaleString()+" tri x 6)":"");if(t!==lastTxt){lastTxt=t;ro.textContent=t}}
  if(S.readout==="on"){const pc=i=>CO[i]?Math.round(100*CO[i].V/(CO[i].full||1))+"%":"-",lt=v=>(v/1000).toFixed(1),sg=v=>(v>=0?"+":"")+v.toFixed(1),t=FPS+" fps"+(seqLabel?"\ntest: "+seqLabel:"")+
   "\ntilt   "+tilt.toFixed(1)+" deg"+
   "\nlevel  "+(isFinite(lvl)?lvl.toFixed(1):"-")+
@@ -1040,14 +1052,18 @@ function ui(){if(FLATSYNC){FLATSYNC=false;slSync("flat");slSync("fill");save()}
   "\nfull:  "+desc().rows.map(row=>row.map(([nm,...ix])=>nm+" "+ix.map(pc).join(" ")).join(" ")).join("\n ")+(shared()?"":"  (own)")+
   "\nwater  "+lt(waterNow())+" of "+lt(ROOM)+" L"+
   "\nair    "+lt(AIR)+" L"+(SPILL>0?"  spilt "+lt(SPILL):"")+
-  (S.shape==="glb"&&GLBM?"\nmodel  "+GLBM.tris.toLocaleString()+" tri x 5 passes":"")+
+  (S.shape==="glb"&&GLBM?"\nmodel  "+GLBM.tris.toLocaleString()+" tri x 6 passes":"")+
   (flatOn()?"\nflat   "+CO[desc().flat[0]].fl.toFixed(2)+"  "+CO[desc().flat[0]].fw.toFixed(2)+"x wide "+CO[desc().flat[0]].fs.toFixed(2)+"x thick"+
    "\nroom   "+lt(curRoom())+" L now, slack "+Math.round(100*(1-curRoom()/Math.max(1,ROOM)))+"%":"");
   if(t!==lastTxt){lastTxt=t;ro.textContent=t}}
- const on=(el,v)=>{if(el.classList.contains("on")!==v)el.classList.toggle("on",v)};
- document.querySelectorAll("#speedSeg button").forEach(b=>on(b,+b.dataset.s===B.speedT));
+ if(UI_HOOK)UI_HOOK()}
+// LAB ONLY begin: the lit state of the lab's own move buttons
+function uiMoves(){const on=(el,v)=>{if(el.classList.contains("on")!==v)el.classList.toggle("on",v)};
+ $("speedSeg").querySelectorAll("button").forEach(b=>on(b,+b.dataset.s===B.speedT));
  on($("bSpin"),B.spin);on($("bFlip"),B.up);on($("bTest"),!!seq);
  const tb=$("bTest"),tt=seq?"Stop test":"Test run";if(tb.textContent!==tt)tb.textContent=tt}
+UI_HOOK=uiMoves;
+// LAB ONLY end
 
 // =====================================================================
 // Controls
@@ -1081,20 +1097,22 @@ sliders("slR",[["zeta","Damping (low = sloshes for longer)",0.05,0.6,0.01],["slo
 segInit("limbSeg","limbs",()=>{waveClear();flatUI()});flatUI();
 sliders("slLook",[["alpha","Skin opacity",0.15,0.9,0.01],["wa","Water opacity (1 = solid)",0.2,1,0.01]]);
 for(const [id,k] of [["cSkin","skin"],["cAccent","accent"],["cWater","water"]]){$(id).value=S[k];$(id).oninput=()=>{S[k]=$(id).value;save()}}
+// LAB ONLY begin: the lab's own move buttons, pause and speed, camera and "shake him", divider, slider taps, Start fresh
+// and Game mode (Mixmo has its own of each)
 // moves (pressing one by hand ends a test run)
-document.querySelectorAll("#speedSeg button").forEach(b=>b.onclick=()=>{seqStop();setSpeed(+b.dataset.s)});
+$("speedSeg").querySelectorAll("button").forEach(b=>b.onclick=()=>{seqStop();setSpeed(+b.dataset.s)});
 $("bSpin").onclick=()=>{seqStop();B.spin=!B.spin;if(B.spin)B.headT=null};
 $("bFlip").onclick=()=>{seqStop();flip()};
 $("bL").onclick=()=>{seqStop();turn(1)};$("bR").onclick=()=>{seqStop();turn(-1)};
 $("bJump").onclick=()=>{seqStop();jump(1)};$("bDrop").onclick=()=>{seqStop();drop()};
 $("bTest").onclick=()=>{if(seq){seqStop();setSpeed(0);B.spin=false;return}if(paused)$("pause").onclick();B.spin=false;setSpeed(0);if(B.up)flip();seq={t:0,i:0}};
 $("pause").onclick=()=>{paused=!paused;$("pause").textContent=paused?"Play":"Pause";$("pause").classList.toggle("on",paused)};
-document.querySelectorAll("#vTop [data-r]").forEach(b=>b.onclick=()=>{RATE=+b.dataset.r;document.querySelectorAll("#vTop [data-r]").forEach(x=>x.classList.toggle("on",x===b))});
+$("vTop").querySelectorAll("[data-r]").forEach(b=>b.onclick=()=>{RATE=+b.dataset.r;$("vTop").querySelectorAll("[data-r]").forEach(x=>x.classList.toggle("on",x===b))});
 addEventListener("keydown",e=>{if(e.code!=="Space")return;const t=e.target;if(t&&(t.tagName==="INPUT"&&t.type!=="range"||t.tagName==="TEXTAREA"))return;e.preventDefault();if(!e.repeat)$("pause").onclick()});
 // one-finger drag: turn the camera, or grab him and shake
 let dragMode="camera";
 function hintUI(){const fine=matchMedia("(pointer:fine)").matches;
- document.documentElement.classList.toggle("fine",fine);
+ H.flag("fine",fine);
  $("hint").textContent=dragMode==="shake"?"Drag to throw him about; let go and he springs back.":S.mode==="game"&&!fine?"left half: joystick - right half: orbit (2 fingers: zoom & pan) - double-tap: reset":fine?"drag: orbit - wheel: zoom - right-drag: pan - double-click: reset":"1 finger: orbit - 2 fingers: zoom & pan - double-tap: reset";
  $("dragBtn").textContent=dragMode==="shake"?"Drag: shake him":"Drag: camera";$("dragBtn").classList.toggle("on",dragMode==="shake")}
 $("dragBtn").onclick=()=>{dragMode=dragMode==="shake"?"camera":"shake";hintUI()};hintUI();
@@ -1221,19 +1239,25 @@ function gameStep(dt){if(!game())return;
  B.tr=want==="run"?TR_RUN:TR_WALK;
  B.headT=g.x||g.y?B.head+rem:null}   // no input: the turn rate eases to nothing
 function gameReset(){GKEYS.clear();if(STICK.on)stickRelease();STICKSPIN=false;WIND=false;REV=null;GHIST.length=0;B.tr=TR_DEF}
-function modeUI(){const g=game();document.documentElement.classList.toggle("game",g);
+function modeUI(){const g=game();H.flag("game",g);
  // Game hides the test tools; Flip moves up beside Jump and Drop
  if(g)$("row2").insertBefore($("bFlip"),$("bTest"));else $("row1").appendChild($("bFlip"));
  gameReset();seqStop();B.spin=false;B.headT=null;setSpeed(0);hintUI()}
 segInit("modeSeg","mode",modeUI);modeUI();
+GAME_STEP=gameStep;
+// LAB ONLY end
 
 buildLift();pose();levels(0);
-window.LAB={S,B,W,CO,WV,cam,amounts,DESC,flatMax,flatWS,draw:()=>draw(TOY),glbLoad,glbRemove,get GLBM(){return GLBM},
+const LAB=window.LAB={S,B,W,CO,WV,cam,amounts,DESC,flatMax,flatWS,draw:()=>draw(TOY),glbLoad,glbRemove,get GLBM(){return GLBM},
  // test only: count every part 1:1 as the lab did before P2-a, and start again
- unitFactors(on){UNITKF=!!on;buildLift();B.init=false;waveClear();pose();levels(0)},waterStep,levels,jump,drop,flip,turn,setSpeed,R3,get seq(){return seq},step(n){for(let i=0;i<n;i++){if(i%4===0)gameStep(4*HSTEP);stepBody(HSTEP);waterStep(B,HSTEP);seqStep(HSTEP)}pose();levels(n*HSTEP)},
- game:{STICK,GKEYS,gameInput,gameStep,modeUI,get REV(){return REV},get STICKSPIN(){return STICKSPIN}}};
-r3load();requestAnimationFrame(frame);
-})();
+ unitFactors(on){UNITKF=!!on;buildLift();B.init=false;waveClear();pose();levels(0)},waterStep,levels,jump,drop,flip,turn,setSpeed,R3,get seq(){return seq},step(n){for(let i=0;i<n;i++){if(i%4===0&&GAME_STEP)GAME_STEP(4*HSTEP);stepBody(HSTEP);waterStep(B,HSTEP);seqStep(HSTEP)}pose();levels(n*HSTEP)}};
+// LAB ONLY begin
+LAB.game={STICK,GKEYS,gameInput,gameStep,modeUI,get REV(){return REV},get STICKSPIN(){return STICKSPIN}};
+// LAB ONLY end
+r3load();if(H.ownLoop)requestAnimationFrame(frame);
+return LAB;
+// POOLTOY BLOCK end
+})(null);
 </script>
 </body>
 </html>
