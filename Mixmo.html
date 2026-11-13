@@ -1722,7 +1722,9 @@ function buildRobot(p,ph){
   // starts from the other side's
   const F=FLIP,sm=x=>{x=Math.max(0,Math.min(1,x));return x*x*(3-2*x)},w=sm((ft-0.06)/(FALL_TF-0.06)),LR=F.roll===false?[0,1,2,3,4,5]:[0,2,1,3,5,4];
   chains.forEach((c,i)=>{const sq=F.src[LR[i]];if(!sq||sq.length!==c.chain.length)return;const S=sq.map(v=>add(cMid,v)),own=c.chain;
-   const root=add(mul(S[0],1-w),mul(own[0],w));
+   // the hip stays on the body (fix 2026-11-13, user: body and legs mismatched): the body changes shape as the mode
+   // blends to the landing one, so a hip blended in a straight line from where it hung left the body, up to 16 units
+   const root=own[0];
    // not rolling, a leg that held the ceiling swings round to the underside (nearly opposite directions): steady swing in
    // the front-to-back plane, as in the Ceiling move; rolling, the two poses are close, so the usual bone-by-bone blend
    c.chain=[root,...(F.roll===false?swingSag(root,S,own,w,F,"f"+i):blendBones(root,S.slice(1),own.slice(1),w,S[0],own[0]))];
