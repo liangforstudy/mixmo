@@ -1321,7 +1321,13 @@ function startCeil(){if(FLIP||CHAR!=="robot")return;
   FLIP={kind:"jump",p0:phase,len:Math.max(0.15,1.0*effSpeed()),peak:JUMPH,kicked:false,landed:false,ge:DIR<0?"B":"T"};
   say("The ceiling is out of reach: it's "+Math.round(CEIL)+" up, he reaches "+Math.round(reach)+". Raise Jump height or lower the ceiling.");return}
  startFlip("up");if(FLIP&&FLIP.kind==="up")Object.assign(FLIP,{jump:true,kicked:false,ge:DIR<0?"B":"T"})}
-$("tC").onclick=()=>{if(GECKO&&(mode==="dino"||mode==="roo")&&CEILDROP!=="flip"){startFall(CEILDROP==="four"?"run4dog":"run6",CEILROLL);return}startCeil()};
+function ceilGo(){if(GECKO&&(mode==="dino"||mode==="roo")&&CEILDROP!=="flip"){startFall(CEILDROP==="four"?"run4dog":"run6",CEILROLL);return}startCeil()}
+// Ceiling stage 4 (2026-11-13): pressed during a move, the press waits its turn (like Flip): up, down, up...
+let CEILQ=0,TURNQ=null;
+$("tC").onclick=()=>{if(CHAR!=="robot")return;if(FLIP||WALKOVER||TURNM){CEILQ=Math.min(99,CEILQ+1);if(!playing&&!STEPBLEND)$("play").onclick();return}ceilGo()};
+function ceilQStep(){if(TURNQ&&!FLIP&&!WALKOVER&&!TURNM&&CHAR==="robot"){const k=TURNQ;TURNQ=null;startTurn(k)}
+ if(CEILQ>0&&!FLIP&&!WALKOVER&&!TURNM&&FLIPQ<=0&&CHAR==="robot"){CEILQ--;ceilGo()}
+ if(CHAR==="robot")setText("tC",(GECKO?"Drop":"Ceiling")+(CEILQ>0?" +"+CEILQ:""))}
 function flipStep(){if(!FLIP)return;const t=flipT();
  if(FLIP.nu){// planted rise: his hips (the point POS follows) end up where his front end was, so move him there as he pitches over
   const d=t<=0?0:t>=1?FLIP.D:FLIP.D-riseZT(riseTau()),dd=d-FLIP.dz;
@@ -1335,7 +1341,7 @@ function flipStep(){if(!FLIP)return;const t=flipT();
  if(t<0&&FLIP.kind==="fall"){const m0=FLIP.m0;FLIP=null;GECKO=true;const sel=$("modeSel");sel.value=m0;sel.onchange();blendU=1;cur={...P[m0]};from={...cur};BLENDFROM=null;return}   // scrubbed back past letting go: hanging again
  if(t<0){if(FLIP.kind==="down")SWAP=!SWAP;FLIP=null;return}   // scrubbed back past the start: cancel
  if(t>=1&&FLIP.kind==="jump"){FLIP=null;return}
- if(t>=1){if(FLIP.kind==="ends"||FLIP.kind==="rise"||FLIP.kind==="spring")SWAP=!SWAP;else{GECKO=FLIP.kind==="up";if(GECKO)SWAP=!SWAP}FLIP=null;$("tC").textContent=GECKO?"Drop":"Ceiling"}}
+ if(t>=1){if(FLIP.kind==="ends"||FLIP.kind==="rise"||FLIP.kind==="spring")SWAP=!SWAP;else{GECKO=FLIP.kind==="up";if(GECKO)SWAP=!SWAP}FLIP=null;setText("tC",GECKO?"Drop":"Ceiling")}}
 
 // ---------- speedometer (user, 2026-11-13): his ground speed right now, and which flip the Flip button would play ----------
 // Speed = distance per cycle x cycles a second, so it is exact while paused, stepping or rewound too. Fast (at or above
@@ -1941,11 +1947,17 @@ function proj(v){
  const s=zoom*Math.min(W,Hh*1.1)/(robo?260+BODY_L*1.4:245)*(600/(600-q[2]));
  return{x:W/2+panX+q[0]*s,y:Hh*0.5+panY-q[1]*s,z:q[2],s};
 }
-let CAMY=95;
+let CAMY=95,CAMH0=66;
 function drawGround(){
  ctx.strokeStyle="rgba(58,42,28,.18)";ctx.lineWidth=1;
  if(CHAR==="robot"){const t=flipT(),up=FLIP&&(FLIP.kind==="up"||FLIP.kind==="down")&&t>=0?(FLIP.kind==="up"?t:1-t):FLIP&&FLIP.kind==="fall"&&t>=0?1-Math.min(1,(t/FALL_TF)**2):(GECKO?1:0),e=up*up*(3-2*up);
-  const base=70+BODY_L*0.6;CAMY=base+(CEIL-2*base)*e;
+  // Ceiling stage 4 (2026-11-13, user: the camera rises with him): the camera follows how high he really is (the
+  // jump, the cat drop's fall, a jump that can't reach), eased so his body spring's bounce doesn't shake it
+  const base=70+BODY_L*0.6,air=GECKO||(FLIP&&/^(up|down|fall|jump)$/.test(FLIP.kind));
+  let by=0,bn=0;for(const q of prims)if(q.nm==="Body"&&q.cap){by+=q.a[1];bn++}by=bn?by/bn:CAMH0;   // his body's height, as drawn
+  if(!air)CAMH0=by;
+  const eH=air?Math.max(0,Math.min(1,(by-CAMH0)/Math.max(30,CEIL-2*CAMH0))):0,want=base+(CEIL-2*base)*eH;
+  CAMY+=(want-CAMY)*(air||Math.abs(want-CAMY)>0.5?0.25:1);
   if(up>0){ctx.save();ctx.strokeStyle="rgba(58,42,28,"+(0.25*e+0.05)+")";
    const gx=Math.round(POS[0]/30)*30,gz=Math.round(POS[1]/30)*30;
    for(let i=-5;i<=5;i++){for(const [a,b] of [[[gx+i*30,gz-150],[gx+i*30,gz+150]],[[gx-150,gz+i*30],[gx+150,gz+i*30]]]){
@@ -2122,7 +2134,10 @@ function startTurn(kind,exact){   // exact: turn by exactly this angle (the game
  if(TURNM)return;   // a turn is playing: let it finish (pressing Spin mid-turn used to make him jump at the end)
  if((FLIP&&FLIP.nu)||dropOn())return;   // rising over his planted front paws (1.4 s), or dropping onto them: turning would pull him off them, so turns wait until he is up
  if(FLIP&&FLIP.kind==="spring"){say("Turns wait until the handspring is done.");return}
- if(FLIP&&FLIP.kind==="fall"){say("Turns wait until he has landed.");return}   // hands planted: a turn would swing him off them
+ if(FLIP&&FLIP.kind==="fall"){say("Turns wait until he has landed.");return}
+ // Ceiling stage 4 (2026-11-13): a turn or spin pressed while he jumps for the ceiling or drops from it waits and plays
+ // once he has hold of it or has landed (turning mid-move pulled the hips off the body, up to 43)
+ if(FLIP&&/^(up|down|jump)$/.test(FLIP.kind)){TURNQ=kind;say(FLIP.kind==="up"?"The turn plays once he has hold of the ceiling.":"The turn plays once he has landed.");return}   // hands planted: a turn would swing him off them
  if(kind==="S"){toggleSpin();return}
  const lying=CHAR==="robot"&&LYING.has(mode),bodyK=Math.max(0.6,Math.min(2.2,BODY_L/100));   // body length 100 = normal
  // swapping ends doesn't turn the body, so it can't square up a spin cut short: let the spin wind down first, then swap
@@ -2352,7 +2367,7 @@ function frame(t){
   SPLITE+=((idl&&GROW>=0.999&&!tt?SPLIT:0)-SPLITE)*Math.min(1,dt*6);if(Math.abs(SPLITE)<1e-4&&!SPLIT)SPLITE=0}
  turnStep();gameStep(dt);
  if(typeof walkoverStep==="function")walkoverStep();
- if(typeof flipQStep==="function")flipQStep();
+ if(typeof flipQStep==="function")flipQStep();if(typeof ceilQStep==="function")ceilQStep();
  if(playing)advance(dt*effSpeed());
  showFrame();
  flipStep();
