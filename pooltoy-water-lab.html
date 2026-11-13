@@ -1,0 +1,1239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Pooltoy Water Lab</title>
+<style>
+:root{--ink:#12303b;--bg:#e9f5f8;--panel:#f6fbfc;--btn:#d5ebf1;--accent:#0a7ea4;--warn:#b3402a}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;overflow:hidden}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,system-ui,"Segoe UI",Roboto,sans-serif}
+#app{height:100%;display:flex;flex-direction:column;overflow:hidden}
+#top{flex:0 0 auto;display:flex;flex-direction:column;overflow:hidden;height:68%;max-height:68%;padding-bottom:6px}
+#bot{flex:1 1 auto;min-height:110px;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
+#split{flex:0 0 44px;background:#bcdbe4;border-top:1px solid var(--ink);border-bottom:1px solid var(--ink);cursor:row-resize;touch-action:none;position:relative}
+#split::before{content:"";position:absolute;left:50%;top:50%;width:36px;height:4px;margin:-2px 0 0 -18px;border-radius:2px;background:#5b7f8b}
+#split.dragging::before{background:#2f7de1}
+.row{display:flex;gap:6px;margin:6px 12px;flex-wrap:nowrap;align-items:center}
+button{font-family:inherit;font-size:16px;min-height:44px;min-width:44px;padding:0 10px;border:2px solid var(--ink);border-radius:10px;background:var(--btn);color:var(--ink);touch-action:manipulation;-webkit-user-select:none;user-select:none}
+button.on{background:var(--ink);color:#fff}
+.seg{display:flex;flex:1;min-width:0}
+.seg button{flex:1;min-width:0;border-radius:0;margin-left:-2px;padding:0 6px}
+.seg button:first-child{border-radius:10px 0 0 10px;margin-left:0}
+.seg button:last-child{border-radius:0 10px 10px 0}
+.tb{flex:1;min-width:0;padding:0 2px;font-size:15px;white-space:nowrap}
+.lbl{font-size:15px;font-weight:600;flex:0 0 auto}
+#view{position:relative;flex:1;min-height:0;margin:0 12px;border:2px solid var(--ink);border-radius:14px;overflow:hidden;background:#dff0f5;touch-action:none}
+#view,#view *{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+#cv{position:absolute;inset:0;width:100%;height:100%;display:block}
+#readout{position:absolute;left:8px;top:8px;margin:0;padding:6px 8px;border-radius:8px;background:rgba(246,251,252,.82);font:10px/1.35 ui-monospace,Menlo,Consolas,monospace;pointer-events:none;white-space:pre;overflow:hidden}
+#hint{position:absolute;left:10px;right:150px;bottom:8px;font-size:12px;opacity:.75;pointer-events:none}
+#msg3{position:absolute;left:8px;right:8px;top:40%;display:none;padding:10px 12px;border-radius:10px;background:rgba(246,251,252,.95);border:1px solid var(--ink);font-size:14px;text-align:center}
+#vTop{position:absolute;right:8px;top:8px;display:flex;gap:0}
+#vTop button{background:rgba(246,251,252,.85);min-width:44px;padding:0 8px;border-radius:0;margin-left:-2px}
+#vTop button:first-child{border-radius:10px 0 0 10px;margin-left:0}
+#vTop button:last-child{border-radius:0 10px 10px 0}
+#vTop button.on{background:var(--ink)}
+#dragBtn{position:absolute;right:8px;bottom:8px;background:rgba(246,251,252,.85);font-size:14px}
+#dragBtn.on{background:var(--accent);color:#fff;border-color:var(--accent)}
+h1{font-size:20px;margin:12px 14px 2px}
+.sub{margin:2px 14px 8px;font-size:14px;line-height:1.4;opacity:.85}
+fieldset{margin:10px 12px;border:2px solid var(--ink);border-radius:12px;padding:6px 12px 10px;background:var(--panel)}
+legend{font-weight:700;padding:4px 6px}
+fieldset .row{margin:8px 0}
+fieldset .sub{margin:4px 0}
+.sl{display:grid;grid-template-columns:1fr 56px;align-items:center;column-gap:8px}
+.sl label{font-size:15px;grid-column:1/2;margin-top:6px}
+.sl .rs{grid-column:2;grid-row:1;justify-self:end;align-self:end;min-height:44px;min-width:44px;padding:0;font-size:18px;line-height:1;color:rgba(18,48,59,.3);border-color:rgba(18,48,59,.3)}
+.sl.changed .rs{color:var(--warn);border-color:var(--ink)}
+input[type=range]{width:100%;height:44px;margin:0;accent-color:var(--accent);touch-action:pan-y}
+.val{font-size:14px;text-align:right;font-variant-numeric:tabular-nums}
+.crow{display:flex;gap:10px;margin:8px 0}.crow label{display:flex;flex-direction:column;gap:4px;font-size:14px;flex:1}
+.crow input[type=color]{width:100%;height:44px;border:2px solid var(--ink);border-radius:10px;background:var(--btn);padding:2px;font-size:16px}
+ul.moves{margin:4px 0;padding-left:20px;font-size:14px;line-height:1.5}
+[hidden]{display:none!important}
+html.game .anim,html.game #row1{display:none!important}   /* Game: the test tools are hidden */
+html:not(.game) .gameOnly{display:none!important}
+#gameTip{margin:6px 14px 8px;font-size:14px;line-height:1.4}
+#gameTip kbd{font:inherit;font-size:12px;border:1px solid var(--ink);border-radius:4px;padding:0 4px;background:var(--panel)}
+#stickZone{position:absolute;left:0;top:0;bottom:0;width:50%;z-index:2;touch-action:none;display:none;border-radius:12px 0 0 12px}
+html.game:not(.fine) #stickZone{display:block}
+#stickZone.fresh{background:rgba(246,251,252,.45);border-right:2px dashed var(--ink)}
+#stickZone .zl{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;padding:0 12px;font-size:17px;font-style:italic;pointer-events:none}
+#stickZone:not(.fresh) .zl{display:none}
+#stick{position:absolute;width:132px;height:132px;margin:-66px 0 0 -66px;border-radius:50%;border:2px solid var(--ink);background:rgba(246,251,252,.55);pointer-events:none;display:none}
+#stick.show{display:block}
+#stickKnob{position:absolute;left:50%;top:50%;width:56px;height:56px;margin:-28px 0 0 -28px;border-radius:50%;background:var(--ink);opacity:.85;pointer-events:none}
+</style>
+</head>
+<body>
+<div id="app"><div id="top">
+<div id="view"><canvas id="cv"></canvas><pre id="readout"></pre><div id="msg3"></div>
+<div id="vTop"><button id="pause" aria-label="Pause or play">Pause</button><button data-r="1" class="on" aria-label="Normal speed">1&times;</button><button data-r="0.5" aria-label="Half speed">&frac12;</button><button data-r="0.25" aria-label="Quarter speed">&frac14;</button></div>
+<button id="dragBtn" aria-label="What a one-finger drag does">Drag: camera</button>
+<div id="stickZone" class="fresh" aria-label="Touch control area: tap and drag here to move"><div class="zl">Tap and drag here to move.</div><div id="stick"><div id="stickKnob"></div></div></div>
+<div id="hint"></div></div>
+<div class="row" id="row1"><div class="seg anim" id="speedSeg" style="flex:1.6"><button data-s="0">Stop</button><button data-s="62">Walk</button><button data-s="175">Run</button></div><button class="tb anim" id="bSpin">Spin</button><button class="tb" id="bFlip">Flip</button></div>
+<div class="row" id="row2"><button class="tb anim" id="bL" aria-label="Turn left 90 degrees">&#8630; 90&deg;</button><button class="tb anim" id="bR" aria-label="Turn right 90 degrees">90&deg; &#8631;</button><button class="tb" id="bJump">Jump</button><button class="tb" id="bDrop">Drop</button><button class="tb anim" id="bTest" style="flex:1.5">Test run</button></div>
+</div><div id="split"></div><div id="bot">
+<div class="row" style="margin-top:10px"><span class="lbl">Mode</span><div class="seg" id="modeSeg"><button data-v="game">Game</button><button data-v="lab">Lab</button></div></div>
+<p class="sub gameOnly" id="gameTip"><b>Game.</b> <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> to run, hold <kbd>Shift</kbd> to walk; the arrow keys walk. Up is away from the camera. On a phone, drag in the left half of the view: a joystick appears under your thumb; push a little to walk, all the way to run. Look around by dragging the right half on a phone, or anywhere with a mouse. Flick the stick (or keys) the other way while moving for a quick about-turn; on a run he skids to a stop first, which is a good test for the water. Jump, Drop and Flip stay as buttons. <i>Psst: try spinning the joystick round.</i></p>
+<p class="sub">Game: steer him with the keys or the joystick and watch the water. Lab: the test buttons and the Test run.</p>
+<h1>Pooltoy Water Lab</h1>
+<p class="sub">Water inside a see-through pooltoy. Press <b>Test run</b> to play every test move in a row, or set <b>Drag</b> to "shake him" and throw him about with a finger.</p>
+
+<fieldset><legend>Look</legend>
+<div class="row"><span class="lbl">Body</span><div class="seg" id="shapeSeg"><button data-v="toy">Pooltoy</button><button data-v="capsule">Capsule</button><button data-v="glb" disabled>GLB model</button></div></div>
+<div id="glbBox"><div class="row"><button id="glbPick" style="flex:1">Choose a .glb file</button><button id="glbDel" style="flex:0 0 auto;color:var(--warn)" hidden>Remove the model</button></div>
+<input type="file" id="glbFile" accept=".glb,model/gltf-binary" style="position:absolute;width:1px;height:1px;opacity:0;pointer-events:none" tabindex="-1" aria-hidden="true">
+<p class="sub" id="glbMsg">Trial (P3-0): a textured model from a .glb file as the pooltoy, with see-through skin and the water inside it. It stands still for now.</p>
+<div id="glbParts"></div></div>
+<div id="slLook"></div>
+<div class="crow"><label>Skin<input type="color" id="cSkin"></label><label>Paws<input type="color" id="cAccent"></label><label>Water<input type="color" id="cWater"></label></div>
+<div class="row"><span class="lbl">Numbers in the view</span><div class="seg" id="roSeg"><button data-v="on">Shown</button><button data-v="fps">FPS only</button><button data-v="off">Hidden</button></div></div>
+</fieldset>
+
+<fieldset><legend>Water</legend>
+<div id="slWater"></div>
+<p class="sub">Moving the slider pours water in or out through his belly button, once. He is sealed and firm, so the same amount of air goes the other way.</p>
+<p class="sub">The surface sits square to the gravity the water feels (gravity minus his acceleration) on a springy, lightly damped swing paced by each part's size. Spinning and hard landings push it up the walls as a bowl; in the air it is weightless. Waves run across the body's surface, and each limb holds its own water.</p>
+</fieldset>
+
+<fieldset id="fsFlat"><legend>Deflate</legend>
+<div id="slFlat"></div>
+<p class="sub" id="flatNote"></p>
+<p class="sub">Presses him flat front to back, like a cookie (step one of deflating; Capsule and GLB model for now; on a model each part goes as flat as its water lets it, and a tail goes flat side to side). Vinyl folds, it doesn't stretch: the skin keeps its length round him, so he gets wider as he gets thinner, up to about 1.57 times. The water holds him open: Flat stops where the room left is just his water, and the level rises as he flattens. The air goes out and comes back as if a valve were open (real valves come later).</p>
+</fieldset>
+
+<fieldset><legend>Test moves (what to look for)</legend>
+<ul class="moves">
+<li><b>Walk or run, then Stop:</b> the water should pile against the front wall, swing back and settle. The pile starts at the wall and a wave runs back across the surface.</li>
+<li><b>Turns and Spin:</b> water leans to the outside of a turn, and rides up the walls in a spin.</li>
+<li><b>Jump and Drop:</b> weightless in the air, then a surge up the walls on landing: rings run in from the walls and meet in the middle.</li>
+<li><b>Flip:</b> upside down, the water pours to the lower end (with separate limbs: out of the legs, through the body, into the head). Where it comes in through a joint, it ripples the surface.</li>
+<li><b>Standing still:</b> it must settle flat and stay there.</li>
+</ul>
+<p class="sub">Numbers in the view: tilt of the surface; its height above his base; how far the bowl rises at the wall (20 out from the middle); the tallest wave on the body's surface; his acceleration sideways and upwards in g; the gravity the water feels and how fast it sloshes; how full each part is; the water and the air inside him in litres.</p>
+</fieldset>
+
+<fieldset id="tuneR"><legend>Water: tuning</legend>
+<p class="sub">Waves on the body's surface: a small grid of water columns (the wave equation) that the tilting surface, landings and water coming through the joints all disturb, bouncing off the body's actual walls. Damping like real water: big sloshes break and die quickly, small ones linger, and small or shallow parts settle sooner than the body.</p>
+<div id="slWave"></div>
+<div class="row"><span class="lbl">Water in</span><div class="seg" id="limbSeg"><button data-v="own">Each limb its own</button><button data-v="shared">One shared</button></div></div>
+<p class="sub">Each limb its own: the body, head, arms, legs and tail each hold their own water with their own surface. Water only passes between a limb and the body through the joint, when it reaches it, so a tilted surface in the body no longer fills an arm from nowhere. Water that has run into a hanging arm stays there until he is tipped. One shared: one surface cuts through everything (the first version; no waves).</p>
+<div id="slR"></div></fieldset>
+
+<fieldset><legend>Start fresh</legend>
+<p class="sub">Forget this lab's saved choices in this browser and reload.</p>
+<div class="row"><button id="freshGo" style="color:var(--warn)">Reset to defaults</button></div>
+<div id="freshAsk" hidden><p class="sub" style="opacity:1">Sure?</p><div class="row"><button id="freshYes" style="background:var(--warn);color:#fff;border-color:var(--warn)">Clear and reload</button><button id="freshNo">Cancel</button></div></div>
+</fieldset>
+<div style="height:40px"></div>
+</div></div>
+
+<script>
+(function(){"use strict";
+const $=id=>document.getElementById(id);
+// ---------- settings (remembered) ----------
+const KEY="pwlabSettings";
+const DEF={shape:"toy",fill:0.45,alpha:0.4,skin:"#ff9d3c",accent:"#fff1d0",water:"#1fb0ff",readout:"on",mode:"lab",
+ zeta:0.1,slosh:0.4,climb:3,surge:3,limbs:"own",flow:2,wave:1,flat:0,wa:1};
+const S={...DEF};
+try{const o=JSON.parse(localStorage.getItem(KEY)||"null");if(o&&typeof o==="object")for(const k in DEF)if(typeof o[k]===typeof DEF[k])S[k]=o[k]}catch(e){}
+if(S.mode!=="game")S.mode="lab";
+if(S.shape==="glb")S.shape="toy";   // a GLB model isn't kept between visits
+const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}};
+
+// ---------- small maths ----------
+const add=(a,b)=>[a[0]+b[0],a[1]+b[1],a[2]+b[2]],sub=(a,b)=>[a[0]-b[0],a[1]-b[1],a[2]-b[2]],mul=(a,s)=>[a[0]*s,a[1]*s,a[2]*s];
+const dot=(a,b)=>a[0]*b[0]+a[1]*b[1]+a[2]*b[2],cross=(a,b)=>[a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]];
+const norm=v=>{const l=Math.hypot(v[0],v[1],v[2])||1;return[v[0]/l,v[1]/l,v[2]/l]};
+const rotX=(v,a)=>{const c=Math.cos(a),s=Math.sin(a);return[v[0],v[1]*c-v[2]*s,v[1]*s+v[2]*c]};
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+const smoother=u=>{u=clamp(u,0,1);return u*u*u*(u*(u*6-15)+10)};   // eases in and out with no jolt at either end
+const hexRGB=h=>[1,3,5].map(i=>parseInt(h.slice(i,i+2),16)/255);
+
+// =====================================================================
+// The body: a pooltoy made of fat tubes and balls (units: about 1 = 1 cm, gravity 980)
+// =====================================================================
+const G=980,HC=66,SKIN=1.5;   // HC: height of his middle (flips turn about it); SKIN: wall thickness (water sits inside it)
+// What the water code needs to know about a body, besides its tubes and balls (P2-a). A new pooltoy character is a new
+// entry here plus its shape in buildToy; nothing below assumes seven containers or this toy's sizes.
+// names: the containers (0 is the one the belly button is in). first / order: which containers the Water slider fills,
+// starting from empty (low parts first) and otherwise (through the body). rows: how the readout lists them.
+// valves: where the holes are (container and a spot on the skin, resting body). Not used yet: P2-c opens them.
+// flat: the containers the Flat slider squashes (P2-b: the Capsule only; P2-c solves every part of every body).
+const DESC={capsule:{names:["body"],first:[0],order:[0],rows:[[["body",0]]],valves:[{name:"belly button",m:0,p:[0,62,26]}],flat:[0]},
+ toy:{names:["body","head","arm L","arm R","leg L","leg R","tail"],first:[4,5,6,0,1,2,3],order:[0,4,5,6,1,2,3],
+  rows:[[["body",0],["head",1]],[["arms",2,3],["tail",6]],[["legs",4,5]]],
+  valves:[{name:"belly button",m:0,p:[0,62,21]},{name:"mouth",m:1,p:[0,105,40]}]}};
+const desc=()=>DESC[S.shape]||DESC.toy;
+let GLBM=null;   // a GLB model, once one is loaded (P3-0)
+function buildToy(shape,ph,amp){if(shape==="glb"&&GLBM)return GLBM.inside;   // a GLB model (P3-0): its inside shape, fitted to its bones once, stands still
+ const T=[],Bl=[],Po=[];
+ // c: colour (0 skin, 1 paws). m: which container the part belongs to (0 body, 1 neck and head, 2-3 arms, 4-5 legs, 6 tail)
+ const tube=(a,b,ra,rb,c,m)=>T.push({a,b,ra,rb,c:c||0,m:m||0}),ball=(a,r,c,m)=>Bl.push({a,r,c:c||0,m:m||0});
+ // a chain of tubes with a ball at every joint. With m0, the chain is a limb: its first ball belongs to container m0
+ // (the body) and is the opening that water passes through between the two
+ const chain=(P,R,c,m,m0)=>{for(let i=0;i<P.length;i++){ball(P[i],R[i],c,i===0&&m0!==undefined?m0:m);if(i)tube(P[i-1],P[i],R[i-1],R[i],c,m)}
+  if(m0!==undefined)Po.push({a:m0,b:m,p:P[0],r:R[0]-SKIN})};
+ if(shape==="capsule"){chain([[0,30,0],[0,104,0]],[27,23],0,0);return{T,Bl,Po}}
+ const tp=2*Math.PI*ph,sw=Math.sin(tp)*amp;
+ chain([[0,46,0],[0,90,3]],[21,17],0,0);                   // torso
+ chain([[0,92,3],[0,110,7]],[10.5,9.5],0,1,0);             // neck
+ chain([[0,113,3],[0,108,36]],[13.5,5.5],0,1);ball([0,108,37],5.5,1,1);   // head, nose
+ for(const s of [1,-1]){const ma=s>0?2:3,ml=s>0?4:5;
+  chain([[s*7,121,0],[s*10,140,-7]],[5.5,2.2],0,1);ball([s*10,140,-7],2.6,1,1);   // ear
+  const sh=[s*21,84,2],a=-s*0.7*sw,d1=rotX(norm([s*0.42,-1,0.08]),-a),el=add(sh,mul(d1,20)),d2=rotX(norm([s*0.15,-1,0.5]),-a*1.3),ha=add(el,mul(d2,18));
+  chain([sh,el,ha],[8.5,7.2,6.5],0,ma,0);ball(ha,7.2,1,ma);          // arm, hand
+  const hip=[s*11,46,0],th=s*0.55*sw,lift=amp*Math.max(0,Math.cos(tp)*s)*0.7;
+  const k=add(hip,mul(rotX([0,-1,0],-th-lift*0.5),22)),f=add(k,mul(rotX([0,-1,0],-th+lift),19)),toe=add(f,[0,-1.5,13]);
+  chain([hip,k,f],[12.5,10.5,8.5],0,ml,0);chain([f,toe],[8,7],1,ml)} // leg, paw
+ let p=[0,50,-17];const tP=[p],tR=[10.5];
+ for(let i=0;i<5;i++){const e=(-18+i*15)*Math.PI/180,sy=0.3*Math.sin(tp-i*0.7)*amp,d=[Math.sin(sy)*Math.cos(e),Math.sin(e),-Math.cos(sy)*Math.cos(e)];
+  p=add(p,mul(d,12));tP.push(p);tR.push(10.5-(i+1)*1.1)}
+ chain(tP,tR,0,6,0);ball(p,8.5,1,6);                       // tail, tuft
+ return{T,Bl,Po}}
+// how far to lift him so his lowest point rests on the ground, for every flip angle (worked out once per body)
+let LIFT=[],TN=[],LTOY=null;   // TN: how many balls each tube is cut into, worked out once from the resting body
+function buildLift(){const toy=buildToy(S.shape,0,0);LTOY=toy;
+ TN=toy.T.map(t=>{const d=sub(t.b,t.a);return Math.max(1,Math.ceil(Math.hypot(d[0],d[1],d[2])/(0.6*Math.min(t.ra,t.rb))-1e-6))});
+ setContainers(desc().names.length);measure(toy);liftTable()}
+// a flattened part is thinner front to back, so lying down he sits lower (P2-b): a part's reach towards the ground is
+// its radius times how far its squashed shape reaches in that direction (up and down are never squashed)
+function liftTable(){const toy=LTOY;LIFT=[];
+ for(let i=0;i<=180;i++){const p=i*Math.PI/180,c=Math.cos(p),s=Math.sin(p);let lo=1e9;
+  const yy=(v,r,m)=>{const fs=CO[m]?CO[m].fs:1;lo=Math.min(lo,(v[1]-HC)*c-v[2]*s+HC-(fs===1?r:r*Math.sqrt(c*c+fs*fs*s*s)))};
+  for(const t of toy.T){yy(t.a,t.ra,t.m);yy(t.b,t.rb,t.m)}for(const b of toy.Bl)yy(b.a,b.r,b.m);
+  if(toy.X)for(const v of toy.X)yy(v,0,-1);   // a GLB model: points on its skin too (its soles, ears and tail tip reach past the inside shape)
+  LIFT.push(-lo)}}
+// The real size of each part, for any body: the resting body is laid on a grid of small cubes and every cube inside
+// it is given to one part (the one whose ball it sits deepest in), so the parts add up to the whole with nothing
+// counted twice. Done once when a body is chosen (about a million cube tests for this toy).
+function measure(toy){ballsFrom(toy.T,toy.Bl);const all=CS[NC],lo=[1e9,1e9,1e9],hi=[-1e9,-1e9,-1e9];
+ for(let i=0;i<all.n;i++){const r=all.a[i*4+3];for(let k=0;k<3;k++){lo[k]=Math.min(lo[k],all.a[i*4+k]-r);hi[k]=Math.max(hi[k],all.a[i*4+k]+r)}}
+ const st=Math.max(1,Math.cbrt(Math.max(1,(hi[0]-lo[0])*(hi[1]-lo[1])*(hi[2]-lo[2]))/2.5e6)),nx=Math.ceil((hi[0]-lo[0])/st)+1,ny=Math.ceil((hi[1]-lo[1])/st)+1,nz=Math.ceil((hi[2]-lo[2])/st)+1;
+ const best=new Float32Array(nx*ny*nz),own=new Int8Array(nx*ny*nz).fill(-1),cnt=new Array(NC).fill(0),sum=new Array(NC).fill(0);
+ for(let m=0;m<NC;m++){const a=CS[m].a;for(let b=0;b<CS[m].n;b++){const x=a[b*4],y=a[b*4+1],z=a[b*4+2],r=a[b*4+3];sum[m]+=4/3*Math.PI*r*r*r;
+   const i0=Math.max(0,Math.floor((x-r-lo[0])/st)),i1=Math.min(nx-1,Math.ceil((x+r-lo[0])/st)),j0=Math.max(0,Math.floor((y-r-lo[1])/st)),j1=Math.min(ny-1,Math.ceil((y+r-lo[1])/st)),k0=Math.max(0,Math.floor((z-r-lo[2])/st)),k1=Math.min(nz-1,Math.ceil((z+r-lo[2])/st));
+   for(let k=k0;k<=k1;k++){const dz=lo[2]+(k+0.5)*st-z;for(let j=j0;j<=j1;j++){const dy=lo[1]+(j+0.5)*st-y;for(let i=i0;i<=i1;i++){const dx=lo[0]+(i+0.5)*st-x,d2=dx*dx+dy*dy+dz*dz;
+      if(d2>=r*r)continue;const sc=1-Math.sqrt(d2)/r,q=(k*ny+j)*nx+i;if(sc>best[q]){best[q]=sc;own[q]=m}}}}}}
+ for(let q=0;q<own.length;q++)if(own[q]>=0)cnt[own[q]]++;
+ ROOM=0;for(let m=0;m<NC;m++){const C=CO[m],real=cnt[m]*st*st*st;
+  if(UNITKF||real<=0||sum[m]<=0){C.kf=1;C.room=sum[m]}else{C.kf=sum[m]/real;C.room=real}ROOM+=C.room}
+ AIR=ROOM;SPILL=0;PEND=0;FILLSEEN=NaN;CURSEEN=ROOM}   // a fresh body: empty, full of air, round; the first levels() pours the slider's amount in
+const liftAt=p=>{const x=clamp(p*180/Math.PI,0,180),i=Math.min(179,Math.floor(x)),f=x-i;return LIFT[i]+(LIFT[i+1]-LIFT[i])*f};
+
+// ---------- how he moves: speed, heading, jumps, drops, flips, and being shaken by a finger ----------
+const TR_DEF={gain:5,acc:16,max:2.8};   // turn control: how hard it aims for the new heading, how fast the turn rate may change (rad/s^2), top turn rate (rad/s)
+const B={tr:TR_DEF,x:0,z:0,head:0,headT:null,omega:0,spin:false,speed:0,speedT:0,phase:0,amp:0,bobNow:0,
+ y:0,vy:0,vm:"ground",mt:0,pushA:0,pushD:0,sq:0,sqv:0,pitch:0,flip:null,up:false,
+ sh:[0,0,0],shv:[0,0,0],grab:null,
+ init:false,P:[0,0,0],V:[0,0,0],vel:[0,0,0],acc:[0,0,0],W:[0,0,0]};
+function jump(k){if(B.vm!=="ground")return;B.vm="push";B.mt=0;B.pushA=3.2*G*k;B.pushD=0.14;B.vy=0}
+function drop(){if(B.vm!=="ground")return;B.vm="rise";B.mt=0;B.vy=0}
+function flip(){if(B.flip)return;B.up=!B.up;B.flip={t:0,dur:0.85,from:B.pitch,to:B.up?Math.PI:0};jump(0.72)}
+function turn(d){B.spin=false;const q=Math.PI/2,base=B.headT===null?B.head:B.headT;B.headT=Math.round((base+d*q)/q)*q}
+function stepBody(h){
+ {const t=B.speedT,r=t>B.speed?380:(t===0?1700:600);B.speed+=clamp(t-B.speed,-r*h,r*h)}   // Stop is sudden: about a tenth of a second from a run
+ {let wT=0;if(B.spin)wT=6.2;else if(B.headT!==null){const e=B.headT-B.head;wT=clamp(e*B.tr.gain,-B.tr.max,B.tr.max);
+   if(Math.abs(e)<0.003&&Math.abs(B.omega)<0.06){B.head=B.headT;B.headT=null;B.omega=0;wT=0}}
+  B.omega+=clamp(wT-B.omega,-B.tr.acc*h,B.tr.acc*h);B.head+=B.omega*h}
+ B.x+=Math.sin(B.head)*B.speed*h;B.z+=Math.cos(B.head)*B.speed*h;
+ B.phase+=(0.5+B.speed*0.0075)*Math.min(1,B.speed/20)*h;B.amp+=(Math.min(1,B.speed/55)-B.amp)*Math.min(1,h/0.12);
+ B.mt+=h;
+ if(B.vm==="push"){B.vy+=B.pushA*h;B.y+=B.vy*h;if(B.mt>=B.pushD)B.vm="air"}
+ else if(B.vm==="air"){B.vy-=G*h;B.y+=B.vy*h;if(B.y<=0&&B.vy<0){B.sqv+=B.vy;B.y=0;B.vy=0;B.vm="ground"}}   // landing squashes him
+ else if(B.vm==="rise"){const u=Math.min(1,B.mt/0.75);B.y=240*smoother(u);if(u>=1){B.vm="hold";B.mt=0}}
+ else if(B.vm==="hold"){if(B.mt>=0.45){B.vm="air";B.vy=0}}
+ {const w=24,z=0.55;B.sqv+=(-w*w*B.sq-2*z*w*B.sqv)*h;B.sq+=B.sqv*h}
+ let pr=0;if(B.flip){const f=B.flip;f.t+=h;const u=Math.min(1,f.t/f.dur),p0=B.pitch;B.pitch=f.from+(f.to-f.from)*smoother(u);pr=(B.pitch-p0)/h;if(u>=1)B.flip=null}
+ {const tg=B.grab?B.grab.tgt:[0,0,0],w=B.grab?42:9,z=B.grab?1:0.85;
+  for(let i=0;i<3;i++){B.shv[i]+=(w*w*(tg[i]-B.sh[i])-2*z*w*B.shv[i])*h;B.sh[i]+=B.shv[i]*h}}
+ // his middle, in the world: its speed and acceleration are what the water feels
+ B.bobNow=1.5*B.amp*Math.sin(4*Math.PI*B.phase);
+ const s=1+clamp(B.sq/130,-0.3,0.2),P=[B.x+B.sh[0],(HC+liftAt(B.pitch)+B.bobNow)*s+B.y+B.sh[1],B.z+B.sh[2]];
+ if(!B.init){B.init=true;B.P=P;B.V=[0,0,0]}
+ const al=1-Math.exp(-h/0.035);   // acceleration is smoothed (35 ms) and capped at 4 g: raw numbers are spiky
+ for(let i=0;i<3;i++){const v=(P[i]-B.P[i])/h,a=(v-B.V[i])/h;B.V[i]=v;B.P[i]=P[i];B.acc[i]+=(a-B.acc[i])*al}
+ {const m=Math.hypot(B.acc[0],B.acc[1],B.acc[2]),mx=4*G;if(m>mx)for(let i=0;i<3;i++)B.acc[i]*=mx/m}
+ B.vel=B.V;B.W=[Math.cos(B.head)*pr,B.omega,-Math.sin(B.head)*pr]}
+// local body point -> the view's world (the view follows his walking position, so that is left out)
+function makeXf(){const cp=Math.cos(B.pitch),sp=Math.sin(B.pitch),up=HC+liftAt(B.pitch)+B.bobNow,s=1+clamp(B.sq/130,-0.3,0.2),k=1/Math.sqrt(s),ch=Math.cos(B.head),sh=Math.sin(B.head);
+ return v=>{const y=v[1]-HC,z=v[2],x=v[0]*k,yy=(y*cp-z*sp+up)*s,zz=(y*sp+z*cp)*k;
+  return[x*ch+zz*sh+B.sh[0],yy+B.y+B.sh[1],-x*sh+zz*ch+B.sh[2]]}}
+
+// =====================================================================
+// The water. waterStep(body, dt) moves every surface; levels() keeps the amounts.
+// =====================================================================
+const W={n:[0,1,0],k:0,ks:0,kz:0,kzv:0,c:0,A:[0,60,0],agit:0,geff:1,hz:0,D2:900,rip:0};
+// Containers: the body and each limb hold their own water and have their own surface. Water passes
+// between a limb and the body through the opening at its joint, only when it reaches the opening.
+// 0 body, 1 neck and head, 2-3 arms, 4-5 legs, 6 tail (this toy; see DESC). "One shared" uses one surface for all.
+// V and full are in the lab's own count (the balls a part is cut into, added up; they overlap, so it runs about three
+// times high, and differently for each part). kf = that count per real cubic centimetre, room = the part's real size;
+// both measured from the resting body (measure). Real water in a part = V / kf.
+// fl: how flat the part is (0 round, 1 flat; P2-b). fw / fs: its widening sideways and its thickness front to back,
+// as factors of its round size; det = fw x fs, what its room shrinks by.
+let NC=7,ALLC=null;const mkC=()=>({n:[0,1,0],vn:[0,0,0],k:0,c:0,V:0,full:0,A:[0,60,0],L:50,depth:30,area:0,lo:0,hi:0,ctr:[0,0,0],on:false,dirty:false,kf:1,room:0,fl:0,fw:1,fs:1,det:1});
+const CO=[],CS=[];   // CS: the balls of each container; the last set is all of them
+function setContainers(n){NC=n;CO.length=0;CS.length=0;for(let i=0;i<n;i++)CO.push(mkC());for(let i=0;i<=n;i++)CS.push({a:[],e:[],n:0});ALLC=mkC()}
+setContainers(7);
+// Amounts (P2-a), in real cubic centimetres (1000 = a litre). ROOM: what the whole skin holds when round. AIR: the air
+// inside. Sealed and firm for now, so water + air = room: pouring water in pushes the same amount of air out.
+// SPILL: water that has left him (none can yet). PEND: water waiting to be poured in (or out, if negative).
+let ROOM=0,AIR=0,SPILL=0,PEND=0,FILLSEEN=NaN,UNITKF=false,CURSEEN=0;   // CURSEEN: the room he had last frame, at his flatness then
+
+// ---------- Flattening (P2-b) ----------
+// Vinyl folds, it doesn't stretch: a part pressed flat keeps the length of skin round it. Its cross-section goes from
+// a circle to an ellipse with the same perimeter: thickness s x r front to back, width fw x r sideways. Fully flat
+// (s = SMIN, a few cm thick) it is about pi/2 = 1.57 times as wide. FLW: the widening for each flatness, solved once
+// with Ramanujan's perimeter. The squash is along the body's own directions (FLX sideways, FLZ front to back), so it
+// turns with him; up and down are left alone. Every ball and tube of the part becomes the same squashed shape, so
+// each ball's water below a surface is a ball's cap seen through the squash: exact, with two numbers per part, how
+// far it reaches along the surface's direction (sqz) and how much its volume shrank (det).
+const SMIN=0.04,FLW=[1];
+{const per=(a,b)=>Math.PI*(3*(a+b)-Math.sqrt((3*a+b)*(a+3*b)));
+ for(let i=1;i<=100;i++){const s=1-i/100*(1-SMIN);let lo=1,hi=1.7;for(let k=0;k<50;k++){const m=(lo+hi)/2;if(per(m,s)<2*Math.PI)lo=m;else hi=m}FLW.push(lo)}}
+const flatWS=f=>{f=clamp(f,0,1);if(f===0)return[1,1];const x=f*100,i=Math.min(99,Math.floor(x)),u=x-i;return[FLW[i]+(FLW[i+1]-FLW[i])*u,1-f*(1-SMIN)]};
+const flatDet=f=>{const [w,s]=flatWS(f);return w*s};
+let FLX=[1,0,0],FLZ=[0,0,1];   // his sideways and front-to-back directions in the view's world, set by pose()
+// how far a squashed unit ball reaches along direction v (1 when round)
+// a part may have its own directions (GLB model, P3-0: C.ax widening, C.az thinning); otherwise his own (FLX, FLZ)
+const sqz=(C,v)=>{if(C.fw===1&&C.fs===1)return 1;const x=dot(v,C.ax||FLX),z=dot(v,C.az||FLZ),y2=Math.max(0,dot(v,v)-x*x-z*z);return Math.sqrt(C.fw*C.fw*x*x+y2+C.fs*C.fs*z*z)};
+function setFlat(C,f){const [w,s]=flatWS(f);C.fl=clamp(f,0,1);C.fw=w;C.fs=s;C.det=w*s}
+// the flattest a part may go: the water holds it open (its room may not shrink below its water, plus half a percent of
+// its round room, so a little air is always left; a part with no air is P2-h)
+function flatMax(C){const w=C.V/C.kf,need=(w+0.005*C.room)/Math.max(1,C.room);if(need>=1)return 0;if(flatDet(1)>=need)return 1;
+ let a=0,b=1;for(let k=0;k<40;k++){const m=(a+b)/2;if(flatDet(m)>=need)a=m;else b=m}return a}
+const flatOn=()=>!shared()&&!!desc().flat;   // the Flat slider works on bodies that list flat parts, with each limb its own
+const curRoom=()=>{let r=0;for(let i=0;i<NC;i++)r+=CO[i].room*CO[i].det;return r};
+const shared=()=>S.limbs!=="own";
+// Damping like real water. Two measured facts about sloshing in a smooth tank:
+// - the damping ratio of the first mode goes as size^(-3/4), with a factor for depth that grows as the water gets
+//   shallow (NASA TN D-1367 / Mikishev and Dorozhkin). So an arm settles sooner than the body, a puddle sooner still.
+// - it grows with amplitude: a big slosh breaks against the wall and loses much of its energy there.
+// The Damping slider is the ratio for the standing body at small swings (DAMP0 = its half length and depth factor).
+const DAMP0={R:22.4,f:1.07};
+const depthF=hr=>1+0.318/Math.sinh(1.84*hr)*(1+(1-hr)/Math.cosh(1.84*hr));
+// one container's surface: it wants to sit square to the gravity its water feels (gravity minus acceleration), on a
+// lightly damped spring paced by the container's own size (first sloshing mode of a tank): small limbs slosh faster
+function swing(C,a,dt){const n=C.n,gx=a[0]*S.slosh,gz=a[2]*S.slosh,gy=a[1]+G,mag=Math.hypot(gx,gy,gz),wt=Math.min(1,mag/G);
+ const w2=Math.min(Math.PI*mag/C.L*Math.tanh(Math.PI*C.depth/C.L),2500),w0=Math.sqrt(w2);
+ let acc=[0,0,0];
+ if(mag>0.03*G){const tg=[gx/mag,gy/mag,gz/mag],e=sub(tg,n),en=dot(e,n);acc=[(e[0]-n[0]*en)*w2,(e[1]-n[1]*en)*w2,(e[2]-n[2]*en)*w2]}
+ let zeta=S.zeta;
+ {const R=C.L/2,sw=Math.hypot(C.vn[0],C.vn[1],C.vn[2])/Math.max(w0,3);   // sw: how far it is swinging, in radians
+  zeta*=clamp(Math.pow(DAMP0.R/R,0.75)*depthF(clamp(C.depth/R,0.08,3))/DAMP0.f,0.6,3)*(1+0.6*Math.min(1,sw/0.6))}
+ const damp=2*zeta*w0+5*(1-wt);   // weightless: nothing pulls the surface back, so it is held where it was
+ const ntt=[0,0,0];
+ for(let i=0;i<3;i++){ntt[i]=acc[i]-damp*C.vn[i];C.vn[i]+=ntt[i]*dt}
+ {const vd=dot(C.vn,n);for(let i=0;i<3;i++)C.vn[i]-=n[i]*vd}
+ C.n=norm([n[0]+C.vn[0]*dt,n[1]+C.vn[1]*dt,n[2]+C.vn[2]*dt]);
+ return{mag,wt,w0,ntt}}
+
+// ---------- Real waves on the body's surface ----------
+// The flat sheet (and the bowl) is only the slowest way water can move. On top of it sits a small grid of water
+// columns, each with a height and a speed, obeying the wave equation (a height-field water sim, as games use for
+// ponds), in the plane of the surface and centred on the body. What disturbs it:
+// - the sheet tilting: the columns lag behind it, so the pile-up starts at the wall and a wave runs back across;
+// - the landing bowl: rings run in from the walls and meet in the middle;
+// - water running in or out through a joint.
+// Waves bounce off the body's real walls (the grid cells inside the body at the surface are worked out every frame),
+// travel at the speed the first slosh implies (slower when he is light, frozen when weightless), and die out, short
+// ones first. The grid always averages zero, so the amount of water is untouched.
+const WN=32,WR=40,WDX=2*WR/WN,WHR=10,WSL=1.3;   // cells across, half width, cell size, biggest height, biggest slope
+const WV={h:new Float32Array(WN*WN),v:new Float32Array(WN*WN),m:new Uint8Array(WN*WN),f:new Uint8Array(WN*WN),px:new Uint8Array(WN*WN*4).fill(128),
+ u1:[1,0,0],u2:[0,0,1],o:[0,60,0],ox:0,oy:0,cnt:0,mx:0,my:0,mr:0,amp:0,on:false,dirty:true};
+const wavesOn=()=>S.wave>0&&!shared();
+function waveClear(){WV.h.fill(0);WV.v.fill(0);WV.amp=0;WV.cnt=0;WV.dirty=true}
+function waveStep(dt,ntt,ktt,mag,wt){if(WV.cnt<4)return;const C=CO[0],h=WV.h,v=WV.v,m=WV.m,L=C.L,D2=W.D2;
+ const cmax=0.45*WDX/dt,c2=Math.min(mag*L/Math.PI*Math.tanh(Math.PI*C.depth/L),cmax*cmax)/(WDX*WDX);
+ // what pushes the columns: minus a share of the sheet's own acceleration (tilt and bowl), so the two together lag
+ const fx=S.wave*0.25*dot(ntt,WV.u1),fy=S.wave*0.25*dot(ntt,WV.u2),fk=-S.wave*0.35*ktt,f0=fx*WV.mx+fy*WV.my+fk*WV.mr;
+ const dv=Math.exp(-(2.4+4*(1-wt))*dt),nu=3/(WDX*WDX)*dt,ox=WV.ox-WR+WDX/2,oy=WV.oy-WR+WDX/2;
+ for(let j=0;j<WN;j++){const y=j*WDX+oy,y2=y*y;for(let i=0;i<WN;i++){const q=j*WN+i;if(!m[q])continue;const hc=h[q],vc=v[q];
+  let lap=-4*hc,lv=-4*vc;
+  if(i>0&&m[q-1]){lap+=h[q-1];lv+=v[q-1]}else{lap+=hc;lv+=vc}
+  if(i<WN-1&&m[q+1]){lap+=h[q+1];lv+=v[q+1]}else{lap+=hc;lv+=vc}
+  if(j>0&&m[q-WN]){lap+=h[q-WN];lv+=v[q-WN]}else{lap+=hc;lv+=vc}
+  if(j<WN-1&&m[q+WN]){lap+=h[q+WN];lv+=v[q+WN]}else{lap+=hc;lv+=vc}
+  const x=i*WDX+ox;
+  v[q]=(vc+(c2*lap+fx*x+fy*y+fk*Math.min(x*x+y2,D2)-f0)*dt+nu*lv)*dv}}
+ let sh=0,sv=0;const lim=WHR*0.95;
+ for(let q=0;q<WN*WN;q++){if(!m[q])continue;let x=h[q]+v[q]*dt;if(x>lim){x=lim;if(v[q]>0)v[q]=0}else if(x<-lim){x=-lim;if(v[q]<0)v[q]=0}h[q]=x;sh+=x;sv+=v[q]}
+ sh/=WV.cnt;sv/=WV.cnt;for(let q=0;q<WN*WN;q++)if(m[q]){h[q]-=sh;v[q]-=sv}}
+// water arriving in the body through a joint (q > 0) or leaving (q < 0) lifts or dips the surface above the joint;
+// less so the deeper the joint is under water
+function waveBump(p,q){if(!WV.on||WV.cnt<4)return;const C=CO[0],d=sub(p,WV.o),i=Math.floor((dot(d,WV.u1)+WR)/WDX),j=Math.floor((dot(d,WV.u2)+WR)/WDX);
+ if(i<0||j<0||i>=WN||j>=WN)return;
+ const a=clamp(S.wave*0.12*q/(3*WDX*WDX)*Math.exp(-Math.max(0,C.c-dot(C.n,p))/10),-0.6,0.6),k=j*WN+i,m=WV.m,h=WV.h;
+ if(m[k])h[k]+=a;if(i>0&&m[k-1])h[k-1]+=a/2;if(i<WN-1&&m[k+1])h[k+1]+=a/2;if(j>0&&m[k-WN])h[k-WN]+=a/2;if(j<WN-1&&m[k+WN])h[k+WN]+=a/2}
+// once a frame: where the grid sits, which of its cells are inside the body at the surface, and the picture of it
+// (height and slope in one small texture) for the graphics chip
+function waveFrame(){const on=wavesOn(),h=WV.h,v=WV.v,m=WV.m,f=WV.f,px=WV.px;
+ if(!on){if(WV.on||WV.dirty){waveClear();px.fill(128);WV.dirty=false;WV.on=false;WV.tex=true}return}
+ WV.on=true;const C=CO[0],n=C.n,S0=CS[0],a=S0.a,nb=S0.n,D2=W.D2;
+ // the grid's axes are carried along with the surface (last frame's axis laid onto the new surface). Rebuilt from the
+ // world's x axis each frame, they swapped when the surface tilted past about 64 degrees and the wave pattern jumped
+ let u1;{const p=WV.u1,d=dot(p,n),c=[p[0]-n[0]*d,p[1]-n[1]*d,p[2]-n[2]*d];
+  u1=Math.hypot(c[0],c[1],c[2])>0.2?norm(c):norm(Math.abs(n[0])<0.9?[1-n[0]*n[0],-n[0]*n[1],-n[0]*n[2]]:[-n[2]*n[0],-n[2]*n[1],1-n[2]*n[2]])}
+ const u2=cross(u1,n),o=C.ctr,oa=sub(o,C.A);
+ WV.u1=u1;WV.u2=u2;WV.o=[o[0],o[1],o[2]];WV.ox=dot(oa,u1);WV.oy=dot(oa,u2);
+ const base=C.c-dot(n,o),x0=WV.ox-WR+WDX/2,y0=WV.oy-WR+WDX/2;let cnt=0,sx=0,sy=0,sr=0;
+ // flattened (P2-b): a cell is inside a ball if it is inside once the squash is undone
+ const sq=C.fw!==1||C.fs!==1,iw=1/C.fw-1,is=1/C.fs-1,FX=C.ax||FLX,FZ=C.az||FLZ;
+ if(C.V>1)for(let j=0;j<WN;j++){const gy=(j+0.5)*WDX-WR,ya=j*WDX+y0;for(let i=0;i<WN;i++){const gx=(i+0.5)*WDX-WR,xa=i*WDX+x0,r2=Math.min(xa*xa+ya*ya,D2),t=base+C.k*r2;
+   const X=o[0]+u1[0]*gx+u2[0]*gy+n[0]*t,Y=o[1]+u1[1]*gx+u2[1]*gy+n[1]*t,Z=o[2]+u1[2]*gx+u2[2]*gy+n[2]*t;let ins=0;
+   for(let b=0;b<nb;b++){let dx=X-a[b*4],dy=Y-a[b*4+1],dz=Z-a[b*4+2];const r=a[b*4+3];
+    if(sq){const px=(FX[0]*dx+FX[1]*dy+FX[2]*dz)*iw,pz=(FZ[0]*dx+FZ[1]*dy+FZ[2]*dz)*is;dx+=FX[0]*px+FZ[0]*pz;dy+=FX[1]*px+FZ[1]*pz;dz+=FX[2]*px+FZ[2]*pz}
+    if(dx*dx+dy*dy+dz*dz<=r*r){ins=1;break}}
+   m[j*WN+i]=ins;if(ins){cnt++;sx+=xa;sy+=ya;sr+=r2}}}
+ else m.fill(0);
+ WV.cnt=cnt;if(cnt){WV.mx=sx/cnt;WV.my=sy/cnt;WV.mr=sr/cnt}
+ // cells outside the body take the height of the water next to them (two cells deep), so the cut at the wall is clean
+ let amp=0;
+ for(let q=0;q<WN*WN;q++){if(m[q]){f[q]=1;amp=Math.max(amp,Math.abs(h[q]));continue}v[q]=0;const i=q%WN,j=(q-i)/WN;let s=0,c=0;
+  if(i>0&&m[q-1]){s+=h[q-1];c++}if(i<WN-1&&m[q+1]){s+=h[q+1];c++}if(j>0&&m[q-WN]){s+=h[q-WN];c++}if(j<WN-1&&m[q+WN]){s+=h[q+WN];c++}
+  if(c){h[q]=s/c;f[q]=2}else f[q]=0}
+ for(let q=0;q<WN*WN;q++){if(f[q])continue;const i=q%WN,j=(q-i)/WN;let s=0,c=0;
+  if(i>0&&f[q-1]===2){s+=h[q-1];c++}if(i<WN-1&&f[q+1]===2){s+=h[q+1];c++}if(j>0&&f[q-WN]===2){s+=h[q-WN];c++}if(j<WN-1&&f[q+WN]===2){s+=h[q+WN];c++}
+  h[q]=c?s/c:h[q]*0.7}
+ WV.amp=amp;
+ const kh=127/WHR,ks=127/WSL;
+ for(let j=0;j<WN;j++)for(let i=0;i<WN;i++){const q=j*WN+i,i0=i>0?q-1:q,i1=i<WN-1?q+1:q,j0=j>0?q-WN:q,j1=j<WN-1?q+WN:q;
+  px[q*4]=128+Math.round(clamp(h[q]*kh,-127,127));
+  px[q*4+1]=128+Math.round(clamp((h[i1]-h[i0])/((i1-i0)*WDX)*ks,-127,127));
+  px[q*4+2]=128+Math.round(clamp((h[j1]-h[j0])/((j1-j0)/WN*WDX)*ks,-127,127))}
+ WV.tex=true}
+
+function waterStep(body,dt){const a=body.acc;
+ {const own=!shared(),w=body.W[1];let r0=null;
+  for(let i=0;i<NC;i++){const C=CO[i];if(i&&(!own||!C.on))continue;
+   // a limb out from his middle is also flung outwards when he spins
+   const cf=i?w*w*S.climb:0,ai=i?[a[0]+cf*(C.ctr[0]-B.sh[0]),a[1],a[2]+cf*(C.ctr[2]-B.sh[2])]:a,r=swing(C,ai,dt);if(i)C.k=0;else r0=r}
+  // climbing the walls (body): spinning water forms a bowl (height = spin^2 r^2 / 2g); a hard landing rings the same bowl
+  const C=CO[0],L=C.L,hd=C.depth;
+  const ksT=S.climb*w*w/(2*G);W.ks+=(ksT-W.ks)*(1-Math.exp(-dt/0.3));
+  const wh=1.7*Math.sqrt(Math.PI*G/L*Math.tanh(Math.PI*hd/L)),zh=0.22;
+  const kza=wh*wh*(S.surge*8e-6*(a[1]<0?0.5:1)*a[1]-W.kz)-2*zh*wh*W.kzv;
+  W.kzv+=kza*dt;W.kz+=W.kzv*dt;
+  W.k=C.k=clamp(W.ks+W.kz,-0.03,0.07);W.n=C.n;W.geff=r0.mag/G;W.hz=r0.w0/(2*Math.PI);
+  if(WV.on)waveStep(dt,r0.ntt,kza,r0.mag,r0.wt);
+  const ag=Math.min(1,Math.hypot(a[0],a[2])/G*0.6+Math.hypot(C.vn[0],C.vn[1],C.vn[2])*0.25+(1-r0.wt)*0.7+Math.abs(W.kzv)*8);
+  W.agit=Math.max(ag,W.agit*Math.exp(-dt*1.6))}
+ return{normal:W.n,level:W.c,curvature:W.k}}
+// Keeping the amount constant: the body as chains of balls; the water below a surface is a sum of ball caps.
+// A level is found with a few Newton steps from last frame's level (halving as a fallback).
+function ballsFrom(T,Bl){for(const s of CS)s.n=0;
+ const put=(m,x,y,z,r)=>{if(r<=0.2)return;for(const s of [CS[m],CS[NC]]){const i=s.n++*4;s.a[i]=x;s.a[i+1]=y;s.a[i+2]=z;s.a[i+3]=r}};
+ // the count comes from the resting body (TN): counted from the squashed length, a hard landing dropped a ball or two
+ // from the legs and body for a few frames, and about 6% of the water vanished and came back
+ for(let j=0;j<T.length;j++){const t=T[j],d=sub(t.b,t.a),n=TN[j]||Math.max(1,Math.ceil(Math.hypot(d[0],d[1],d[2])/(0.6*Math.min(t.ra,t.rb))));
+  for(let i=0;i<=n;i++){const u=i/n;put(t.m,t.a[0]+d[0]*u,t.a[1]+d[1]*u,t.a[2]+d[2]*u,t.ra+(t.rb-t.ra)*u-SKIN)}}
+ for(const b of Bl)put(b.m,b.a[0],b.a[1],b.a[2],b.r-SKIN)}
+// every ball's height against a container's surface shape; the container's full volume and middle
+// Flattened (P2-b): each ball is squashed the same way, reaching L x r along the surface's direction and holding det
+// of its round volume (both 1 when round, which leaves every number exactly as before).
+function evalSet(C,S){const n=C.n,k=C.k,A=C.A,D2=W.D2,a=S.a,L=sqz(C,n),dt=C.det;S.L=L;S.det=dt;let lo=1e9,hi=-1e9,full=0,sx=0,sy=0,sz=0;
+ for(let i=0;i<S.n;i++){const x=a[i*4],y=a[i*4+1],z=a[i*4+2],r=a[i*4+3],px=x-A[0],py=y-A[1],pz=z-A[2],hn=n[0]*px+n[1]*py+n[2]*pz;
+  const d2=px*px+py*py+pz*pz-hn*hn,e=n[0]*x+n[1]*y+n[2]*z-k*Math.min(d2,D2);S.e[i]=e;lo=Math.min(lo,e-r*L);hi=Math.max(hi,e+r*L);full+=dt*(4/3*Math.PI*r*r*r);sx+=x;sy+=y;sz+=z}
+ C.lo=lo;C.hi=hi;C.full=full;if(S.n)C.ctr=[sx/S.n,sy/S.n,sz/S.n]}
+function volAt(S,c){let V=0,Ar=0;const a=S.a,e=S.e,L=S.L||1,dt=S.det||1;for(let i=0;i<S.n;i++){const r=a[i*4+3],d=(c-e[i])/L;if(d<=-r)continue;if(d>=r){V+=dt*(4/3*Math.PI*r*r*r);continue}
+  const hh=r+d;V+=dt*(Math.PI*hh*hh*(3*r-hh)/3);Ar+=dt/L*(Math.PI*(r*r-d*d))}return[V,Ar]}
+function solve(C,S,target,dt){evalSet(C,S);const lo=C.lo,hi=C.hi,full=C.full,n=C.n;target=clamp(target,0,full);
+ let c=clamp(C.c,lo,hi),ok=false,Ar=0;
+ for(let it=0;it<3;it++){const r=volAt(S,c),err=target-r[0];Ar=r[1];if(Math.abs(err)<full*2e-4){ok=true;break}if(Ar<1)break;c=clamp(c+err/Ar,lo,hi)}
+ if(!ok){let a=lo,b=hi;for(let it=0;it<26;it++){c=(a+b)/2;if(volAt(S,c)[0]<target)a=c;else b=c}Ar=volAt(S,c)[1]}
+ C.c=c;C.area=Ar;
+ // what the next frames need: where the surface's middle is (the bowl's centre), how long the wet part is, how deep
+ let sa=0,cx=0,cy=0,cz=0;const u1=norm(cross(n,Math.abs(n[0])<0.9?[1,0,0]:[0,0,1])),u2=cross(n,u1),sp=S.a;
+ const tl=Math.hypot(C.vn[0],C.vn[2]),td=tl>0.02?[C.vn[0]/tl,0,C.vn[2]/tl]:null;
+ let m1=1e9,M1=-1e9,m2=1e9,M2=-1e9,m3=1e9,M3=-1e9;const L=S.L||1,l1=sqz(C,u1),l2=sqz(C,u2),l3=td?sqz(C,td):1;   // reach of a squashed ball along each direction
+ for(let i=0;i<S.n;i++){const r=sp[i*4+3],d=(c-S.e[i])/L;if(d<=-r)continue;const x=sp[i*4],y=sp[i*4+1],z=sp[i*4+2];
+  if(d<r){const ar=r*r-d*d;sa+=ar;cx+=x*ar;cy+=y*ar;cz+=z*ar}
+  const a1=x*u1[0]+y*u1[1]+z*u1[2],a2=x*u2[0]+y*u2[1]+z*u2[2];m1=Math.min(m1,a1-r*l1);M1=Math.max(M1,a1+r*l1);m2=Math.min(m2,a2-r*l2);M2=Math.max(M2,a2+r*l2);
+  if(td){const a3=x*td[0]+z*td[2];m3=Math.min(m3,a3-r*l3);M3=Math.max(M3,a3+r*l3)}}
+ if(sa>0){const f=1-Math.exp(-dt/0.25);C.A[0]+=(cx/sa-C.A[0])*f;C.A[1]+=(cy/sa-C.A[1])*f;C.A[2]+=(cz/sa-C.A[2])*f}
+ if(M1>m1){const Lr=td&&M3>m3?M3-m3:((M1-m1)+(M2-m2))/2;C.L=clamp(Lr,8,220);C.depth=clamp(c-lo,1,220)}}
+// Water passing through the openings (limb joints). On each side: how high the water stands above the opening's lowest
+// edge. Water runs from the higher side to the lower one, like a hole in a tank wall (speed = sqrt(2 g height)), only
+// as wide as the part of the opening that is under water, and never past levelling out. No weight, no flow.
+function flows(dt){const g=Math.max(0,W.geff)*G;if(g<1||!TOY)return false;let any=false;
+ for(const P of TOY.Po){const Ca=CO[P.a],Cb=CO[P.b],r=P.r;if(!Ca.on||!Cb.on)continue;
+  const up=C=>{if(C.V<1)return 0;const p=sub(P.p,C.A),hn=dot(C.n,p),d2=dot(p,p)-hn*hn;return Math.max(0,C.c-(dot(C.n,P.p)-C.k*Math.min(d2,W.D2))+r)};
+  const ha=up(Ca),hb=up(Cb),D=ha-hb;if(Math.abs(D)<0.02)continue;
+  const src=D>0?Ca:Cb,dst=D>0?Cb:Ca,hs=Math.max(ha,hb);
+  // q is a real amount: what leaves one part is what arrives in the other, though the two parts count it differently
+  // (kf). The speed is set so the side the water leaves drains as fast as it did before the amounts were real.
+  let q=S.flow*1.2*Math.PI*r*r*Math.min(1,hs/(2*r))*Math.sqrt(2*g*Math.abs(D))*dt/src.kf;
+  if(src.area>1&&dst.area>1)q=Math.min(q,0.5*Math.abs(D)/(src.kf/src.area+dst.kf/dst.area));
+  q=Math.min(q,src.V/src.kf,(dst.full-dst.V)/dst.kf);if(q<=1e-6)continue;
+  src.V-=q*src.kf;dst.V+=q*dst.kf;src.dirty=dst.dirty=any=true;
+  if(P.a===0||P.b===0)waveBump(P.p,(dst===CO[0]?q:-q)*CO[0].kf)}
+ return any}
+// once a frame: the amount in every container, then every surface's level
+// Pouring water in or out through the belly button (container 0): what doesn't fit the body goes on to the other parts
+// (starting from empty, the low parts are filled first). Sealed and firm for now, so the same amount of air goes the
+// other way. Returns what could not be poured.
+function pour(d){if(Math.abs(d)<1e-9)return 0;let sum=0;for(let i=0;i<NC;i++)if(CO[i].on)sum+=CO[i].V/CO[i].kf;
+ for(const m of (sum<1?desc().first:desc().order)){const C=CO[m];if(!C||!C.on)continue;
+  const x=d>0?Math.min(d,(C.full-C.V)/C.kf):-Math.min(-d,C.V/C.kf);C.V=clamp(C.V+x*C.kf,0,C.full);d-=x;AIR-=x}
+ return d}
+const waterNow=()=>{let w=0;for(let i=0;i<NC;i++)w+=CO[i].V/CO[i].kf;return w};
+// room: what the skin holds when round; now: what it holds at its flatness. Slack: the share of his round room that is
+// neither water nor air (0 while round and firm).
+function amounts(){const parts=[];for(let i=0;i<NC;i++){const C=CO[i],w=C.V/C.kf,now=C.room*C.det;parts.push({name:desc().names[i],water:w,room:C.room,now,air:now-w,flat:C.fl,slack:1-now/Math.max(1e-9,C.room)})}
+ const now=curRoom();return{water:waterNow(),air:AIR,room:ROOM,now,spilled:SPILL,slack:1-(waterNow()+AIR)/Math.max(1e-9,ROOM),parts}}
+// Flatness, once a frame (P2-b): each flat part goes as flat as the slider asks, unless its water holds it open. Its
+// room shrinks with it; for now the air goes out and comes back as if a valve were open (valves are P2-c), so water +
+// air = what the skin holds at that flatness, and the share of his round room that is left over is slack.
+let FLATSYNC=false;
+function flatStep(){const on=flatOn(),fl=on?desc().flat:[];let ch=false;
+ for(let i=0;i<NC;i++){const C=CO[i],f=fl.includes(i)?Math.min(S.flat,flatMax(C)):0;if(f!==C.fl){setFlat(C,f);ch=true}}
+ if(on&&fl.length){const e=Math.max(...fl.map(i=>CO[i].fl));if(S.flat>e+1e-9){S.flat=e;FLATSYNC=true}}   // asked for more than the water allows: the slider shows where it stopped
+ // the bowl's reach (30 from the middle) widens with the body, or a wide flat body would have a flat rim past it
+ if(ch)liftTable();W.D2=900*CO[0].fw*CO[0].fw;
+ const cur=curRoom();if(cur!==CURSEEN){AIR+=cur-CURSEEN;CURSEEN=cur}}
+// the most water that fits him now (all of his round room while he is round)
+const fillMax=()=>{const cr=curRoom();return cr>=ROOM?1:Math.max(0,(cr-0.005*ROOM)/Math.max(1,ROOM))};
+function levels(dt){const sdt=dt||1/60;
+ flatStep();
+ if(shared()){const S7=CS[NC];ALLC.n=CO[0].n;ALLC.vn=CO[0].vn;ALLC.k=W.k;evalSet(ALLC,S7);solve(ALLC,S7,clamp(S.fill,0,1)*ALLC.full,sdt);
+  for(let i=0;i<NC;i++){const C=CO[i];C.on=CS[i].n>0;C.n=ALLC.n;C.k=ALLC.k;C.A=[...ALLC.A];C.c=ALLC.c;if(i)C.vn=[0,0,0];
+   if(C.on){evalSet(C,CS[i]);C.V=volAt(CS[i],C.c)[0]}else C.V=0}   // each part's share, so switching to separate containers carries on from here
+  CO[0].L=ALLC.L;CO[0].depth=ALLC.depth;AIR=ROOM-waterNow();FILLSEEN=S.fill;PEND=0}
+ else{let over=0;
+  // water that no longer fits its part is not deleted: it is poured on to the others (and only counts as spilled if
+  // it fits nowhere)
+  for(let i=0;i<NC;i++){const C=CO[i];C.on=CS[i].n>0;if(!C.on){C.V=0;continue}evalSet(C,CS[i]);if(C.V>C.full){over+=(C.V-C.full)/C.kf;AIR+=(C.V-C.full)/C.kf;C.V=C.full}}
+  if(over>0){const left=pour(over);if(left>1e-9)SPILL+=left}
+  // the Water amount slider is a share of his real room. Moving it pours the difference in or out, once; between
+  // moves nothing is topped up, so whatever happens to the water later is not undone by the slider
+  if(S.fill!==FILLSEEN){const fm=fillMax();if(S.fill>fm){S.fill=fm;FLATSYNC=true}FILLSEEN=S.fill;PEND+=clamp(S.fill,0,1)*ROOM-waterNow()}   // flattened, only what fits can be poured in
+  if(PEND!==0){const d=PEND;PEND=0;pour(d)}
+  for(let i=0;i<NC;i++)if(CO[i].on)solve(CO[i],CS[i],CO[i].V,sdt);
+  if(dt>0&&flows(dt))for(let i=0;i<NC;i++){const C=CO[i];if(C.on&&C.dirty)solve(C,CS[i],C.V,sdt);C.dirty=false}}
+ W.c=CO[0].c;W.A=CO[0].A;waveFrame()}
+
+// ---------- test run: every test move in a row ----------
+const setSpeed=v=>{B.speedT=v};
+const SEQ=[[0.3,"standing still",()=>setSpeed(0)],[1.5,"walk",()=>setSpeed(62)],[4,"sudden stop from a walk",()=>setSpeed(0)],
+ [6.5,"run",()=>setSpeed(175)],[8.6,"sudden stop from a run",()=>setSpeed(0)],[11.5,"run",()=>setSpeed(175)],[12.4,"turn left",()=>turn(1)],
+ [13.6,"turn right",()=>turn(-1)],[14.8,"stop",()=>setSpeed(0)],[17,"spin",()=>{B.spin=true}],[20,"spin off",()=>{B.spin=false}],
+ [22.5,"jump",()=>jump(1)],[25,"big drop",drop],[29.5,"flip upside down",flip],[33,"flip back",flip],[36.5,"standing still (it should settle)",()=>{}],[39.5,"",null]];
+let seq=null,seqLabel="";
+function seqStep(h){if(!seq)return;seq.t+=h;while(seq&&seq.i<SEQ.length&&seq.t>=SEQ[seq.i][0]){const [,lb,fn]=SEQ[seq.i++];if(fn){fn();seqLabel=lb}else{seq=null;seqLabel=""}}}
+function seqStop(){seq=null;seqLabel=""}
+
+// =====================================================================
+// Drawing (three.js from jsDelivr). Water: an inner copy of the body, opaque, cut at the surface per pixel.
+// Skin: see-through, far wall first, then the nearest front wall only.
+// =====================================================================
+const R3={url:"https://cdn.jsdelivr.net/npm/three@0.170.0/+esm",T:null,ok:false};
+const cam={yaw:0.75,pitch:0.22,dist:540,tx:0,ty:78,tz:0,fov:30};
+const camReset=()=>Object.assign(cam,{yaw:0.75,pitch:0.22,dist:540,tx:0,ty:78,tz:0});
+const MAXT=64,MAXB=96;
+// Flattening (P2-b) is done here: each tube and ball carries its part's squash (fx: his sideways direction and the
+// widening, fz: his front-to-back direction and the thickness). The round shape is squashed about the tube's axis or
+// the ball's centre; normals get the inverse squash so the light stays right. Round (1, 1) leaves both untouched.
+const SQZ_GLSL=`attribute vec4 fx;attribute vec4 fz;varying vec4 vFx;varying vec4 vFz;
+vec3 sqzV(vec3 v){return v+fx.xyz*((fx.w-1.)*dot(fx.xyz,v))+fz.xyz*((fz.w-1.)*dot(fz.xyz,v));}
+vec3 sqzN(vec3 n){return n+fx.xyz*((1./fx.w-1.)*dot(fx.xyz,n))+fz.xyz*((1./fz.w-1.)*dot(fz.xyz,n));}
+`;
+const TUBE_VS=SQZ_GLSL+`attribute vec3 p0;attribute vec3 p1;attribute vec2 rr;attribute vec3 icol;attribute float cap;uniform float uShrink;attribute vec3 wn;attribute vec3 wck;attribute vec3 wa;varying vec3 vWn;varying vec3 vWck;varying vec3 vWa;
+varying vec3 vW;varying vec3 vN;varying vec3 vCol;varying vec3 vP0;varying vec3 vP1;varying vec2 vRR;
+void main(){vec3 ax=p1-p0;float L=max(length(ax),1e-4);vec3 d=ax/L;
+ vec3 up=abs(d.y)<0.95?vec3(0.,1.,0.):vec3(1.,0.,0.);vec3 nr=normalize(cross(up,d));vec3 b=cross(d,nr);
+ float r0=max(rr.x-uShrink,0.05),r1=max(rr.y-uShrink,0.05),t=position.z,r=mix(r0,r1,t);
+ vec3 rad=nr*position.x+b*position.y;
+ vW=p0+ax*t+sqzV(rad*r);vN=sqzN(cap!=0.?d*cap:normalize(rad-d*((r1-r0)/L)));vCol=icol;vP0=p0;vP1=p1;vRR=vec2(r0,r1);vWn=wn;vWck=wck;vWa=wa;vFx=fx;vFz=fz;
+ gl_Position=projectionMatrix*viewMatrix*vec4(vW,1.);}`;
+const BALL_VS=SQZ_GLSL+`attribute vec3 ctr;attribute float rad;attribute vec3 icol;uniform float uShrink;attribute vec3 wn;attribute vec3 wck;attribute vec3 wa;varying vec3 vWn;varying vec3 vWck;varying vec3 vWa;
+varying vec3 vW;varying vec3 vN;varying vec3 vCol;varying vec4 vS;
+void main(){float r=max(rad-uShrink,0.05);vW=ctr+sqzV(position*r);vN=sqzN(position);vCol=icol;vS=vec4(ctr,r);vWn=wn;vWck=wck;vWa=wa;vFx=fx;vFz=fz;
+ gl_Position=projectionMatrix*viewMatrix*vec4(vW,1.);}`;
+// the surface: height above it = n.x - level - bowl - wave (the first three are the formula the amount-keeping uses; the
+// wave averages zero). Every tube and ball carries the surface of the container it belongs to (normal, level, bowl, bowl
+// centre, and whether the wave grid applies: body only). The wave grid is one small texture: height, and its two slopes.
+// Ripples only change how the surface catches the light, so the cut itself stays exact.
+const WATER_GLSL=`varying vec3 vWn;varying vec3 vWck;varying vec3 vWa;uniform float uD2;uniform vec2 uRip;uniform float uWA;
+uniform sampler2D uWave;uniform vec3 uU1;uniform vec3 uU2;uniform vec3 uWO;uniform vec3 uWv;
+#define uN vWn
+#define uC vWck.x
+#define uK vWck.y
+#define uA vWa
+uniform vec3 uL;uniform vec3 uShallow;uniform vec3 uDeep;uniform vec3 uSurf;uniform mat4 uVP;
+varying vec3 vW;varying vec3 vN;
+vec3 wav(vec3 x){vec3 q=x-uWO;vec4 t=texture2D(uWave,vec2(dot(q,uU1),dot(q,uU2))*uWv.x+0.5);return (t.rgb*255.-128.)*vec3(uWv.y,uWv.z,uWv.z)*vWck.z;}
+float hg0(vec3 x){vec3 p=x-uA;vec3 pp=p-uN*dot(uN,p);return dot(uN,x)-uC-uK*min(dot(pp,pp),uD2);}
+float hgt(vec3 x){return hg0(x)-wav(x).x;}
+`;
+// walls below the surface: darker with depth, a bright line at the water line
+const WATER_FRONT=WATER_GLSL+`void main(){float h=hgt(vW);if(h>0.)discard;float dp=-h;vec3 N=normalize(vN);
+ float lam=max(dot(N,uL),0.);vec3 col=mix(uShallow,uDeep,1.-exp(-dp/45.))*(0.62+0.38*lam);
+ col=mix(col,uSurf*1.1,(1.-smoothstep(0.,1.6,dp))*0.9);gl_FragColor=vec4(col,uWA);}`;
+// the surface itself: seen through the cut, on the far inside wall. The pixel is moved (in depth) to where the line of
+// sight really crosses the surface, and only counts if that spot is inside this tube or ball, so the surface is a real,
+// lit, flat or bowl-shaped sheet at the right depth, with nothing poking through it. With waves: the crossing is first
+// found for the sheet lifted by the wave height at the wall, then corrected twice with the wave height where it lands.
+const WATER_BACK=inside=>WATER_GLSL+inside+`
+bool hit(vec3 Bp,vec3 v,float w0,out float sb){vec3 p=Bp-uA;float nv=dot(uN,v);vec3 pp=p-uN*dot(uN,p);vec3 vp=v-uN*nv;
+ float c0=dot(uN,Bp)-uC-w0,best=-1e9,s1=1.,s2=1.;
+ float a2=-uK*dot(vp,vp),b1=nv-2.*uK*dot(pp,vp),cc=c0-uK*dot(pp,pp);
+ if(abs(a2)<1e-8){if(abs(b1)>1e-6)s1=-cc/b1;}
+ else{float di=b1*b1-4.*a2*cc;if(di>=0.){float q=sqrt(di);s1=(-b1+q)/(2.*a2);s2=(-b1-q)/(2.*a2);}}
+ vec3 q3=pp+vp*s1;if(s1<0.&&s1>best&&dot(q3,q3)<=uD2)best=s1;
+ q3=pp+vp*s2;if(s2<0.&&s2>best&&dot(q3,q3)<=uD2)best=s2;
+ if(abs(nv)>1e-6){float s3=-(c0-uK*uD2)/nv;q3=pp+vp*s3;if(s3<0.&&s3>best&&dot(q3,q3)>uD2)best=s3;}
+ if(best<-1e8)return false;sb=best;return true;}
+void main(){float w0=wav(vW).x;if(hg0(vW)-w0>0.)discard;vec3 v=normalize(vW-cameraPosition);float s;
+ if(!hit(vW,v,w0,s))discard;vec3 X=vW+v*s;vec3 wv=vec3(0.);vec3 pp=vec3(0.);float inb=0.;
+ for(int i=0;i<2;i++){vec3 p=X-uA;pp=p-uN*dot(uN,p);inb=step(dot(pp,pp),uD2);wv=wav(X);
+  float h=dot(uN,X)-uC-uK*min(dot(pp,pp),uD2)-wv.x;float gv=dot(uN-2.*uK*pp*inb-uU1*wv.y-uU2*wv.z,v);
+  gv=(gv<0.?-1.:1.)*max(abs(gv),0.3);s=min(s-clamp(h/gv,-6.,6.),0.);X=vW+v*s;}
+ if(!inside(X))discard;
+ {vec3 p=X-uA;pp=p-uN*dot(uN,p);inb=step(dot(pp,pp),uD2);}
+ float c1=cos(X.x*0.52+X.z*0.31+uRip.y*7.),c2=cos(X.x*-0.27+X.z*0.47-uRip.y*5.3);
+ vec3 g=uRip.x*0.5*vec3(0.52*c1-0.27*c2,0.,0.31*c1+0.47*c2);
+ vec3 Ns=normalize(uN-2.*uK*pp*inb-g-uU1*wv.y-uU2*wv.z);
+ float lam=max(dot(Ns,uL),0.);vec3 Hh=normalize(uL-v);float sp=pow(max(dot(Ns,Hh),0.),80.);
+ vec3 col=uSurf*(0.72+0.28*lam)+vec3(sp)*0.55;
+ vec4 cp=uVP*vec4(X,1.);gl_FragDepth=clamp(cp.z/cp.w*0.5+0.5,0.,1.);gl_FragColor=vec4(col,uWA);}`;
+// "is that spot inside this tube or ball?" is asked with the squash undone (P2-b), where the part is round again
+const UNSQ_GLSL=`varying vec4 vFx;varying vec4 vFz;
+vec3 unsq(vec3 q){return q+vFx.xyz*((1./vFx.w-1.)*dot(vFx.xyz,q))+vFz.xyz*((1./vFz.w-1.)*dot(vFz.xyz,q));}
+`;
+const IN_TUBE=UNSQ_GLSL+`varying vec3 vP0;varying vec3 vP1;varying vec2 vRR;
+bool inside(vec3 X){vec3 ax=vP1-vP0;float t=dot(X-vP0,ax)/max(dot(ax,ax),1e-6);if(t<-0.002||t>1.002)return false;
+ vec3 q=unsq(X-vP0-ax*t);float r=mix(vRR.x,vRR.y,t)*1.01+0.05;return dot(q,q)<=r*r;}`;
+const IN_BALL=UNSQ_GLSL+`varying vec4 vS;bool inside(vec3 X){vec3 q=unsq(X-vS.xyz);float r=vS.w*1.01+0.05;return dot(q,q)<=r*r;}`;
+// vinyl skin: tinted, more opaque at glancing angles, with a shiny highlight
+const SKIN_FS=`uniform vec3 uL;uniform float uAlpha;uniform float uBack;varying vec3 vW;varying vec3 vN;varying vec3 vCol;
+void main(){vec3 N=normalize(vN);vec3 V=normalize(cameraPosition-vW);if(dot(N,V)<0.)N=-N;
+ float fr=pow(1.-abs(dot(N,V)),2.2),lam=max(dot(N,uL),0.);
+ vec3 col=vCol*(0.6+0.4*lam);float sp=pow(max(dot(N,normalize(uL+V)),0.),70.)*(1.-uBack);
+ col=mix(col,vCol*0.8,uBack);col+=vec3(sp)*0.9;float a=mix(uAlpha,min(1.,uAlpha+0.42),fr);a=mix(a,uAlpha*0.5,uBack);a=max(a,sp*0.9);
+ gl_FragColor=vec4(col,a);}`;
+function msg3(t){const m=$("msg3");m.textContent=t||"";m.style.display=t?"block":"none"}
+function r3load(){msg3("Loading the 3D renderer (three.js)...");
+ import(R3.url).then(T=>{R3.T=T;r3init();R3.ok=true;msg3("")}).catch(e=>{console.error(e);
+  msg3(R3.T?"The 3D view couldn't start on this device ("+String(e&&e.message||e).slice(0,90)+"). The controls and numbers still work.":"Couldn't download three.js (offline or blocked), so there is no picture. The controls and the numbers still work.")})}
+function r3init(){const T=R3.T,c=$("cv");
+ const rd=new T.WebGLRenderer({canvas:c,antialias:true,alpha:false,stencil:true});rd.setClearColor(0xdff0f5,1);
+ const sc=new T.Scene(),cm=new T.PerspectiveCamera(cam.fov,1,20,3000);
+ // one tube and one ball, built once; every part of the body is a copy placed by the graphics chip
+ // the tube has flat ends: each tube is then a closed solid, which the per-pixel surface needs (a line of sight that
+ // leaves a tube through its end must still meet a far wall there). The ends sit inside the joint balls, out of sight.
+ const SEG=24,NV=4*SEG+2,pos=new Float32Array(NV*3),capA=new Float32Array(NV),ix=[];
+ for(let r=0;r<2;r++)for(let j=0;j<SEG;j++){const a=j/SEG*Math.PI*2,c=Math.cos(a),s=Math.sin(a);pos.set([c,s,r],(r*SEG+j)*3);
+  pos.set([c,s,r],((2+r)*SEG+j)*3);capA[(2+r)*SEG+j]=r?1:-1}
+ pos.set([0,0,0],(4*SEG)*3);capA[4*SEG]=-1;pos.set([0,0,1],(4*SEG+1)*3);capA[4*SEG+1]=1;
+ for(let j=0;j<SEG;j++){const j1=(j+1)%SEG;ix.push(j,j1,SEG+j,j1,SEG+j1,SEG+j,4*SEG,2*SEG+j1,2*SEG+j,4*SEG+1,3*SEG+j,3*SEG+j1)}
+ const tg=new T.InstancedBufferGeometry();tg.setAttribute("position",new T.BufferAttribute(pos,3));tg.setAttribute("cap",new T.BufferAttribute(capA,1));tg.setIndex(ix);
+ const ia=(g,k,n,sz)=>{const at=new T.InstancedBufferAttribute(new Float32Array(n*sz),sz);at.setUsage(T.DynamicDrawUsage);g.setAttribute(k,at)};
+ ia(tg,"p0",MAXT,3);ia(tg,"p1",MAXT,3);ia(tg,"rr",MAXT,2);ia(tg,"icol",MAXT,3);ia(tg,"wn",MAXT,3);ia(tg,"wck",MAXT,3);ia(tg,"wa",MAXT,3);ia(tg,"fx",MAXT,4);ia(tg,"fz",MAXT,4);tg.instanceCount=0;
+ const sg0=new T.SphereGeometry(1,22,14),bg=new T.InstancedBufferGeometry();bg.setAttribute("position",sg0.attributes.position);bg.setIndex(sg0.index);
+ ia(bg,"ctr",MAXB,3);ia(bg,"rad",MAXB,1);ia(bg,"icol",MAXB,3);ia(bg,"wn",MAXB,3);ia(bg,"wck",MAXB,3);ia(bg,"wa",MAXB,3);ia(bg,"fx",MAXB,4);ia(bg,"fz",MAXB,4);bg.instanceCount=0;
+ const L=norm([0.4,0.8,0.5]);
+ // the wave grid as a picture: 32 x 32, one byte each for height and the two slopes, smoothed between cells by the chip
+ const wtex=new T.DataTexture(WV.px,WN,WN,T.RGBAFormat,T.UnsignedByteType);wtex.magFilter=wtex.minFilter=T.LinearFilter;wtex.generateMipmaps=false;wtex.needsUpdate=true;
+ const U={uD2:{value:900},uRip:{value:new T.Vector2()},
+  uL:{value:new T.Vector3(...L)},uShallow:{value:new T.Vector3()},uDeep:{value:new T.Vector3()},uSurf:{value:new T.Vector3()},uVP:{value:new T.Matrix4()},
+  uWave:{value:wtex},uU1:{value:new T.Vector3(1,0,0)},uU2:{value:new T.Vector3(0,0,1)},uWO:{value:new T.Vector3()},uWv:{value:new T.Vector3(1/(2*WR),WHR/127,WSL/127)},
+  uAlpha:{value:0.5},uWA:{value:1}};
+ const wU=()=>({uD2:U.uD2,uRip:U.uRip,uL:U.uL,uShallow:U.uShallow,uDeep:U.uDeep,uSurf:U.uSurf,uVP:U.uVP,uWave:U.uWave,uU1:U.uU1,uU2:U.uU2,uWO:U.uWO,uWv:U.uWv,uWA:U.uWA,uShrink:{value:SKIN}});
+ // the water is opaque, but drawn in the see-through queue so it can go between the skin's far wall and its front wall
+ const wMat=(vs,fs,side)=>new T.ShaderMaterial({vertexShader:vs,fragmentShader:fs,uniforms:wU(),side,transparent:true,blending:T.NoBlending});
+ const sMat=(vs,o,back)=>new T.ShaderMaterial(Object.assign({vertexShader:vs,fragmentShader:SKIN_FS,uniforms:{uL:U.uL,uAlpha:U.uAlpha,uBack:{value:back},uShrink:{value:0}},transparent:true},o));
+ const meshes=[];const wDepth=m=>{m.colorWrite=false;m.userData.wpre=true;return m};
+ const addM=(g,m,order)=>{const o=new T.Mesh(g,m);o.frustumCulled=false;o.renderOrder=order;sc.add(o);meshes.push(o)};
+ for(const [g,vs,ins] of [[tg,TUBE_VS,IN_TUBE],[bg,BALL_VS,IN_BALL]]){
+  
+  // skin, far wall, first: each pixel tinted once however many parts overlap (a stencil mark)
+  addM(g,sMat(vs,{side:T.BackSide,depthWrite:false,stencilWrite:true,stencilRef:1,stencilFunc:T.NotEqualStencilFunc,stencilZPass:T.ReplaceStencilOp},1),10);
+  // then the water, painted over the far wall (so joints inside the body never show through the surface)
+  // see-through water (Water opacity under 1): its nearest surface is found first (depth only), then coloured once, so
+  // water inside a joint or behind another part doesn't show through as layers. At 1 the depth pass is skipped.
+  addM(g,wDepth(wMat(vs,WATER_FRONT,T.FrontSide)),14);addM(g,wDepth(wMat(vs,WATER_BACK(ins),T.BackSide)),14);
+  addM(g,wMat(vs,WATER_FRONT,T.FrontSide),15);addM(g,wMat(vs,WATER_BACK(ins),T.BackSide),15);
+  // skin, front wall: depth first (no colour), then colour only where it is the nearest wall, so overlapping see-through
+  // parts (an arm in front of the body) come out in the right order and joints don't show their insides
+  addM(g,sMat(vs,{side:T.FrontSide,colorWrite:false,depthWrite:true},0),20);
+  addM(g,sMat(vs,{side:T.FrontSide,depthWrite:false,depthFunc:T.LessEqualDepth},0),30)}
+ // ground: a pale disc, grid lines that scroll as he walks, a soft shadow
+ const gd=new T.Mesh(new T.CircleGeometry(190,48),new T.MeshBasicMaterial({color:0xcfe6ec}));gd.rotation.x=-Math.PI/2;gd.position.y=-0.6;sc.add(gd);
+ const gp=[];for(let i=-6;i<=6;i++){gp.push(i*30,0,-180,i*30,0,180,-180,0,i*30,180,0,i*30)}
+ const gg=new T.BufferGeometry();gg.setAttribute("position",new T.BufferAttribute(new Float32Array(gp),3));
+ const grid=new T.LineSegments(gg,new T.LineBasicMaterial({color:0x12303b,transparent:true,opacity:0.16}));grid.renderOrder=1;sc.add(grid);
+ const shd=new T.Mesh(new T.CircleGeometry(1,28),new T.MeshBasicMaterial({color:0x12303b,transparent:true,opacity:0.16,depthWrite:false}));shd.rotation.x=-Math.PI/2;shd.position.y=0.2;shd.renderOrder=2;sc.add(shd);
+ Object.assign(R3,{rd,sc,cm,tg,bg,U,grid,shd,wtex});
+ rd.compile(sc,cm)}
+// Water opacity: at 1 the water passes draw solid, as always. Under 1 they blend, after a depth-only pass that keeps just
+// the nearest water surface (the same idea as the skin's near wall), and the far wall shows through.
+let WALPHA=-1;   // -1: not set yet, so the first call sets every pass
+function waterAlpha(a){const R=R3,T=R.T;R.U.uWA.value=a;const see=a<0.999;if(see===(WALPHA<0.999)&&WALPHA!==-1){WALPHA=a;return}WALPHA=a;
+ R.sc.traverse(o=>{const m=o.material;if(!m||!m.uniforms||!m.uniforms.uWA)return;
+  if(m.userData.wpre){o.visible=see&&o.userData.on!==false;return}
+  m.blending=see?T.NormalBlending:T.NoBlending;m.depthWrite=!see;m.needsUpdate=true})}
+let VW=0,VH=0;
+function draw(toy){const R=R3,T=R.T;if(!R.ok)return;
+ const v=$("view"),w=v.clientWidth,h=v.clientHeight;if(w<8||h<8)return;
+ const dpr=Math.min(2,window.devicePixelRatio||1);if(R.rd.getPixelRatio()!==dpr)R.rd.setPixelRatio(dpr);
+ if(w!==VW||h!==VH){VW=w;VH=h;R.rd.setSize(w,h,false);R.cm.aspect=w/h;R.cm.updateProjectionMatrix()}
+ const cp=Math.cos(cam.pitch),D=cam.dist;
+ R.cm.position.set(cam.tx+D*Math.sin(cam.yaw)*cp,cam.ty+D*Math.sin(cam.pitch),cam.tz+D*Math.cos(cam.yaw)*cp);R.cm.lookAt(cam.tx,cam.ty,cam.tz);R.cm.updateMatrixWorld();
+ R.cm.matrixWorldInverse.copy(R.cm.matrixWorld).invert();
+ const U=R.U;U.uVP.value.multiplyMatrices(R.cm.projectionMatrix,R.cm.matrixWorldInverse);
+ U.uD2.value=W.D2;U.uRip.value.set(W.agit*0.6,W.rip);
+ U.uU1.value.set(WV.u1[0],WV.u1[1],WV.u1[2]);U.uU2.value.set(WV.u2[0],WV.u2[1],WV.u2[2]);U.uWO.value.set(WV.o[0],WV.o[1],WV.o[2]);
+ if(WV.tex){WV.tex=false;R.wtex.needsUpdate=true}
+ waterAlpha(S.wa);
+ const wc=hexRGB(S.water);U.uShallow.value.set(wc[0],wc[1],wc[2]);U.uDeep.value.set(wc[0]*0.55,wc[1]*0.6,wc[2]*0.72);
+ U.uSurf.value.set(wc[0]+(1-wc[0])*0.4,wc[1]+(1-wc[1])*0.4,wc[2]+(1-wc[2])*0.4);U.uAlpha.value=S.alpha;
+ const cols=[hexRGB(S.skin),hexRGB(S.accent)],wv=WV.on?1:0;
+ // each part's squash (P2-b): his sideways direction with its widening, his front-to-back direction with its thickness
+ const fxz=(A,i,C)=>{const x=A.fx.array,z=A.fz.array;x[i*4]=FLX[0];x[i*4+1]=FLX[1];x[i*4+2]=FLX[2];x[i*4+3]=C.fw;z[i*4]=FLZ[0];z[i*4+1]=FLZ[1];z[i*4+2]=FLZ[2];z[i*4+3]=C.fs};
+ const gl=S.shape==="glb"&&!!GLBM;glbDraw(gl);   // a GLB model is drawn as its mesh, not as tubes and balls
+ if(gl){R.tg.instanceCount=0;R.bg.instanceCount=0}else{
+ {const A=R.tg.attributes,n=Math.min(MAXT,toy.T.length);for(let i=0;i<n;i++){const t=toy.T[i];A.p0.array.set(t.a,i*3);A.p1.array.set(t.b,i*3);A.rr.array[i*2]=t.ra;A.rr.array[i*2+1]=t.rb;A.icol.array.set(cols[t.c],i*3);const C=CO[t.m];A.wn.array.set(C.n,i*3);A.wck.array[i*3]=C.c;A.wck.array[i*3+1]=C.k;A.wck.array[i*3+2]=t.m?0:wv;A.wa.array.set(C.A,i*3);fxz(A,i,C)}
+  R.tg.instanceCount=n;for(const k of ["p0","p1","rr","icol","wn","wck","wa","fx","fz"])A[k].needsUpdate=true}
+ {const A=R.bg.attributes,n=Math.min(MAXB,toy.Bl.length);for(let i=0;i<n;i++){const b=toy.Bl[i];A.ctr.array.set(b.a,i*3);A.rad.array[i]=b.r;A.icol.array.set(cols[b.c],i*3);const C=CO[b.m];A.wn.array.set(C.n,i*3);A.wck.array[i*3]=C.c;A.wck.array[i*3+1]=C.k;A.wck.array[i*3+2]=b.m?0:wv;A.wa.array.set(C.A,i*3);fxz(A,i,C)}
+  R.bg.instanceCount=n;for(const k of ["ctr","rad","icol","wn","wck","wa","fx","fz"])A[k].needsUpdate=true}
+}
+ R.grid.position.set(-(((B.x%30)+30)%30),0,-(((B.z%30)+30)%30));
+ {const hgt=Math.max(0,B.y+B.sh[1]),r=Math.max(8,(S.shape==="capsule"?30:36)*(1-Math.min(0.6,hgt/500)));const C0=CO[0],sq=C0.fw!==1||C0.fs!==1;   // a flattened body casts a wider, thinner shadow (P2-b)
+  R.shd.scale.set(r*C0.fw,r*(sq?C0.fs+(1-C0.fs)*Math.abs(Math.sin(B.pitch)):1),1);R.shd.rotation.z=sq?B.head:0;R.shd.position.x=B.sh[0];R.shd.position.z=B.sh[2];R.shd.material.opacity=0.18*(1-Math.min(0.7,hgt/400))}
+ if(gl&&GLB3.grp)glbFront();
+ R.rd.render(R.sc,R.cm)}
+
+
+// =====================================================================
+// P3-0, the GLB trial: a textured model from a .glb file as the pooltoy.
+// - The water maths is the lab's own: an inside shape of tubes and balls is fitted to the model's bones once, in its
+//   rest pose, and split into the same seven containers as the toy (body, head, arms, legs, tail), with openings at
+//   the joints. So amounts, levels, flows, waves and Flat all run unchanged on it.
+// - What is drawn is the model's own mesh, in the lab's five passes (far wall, water front and back, near wall twice),
+//   tinted by its own textures. The water is an inner copy of the mesh (pushed in by the skin's thickness), cut at
+//   each container's surface per pixel; where the line of sight goes through the cut, the surface is drawn at its true
+//   depth (the lab's WATER_BACK with every spot counting as inside: the "liquid in a bottle" look, close but not exact
+//   where parts overlap).
+// - Flat squashes the mesh per vertex, round the nearest point of its part's inside shape, front to back (the cookie);
+//   a part that points front to back (tail, muzzle) goes flat side to side instead.
+// - It stands still (rest pose, moved as one piece): animating its bones is later (P3-c).
+// Bone names are read with Mixmo's rig matcher (copied from Mixmo.html, 2026-11-13).
+// =====================================================================
+const boneKey=n=>String(n).replace(/(_\d+)+$/,"").toLowerCase().replace(/[^a-z0-9]/g,"");
+const MD_SIDES=(m,l,r)=>{const o={};for(const [k,v] of Object.entries(m)){o[k+"L"]=l(v);o[k+"R"]=r(v)}return o};
+const MPRESETS=[
+ {id:"ballerfox",name:"Baller Fox",need:["hips","headbone","thighl","shinl","footl","tailroot","lowerchest"],
+  map:{hips:"hips",spine:"spine",chest:"lowerchest",chest2:"upperchest",neck:"neck",head:"headbone",jaw:"jaw",
+   ...MD_SIDES({shoulder:"shoulder",upperArm:"upperarm",forearm:"forearm",hand:"hand",thigh:"thigh",shin:"shin",foot:"foot"},v=>v+"l",v=>v+"r"),
+   tail:["tailroot",...Array.from({length:10},(_,i)=>"tail"+(i+1))]},
+  notes:"The rig's legs are hip, knee and an ankle at the ground, with the foot bone along the ground; the mesh stands on its toes, so the raised hock sits inside the shin bone. Arms in a T-pose. For spring bones later: hair (17 bones), ears (2 x 4), tail (11)."},
+ {id:"femsergal",name:"Female sergal",need:["hips","llegupper","lleglower","lfoot","ltoes","tail1","tailend","chest"],
+  map:{hips:"hips",spine:"spine",chest:"chest",neck:"neck",head:"head",
+   ...MD_SIDES({shoulder:"shoulder",upperArm:"armupper",forearm:"armlower",hand:"hand",thigh:"legupper",shin:"leglower",foot:"foot",toes:"toes"},v=>"l"+v,v=>"r"+v),
+   tail:["tail1","tail2","tail2001","tail2002","tail2003","tail2004","tailend"]},
+  notes:"The rig's legs are hip, knee, an ankle just above the ground, then toes. Arms in a T-pose. Has face shapes. For spring bones later: hair and ears."},
+ {id:"fox015",name:"Fox sculpt (fox_015)",need:["hips","thighl","shinl","footl","spine"],
+  map:{hips:"hips",spine:"spine",...MD_SIDES({thigh:"thigh",shin:"shin",foot:"foot"},v=>v+"l",v=>v+"r")},
+  notes:"Work in progress: legs and spine only (no head, arm or tail bones yet). Flat feet, heel on the ground."}];
+const MD_PARTS=[["hips","Hips"],["spine","Spine"],["chest","Chest"],["neck","Neck"],["head","Head"],["thighL","Left thigh"],["shinL","Left shin"],["footL","Left foot"],["toesL","Left toes"],
+ ["thighR","Right thigh"],["shinR","Right shin"],["footR","Right foot"],["toesR","Right toes"],["upperArmL","Left upper arm"],["forearmL","Left forearm"],["handL","Left hand"],
+ ["upperArmR","Right upper arm"],["forearmR","Right forearm"],["handR","Right hand"],["tail","Tail"]];
+// any other rig: guess each part from common naming styles (Blender, Mixamo, VRM, Unity humanoid)
+function mdlGuess(bones){const side=n=>{const s=String(n);
+  if(/left/i.test(s)||/(^|[\s._:-])L(\d*)([\s._:-]|$)/.test(s)||/^l[A-Z]/.test(s)||/[._-]l$/i.test(s))return"L";
+  if(/right/i.test(s)||/(^|[\s._:-])R(\d*)([\s._:-]|$)/.test(s)||/^r[A-Z]/.test(s)||/[._-]r$/i.test(s))return"R";return""};
+ const core=n=>boneKey(String(n).replace(/left|right/ig,"").replace(/(^|[\s._:-])[LR](?=[\s._:-]|\d|$)/g,"$1").replace(/^[lr](?=[A-Z])/,"").replace(/[._-][lr]$/i,"")).replace(/^(mixamorig\d*|jbip[lrc]?|bip0?1?|def|org|ccbase|armature)/,"");
+ const R=[["hips",/^(hips?|pelvis)$/],["spine",/^spine0?1?$/],["chest",/chest|^spine0?2$/],["neck",/^neck/],["head",/^head(bone)?$/],
+  ["thigh",/thigh|upleg|upperleg|legupper|femur/],["shin",/shin|calf|lowerleg|leglower|^leg$|knee/],["foot",/foot|ankle/],["toes",/toe/],
+  ["upperArm",/upperarm|armupper|^arm$/],["forearm",/forearm|lowerarm|armlower|elbow/],["hand",/^hand$|wrist$/]];
+ const out={};for(const b of bones){const sd=side(b.name),c=core(b.name);
+  for(const [part,re] of R){if(!re.test(c))continue;const k=["hips","spine","chest","neck","head"].includes(part)?part:sd?part+sd:null;if(k&&!out[k])out[k]=b;break}}
+ const tl=bones.filter(b=>/^tail/.test(boneKey(b.name)));if(tl.length)out.tail=tl;return out}
+function mdlRig(bones){const byKey=new Map();for(const b of bones){const k=boneKey(b.name);if(!byKey.has(k))byKey.set(k,b)}
+ for(const P of MPRESETS)if(P.need.every(k=>byKey.has(k))){const out={};
+  for(const [part,k] of Object.entries(P.map)){if(Array.isArray(k)){const l=k.map(x=>byKey.get(x)).filter(Boolean);if(l.length)out[part]=l}else if(byKey.has(k))out[part]=byKey.get(k)}
+  return{preset:P,map:out}}
+ return{preset:null,map:mdlGuess(bones)}}
+
+const GLB_H=150;   // a model is shown this tall (ears included), about the toy's height
+const GLBU={};     // its uniforms, shared by every piece and pass: each container's surface and flatness
+function glbBake(gltf,T,name,bytes){const root=gltf.scene;root.updateMatrixWorld(true);
+ const meshes=[],bones=[],seen=new Set();
+ root.traverse(o=>{if(o.isMesh&&o.geometry&&o.geometry.attributes.position){meshes.push(o);if(o.isSkinnedMesh)for(const b of o.skeleton.bones)if(!seen.has(b)){seen.add(b);bones.push(b)}}});
+ if(!meshes.length)throw{user:"\""+name+"\" has no mesh in it, so there is nothing to show."};
+ const rig=bones.length?mdlRig(bones):null,map=rig?rig.map:{};
+ // 1. every vertex where the rest pose puts it, in the file's world (skinned meshes through their bones)
+ const raw=[];let lo=[1e9,1e9,1e9],hi=[-1e9,-1e9,-1e9];
+ for(const o of meshes){const g=o.geometry,pos=g.attributes.position,nor=g.attributes.normal,n=pos.count,P=new Float32Array(n*3),N=new Float32Array(n*3);
+  const v=new T.Vector3(),w=new T.Vector3(),nm=new T.Matrix3().getNormalMatrix(o.matrixWorld);
+  for(let i=0;i<n;i++){v.fromBufferAttribute(pos,i);
+   if(o.isSkinnedMesh){w.copy(v);if(nor){const t=new T.Vector3().fromBufferAttribute(nor,i);w.addScaledVector(t,1e-3)}
+    o.applyBoneTransform(i,v);v.applyMatrix4(o.matrixWorld);o.applyBoneTransform(i,w);w.applyMatrix4(o.matrixWorld);w.sub(v).normalize()}
+   else{v.applyMatrix4(o.matrixWorld);if(nor)w.fromBufferAttribute(nor,i).applyMatrix3(nm).normalize();else w.set(0,1,0)}
+   P[i*3]=v.x;P[i*3+1]=v.y;P[i*3+2]=v.z;N[i*3]=w.x;N[i*3+1]=w.y;N[i*3+2]=w.z;
+   for(let k=0;k<3;k++){const x=P[i*3+k];if(x<lo[k])lo[k]=x;if(x>hi[k])hi[k]=x}}
+  raw.push({o,P,N,n})}
+ // 2. into the lab's space: GLB_H tall, standing on y = 0, centred under the hips, facing +z (if the tail points
+ //    forwards, the model faced the other way: turned round)
+ const k=GLB_H/Math.max(1e-9,hi[1]-lo[1]),bw=b=>b.getWorldPosition(new T.Vector3());
+ const c0=map.hips?bw(map.hips):new T.Vector3((lo[0]+hi[0])/2,0,(lo[2]+hi[2])/2);
+ let flip=1;if(map.hips&&map.tail&&map.tail.length){const tz=bw(map.tail[map.tail.length-1]).z-c0.z;if(tz>0)flip=-1}
+ const ms=(x,y,z)=>[(x-c0.x)*k*flip,(y-lo[1])*k,(z-c0.z)*k*flip],mb=b=>{const p=bw(b);return ms(p.x,p.y,p.z)};
+ // 3. which container each bone belongs to: everything from the neck up is the head, from each upper arm / thigh
+ //    down is that limb, the tail is the tail, the rest is the body
+ const roots=new Map();const put=(b,m)=>{if(b&&!roots.has(b))roots.set(b,m)};
+ put(map.neck||map.head,1);put(map.upperArmL,2);put(map.upperArmR,3);put(map.thighL,4);put(map.thighR,5);if(map.tail)put(map.tail[0],6);
+ const boneC=new Map();for(const b of bones){let m=0;for(let x=b;x&&x.isBone;x=x.parent)if(roots.has(x)){m=roots.get(x);break}boneC.set(b,m)}
+ const headCore=new Set([map.head,map.jaw].filter(Boolean));
+ const pieces=[],byC=[[],[],[],[],[],[],[]],core=[];
+ for(const r of raw){const o=r.o,g=o.geometry,n=r.n,P=new Float32Array(n*3),N=new Float32Array(n*3),cid=new Float32Array(n),dom=new Array(n);
+  const si=g.attributes.skinIndex,sw=g.attributes.skinWeight;
+  for(let i=0;i<n;i++){const p=ms(r.P[i*3],r.P[i*3+1],r.P[i*3+2]);P[i*3]=p[0];P[i*3+1]=p[1];P[i*3+2]=p[2];N[i*3]=r.N[i*3]*flip;N[i*3+1]=r.N[i*3+1];N[i*3+2]=r.N[i*3+2]*flip;
+   let m=0,b=null;if(o.isSkinnedMesh&&si&&sw){let bw0=-1;for(let j=0;j<4;j++){const wt=sw.getComponent(i,j);if(wt>bw0){bw0=wt;b=o.skeleton.bones[si.getComponent(i,j)]}}m=b?boneC.get(b)||0:0}
+   cid[i]=m;dom[i]=b;if(i%2===0){byC[m].push(p);if(m===1&&headCore.has(b))core.push(p)}}
+  pieces.push({o,P,N,cid,n,name:o.name||("piece "+(pieces.length+1)),mat:[].concat(o.material)[0],shown:true})}
+ // 4. the inside shape: per container, points along its bones joined by stretches (segs; a chain, which may branch),
+ //    plus end points found from the mesh
+ const J=b=>b?mb(b):null,dist=(a,b)=>Math.hypot(a[0]-b[0],a[1]-b[1],a[2]-b[2]);
+ const cen=L=>{const c=[0,0,0];for(const p of L)for(let i=0;i<3;i++)c[i]+=p[i]/L.length;return c};
+ const far=(L,o,d)=>{let best=null,bv=-1e9;for(const p of L){const v=dot(sub(p,o),d);if(v>bv){bv=v;best=p}}return best};
+ const lerp=(a,b,t)=>[a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t,a[2]+(b[2]-a[2])*t];
+ const tidy=L=>{const out=[];for(const p of L)if(p&&(!out.length||dist(out[out.length-1],p)>2))out.push(p);return out};
+ const chainOf=L=>{const pts=tidy(L);return{pts,segs:pts.slice(1).map((_,i)=>[i,i+1])}};
+ const parts=[],fitFrom=[];   // fitFrom: the vertices a container's radii are fitted to (the head: skull and jaw only)
+ {const hp=J(map.hips),low=hp?byC[0].filter(p=>p[1]<hp[1]):[];
+  parts[0]=chainOf([low.length>20?cen(low):null,hp,J(map.spine),J(map.chest),J(map.chest2),J(map.neck)])}
+ if(byC[1].length){const L=core.length>20?core:byC[1],Hc=cen(L),Hm=far(L,Hc,[0,0,1]),Ht=far(L,Hc,[0,1,0]);
+  const P=chainOf([J(map.neck),J(map.head),Hc,Hm?lerp(Hc,Hm,0.75):null]);
+  if(Ht&&dist(Ht,Hc)>3){const ic=P.pts.findIndex(q=>q===Hc);if(ic>=0){P.pts.push(lerp(Hc,Ht,0.7));P.segs.push([ic,P.pts.length-1])}}   // the top of the skull
+  parts[1]=P;fitFrom[1]=L}
+ for(const [m,sd] of [[2,"L"],[3,"R"]]){const a=J(map["upperArm"+sd]),f=J(map["forearm"+sd]),h=J(map["hand"+sd]);if(!a||!h||!byC[m].length)continue;
+  const tip=far(byC[m],h,norm(sub(h,f||a)));parts[m]=chainOf([a,f,h,tip?lerp(h,tip,0.8):null])}
+ for(const [m,sd] of [[4,"L"],[5,"R"]]){const a=J(map["thigh"+sd]),sh=J(map["shin"+sd]),ft=J(map["foot"+sd]),to=J(map["toes"+sd]);if(!a||!ft||!byC[m].length)continue;
+  const low=byC[m].filter(p=>p[1]<ft[1]+0.25*Math.max(1,(sh||a)[1]-ft[1])),tip=low.length?far(low,ft,[0,0,1]):null;parts[m]=chainOf([a,sh,ft,to,tip?lerp(ft,tip,0.85):null])}
+ if(map.tail&&byC[6].length){const L=map.tail.map(J),d=L.length>1?norm(sub(L[L.length-1],L[L.length-2])):[0,0,-1],tip=far(byC[6],L[L.length-1],d);parts[6]=chainOf([...L,tip?lerp(L[L.length-1],tip,0.85):null])}
+ if(!parts[0]||parts[0].pts.length<2)parts[0]=chainOf([[0,GLB_H*0.3,0],[0,GLB_H*0.7,0]]);   // no rig: one upright tube through the middle
+ const ok=m=>parts[m]&&parts[m].segs.length>0;
+ // 5. radii: for each stretch, the middle distance from it to its container's skin; a point takes the mean of its stretches
+ const near=(P,p)=>{let bd=1e9,bj=0,bt=0;for(let j=0;j<P.segs.length;j++){const a=P.pts[P.segs[j][0]],ab=sub(P.pts[P.segs[j][1]],a),L2=Math.max(1e-9,dot(ab,ab)),t=clamp(dot(sub(p,a),ab)/L2,0,1),d=dist(p,add(a,mul(ab,t)));if(d<bd){bd=d;bj=j;bt=t}}return[bd,bj,bt]};
+ const radii=[];
+ for(let m=0;m<7;m++){if(!ok(m))continue;const P=parts[m],bins=P.segs.map(()=>[]);
+  for(const p of fitFrom[m]||byC[m]){const [d,j,t]=near(P,p);if(t>0.02&&t<0.98)bins[j].push(d)}
+  // the head's skull and jaw also hold the mouth and eye sockets, nearer the middle: a higher share is taken there
+  const pq=m===1?0.8:0.6,seg=bins.map(b=>{if(b.length<8)return NaN;b.sort((x,y)=>x-y);return b[Math.floor(b.length*pq)]});
+  const sum=P.pts.map(()=>0),cnt=P.pts.map(()=>0);P.segs.forEach(([a,b],j)=>{if(isFinite(seg[j])){sum[a]+=seg[j];cnt[a]++;sum[b]+=seg[j];cnt[b]++}});
+  let R=P.pts.map((_,i)=>cnt[i]?sum[i]/cnt[i]:NaN);const fb=seg.filter(isFinite);const avg=fb.length?fb.reduce((a,b)=>a+b)/fb.length:4;
+  radii[m]=R.map(r=>Math.max(SKIN+1,isFinite(r)?r:avg))}
+ const T2=[],Bl=[],Po=[];
+ for(let m=0;m<7;m++){if(!ok(m))continue;const P=parts[m],R=radii[m],m0=m?0:undefined;
+  P.pts.forEach((q,i)=>Bl.push({a:q,r:R[i],c:0,m:i===0&&m0!==undefined?m0:m}));
+  for(const [a,b] of P.segs)T2.push({a:P.pts[a],b:P.pts[b],ra:R[a],rb:R[b],c:0,m});
+  if(m0!==undefined)Po.push({a:m0,b:m,p:P.pts[0],r:R[0]-SKIN})}
+ // 6. each container's flattening directions: front to back (z) across its main direction, or side to side (x) when it
+ //    points front to back; widened across both
+ const axes=[];const across=(d,pref)=>{let t=sub(pref,mul(d,dot(pref,d)));if(Math.hypot(...t)<0.5){const o=pref[2]?[1,0,0]:[0,0,1];t=sub(o,mul(d,dot(o,d)))}return norm(t)};
+ for(let m=0;m<7;m++){if(!ok(m)){axes[m]={t:[0,0,1],e:[1,0,0],pref:[0,0,1]};continue}const Q=parts[m].pts,d=norm(sub(Q[parts[m].segs.length?parts[m].segs[0][0]:0]===Q[0]?Q[Math.min(Q.length-1,parts[m].segs[parts[m].segs.length-1][1])]:Q[1],Q[0]));
+  const pref=Math.abs(d[2])>0.7?[1,0,0]:[0,0,1],t=across(d,pref);axes[m]={t,e:norm(cross(d,t)),pref}}
+ // 7. per vertex, for drawing: the nearest point of its part's inside shape, and its own squash directions (across its
+ //    own stretch, so a muzzle along z goes flat side to side)
+ let tris=0;const X=[];
+ for(const pc of pieces){const n=pc.n,axp=new Float32Array(n*3),ft=new Float32Array(n*3),fe=new Float32Array(n*3);
+  for(let i=0;i<n;i++){let m=pc.cid[i];if(!ok(m)){m=0;pc.cid[i]=0}const P=parts[m],p=[pc.P[i*3],pc.P[i*3+1],pc.P[i*3+2]],[,j,t]=near(P,p);
+   const a=P.pts[P.segs[j][0]],b=P.pts[P.segs[j][1]],q=lerp(a,b,t),sd=norm(sub(b,a)),tt=across(sd,axes[m].pref),ee=norm(cross(sd,tt));
+   axp.set(q,i*3);ft.set(tt,i*3);fe.set(ee,i*3);if(i%97===0)X.push(p)}
+  pc.axp=axp;pc.ft=ft;pc.fe=fe;const g=pc.o.geometry;tris+=(g.index?g.index.count:n)/3}
+ // 8. one container per triangle, for the water. A triangle whose corners belong to different parts takes the part most
+ //    of its corners are in (the body when all three differ). The corners it shares with the other part are copied,
+ //    keeping their own squash (cid), so the skin stays closed and only the water seen through it changes (wid).
+ //    Before, the part was blended across such triangles, mixing a nearly full leg's surface with a nearly empty body's:
+ //    a hard band across the thighs (user's report, 2026-11-13)
+ for(const pc of pieces){const g=pc.o.geometry,n=pc.n,idx=g.index?g.index.array:null,nt=Math.floor((idx?idx.length:n)/3),uv=g.attributes.uv;
+  const tri=new Uint32Array(nt*3),extra=[],key=new Map(),cid=pc.cid;let nv=n;
+  for(let t=0;t<nt;t++){const v3=idx?[idx[t*3],idx[t*3+1],idx[t*3+2]]:[t*3,t*3+1,t*3+2],ca=cid[v3[0]],cb=cid[v3[1]],cc=cid[v3[2]];
+   const w=(ca===cb||ca===cc)?ca:cb===cc?cb:(ca===0||cb===0||cc===0)?0:ca;
+   for(let k=0;k<3;k++){const v=v3[k];let o=v;if(cid[v]!==w){const kk=v*8+w;o=key.get(kk);if(o===undefined){o=nv++;key.set(kk,o);extra.push(v,w)}}tri[t*3+k]=o}}
+  const cp=(src,sz)=>{const o=new Float32Array(nv*sz);o.set(src.subarray(0,n*sz));for(let e=0;e<extra.length;e+=2){const v=extra[e],d=n+e/2;for(let q=0;q<sz;q++)o[d*sz+q]=src[v*sz+q]}return o};
+  let uva=null;if(uv){uva=new Float32Array(n*2);for(let i=0;i<n;i++){uva[i*2]=uv.getX(i);uva[i*2+1]=uv.getY(i)}uva=cp(uva,2)}
+  const wid=new Float32Array(nv);wid.set(cid.subarray(0,n));for(let e=0;e<extra.length;e+=2)wid[n+e/2]=extra[e+1];
+  pc.P=cp(pc.P,3);pc.N=cp(pc.N,3);pc.axp=cp(pc.axp,3);pc.ft=cp(pc.ft,3);pc.fe=cp(pc.fe,3);pc.cid=cp(cid,1);pc.wid=wid;pc.uv=uva;pc.index=tri;pc.n=nv}
+ const chains=parts.map(P=>P?P.pts:null);
+ const bp=chains[0],belly=bp[Math.min(bp.length-1,1)];
+ DESC.glb={names:DESC.toy.names,first:DESC.toy.first,order:DESC.toy.order,rows:DESC.toy.rows,flat:[0,1,2,3,4,5,6],
+  valves:[{name:"belly button",m:0,p:[0,belly[1],(radii[0]?radii[0][1]:10)]},{name:"mouth",m:1,p:chains[1]?chains[1][chains[1].length-1]:[0,GLB_H*0.8,10]}]};
+ return{name,bytes,pieces,inside:{T:T2,Bl,Po,X},axes,chains,radii,rig:rig&&rig.preset?rig.preset.name:(bones.length?"guessed from the bone names":"no rig"),bones:bones.length,tris:Math.round(tris),flip}}
+// the shaders: the mesh, squashed per vertex, carrying its container's surface (looked up by container)
+// cid: the part a corner belongs to (its squash); wid: the part its triangle belongs to (its water and surface)
+const MESH_VS=`attribute float cid;attribute float wid;attribute vec3 axp;attribute vec3 ft;attribute vec3 fe;
+uniform float uShrink;uniform vec3 uCN[8];uniform vec3 uCC[8];uniform vec3 uCA[8];uniform vec2 uFW[8];
+varying vec3 vWn;varying vec3 vWck;varying vec3 vWa;varying vec3 vW;varying vec3 vN;varying vec2 vUv;varying float vWid;
+void main(){int i=int(cid+0.5),j=int(wid+0.5);vec2 f=uFW[i];vWid=wid;
+ vec3 q=position-normal*uShrink-axp;q+=ft*((f.y-1.)*dot(ft,q))+fe*((f.x-1.)*dot(fe,q));
+ vec3 n=normal+ft*((1./f.y-1.)*dot(ft,normal))+fe*((1./f.x-1.)*dot(fe,normal));
+ vec4 w=modelMatrix*vec4(axp+q,1.);vW=w.xyz;vN=normalize(mat3(modelMatrix)*n);vUv=uv;vWn=uCN[j];vWck=uCC[j];vWa=uCA[j];
+ gl_Position=projectionMatrix*viewMatrix*w;}`;
+const MSKIN_FS=`uniform vec3 uL;uniform float uAlpha;uniform float uBack;uniform sampler2D uMap;uniform float uHasMap;uniform vec3 uTint;varying vec3 vW;varying vec3 vN;varying vec2 vUv;
+void main(){vec3 base=uTint*mix(vec3(1.),texture2D(uMap,vUv).rgb,uHasMap);vec3 N=normalize(vN);vec3 V=normalize(cameraPosition-vW);if(dot(N,V)<0.)N=-N;
+ float fr=pow(1.-abs(dot(N,V)),2.2),lam=max(dot(N,uL),0.);
+ vec3 col=base*(0.6+0.4*lam);float sp=pow(max(dot(N,normalize(uL+V)),0.),70.)*(1.-uBack);
+ col=mix(col,base*0.8,uBack);col+=vec3(sp)*0.9;float a=mix(uAlpha,min(1.,uAlpha+0.42),fr);a=mix(a,uAlpha*0.5,uBack);a=max(a,sp*0.9);
+ gl_FragColor=vec4(col,a);}`;
+// "is that spot inside?" for a model. The surface point must lie behind the nearest front wall of the water's skin (the
+// inner copy) on this pixel, found by a pass before the picture (glbFront: distance from the camera and which part).
+// That is the model's real skin, so the surface fills each part's actual cross-section. Before, it was trimmed to the
+// hidden inside shape (tubes along the bones), which left gaps and straight edges seen from above (user's report,
+// 2026-11-13). Where another part's wall is nearest (a belly in front of a thigh), the inside shape is still used.
+// Without either, a full part's surface (at the top of its inside shape) was drawn in front of the skin from above.
+const GLB_SEG=64;
+const IN_MESH=`uniform vec4 uSA[${GLB_SEG}];uniform vec4 uSB[${GLB_SEG}];uniform vec2 uCS[8];uniform float uSIn;varying float vWid;
+uniform sampler2D uFront;uniform vec2 uRes;uniform float uFar;
+bool insideShape(vec3 X){int c=int(vWid+0.5);int st=int(uCS[c].x),n=int(uCS[c].y);
+ for(int i=0;i<24;i++){if(i>=n)break;vec4 A=uSA[st+i],B=uSB[st+i];vec3 ab=B.xyz-A.xyz;
+  float t=clamp(dot(X-A.xyz,ab)/max(dot(ab,ab),1e-6),0.,1.);vec3 q=X-A.xyz-ab*t;float r=mix(A.w,B.w,t)*uSIn+2.;if(dot(q,q)<=r*r)return true;}
+ return false;}
+bool inside(vec3 X){vec4 t=texture2D(uFront,gl_FragCoord.xy/uRes);
+ if(abs(floor(t.b*255.+.5)-floor(vWid+.5))>.5)return insideShape(X);
+ float fd=(floor(t.r*255.+.5)*256.+floor(t.g*255.+.5))/65535.*uFar;
+ return length(X-cameraPosition)>=fd-1.;}`;
+// the front-wall pass: distance from the camera (16 bits) and the part (wid), nearest front wall only
+const FRONT_FS=`uniform float uFar;varying vec3 vW;varying float vWid;
+void main(){float v=floor(clamp(length(vW-cameraPosition)/uFar,0.,1.)*65535.+.5);float r=floor(v/256.);
+ gl_FragColor=vec4(r/255.,(v-r*256.)/255.,floor(vWid+.5)/255.,1.);}`;
+// the drawing side: three.js objects for each piece, five passes each, like the tubes and balls
+function glbMeshes(M){const R=R3,T=R.T;if(!R.ok)return;
+ if(!GLBU.uCN){GLBU.uCN={value:Array.from({length:8},()=>new T.Vector3(0,1,0))};GLBU.uCC={value:Array.from({length:8},()=>new T.Vector3(-1e4,0,0))};
+  GLBU.uCA={value:Array.from({length:8},()=>new T.Vector3())};GLBU.uFW={value:Array.from({length:8},()=>new T.Vector2(1,1))};
+  GLBU.uSA={value:Array.from({length:GLB_SEG},()=>new T.Vector4())};GLBU.uSB={value:Array.from({length:GLB_SEG},()=>new T.Vector4())};
+  GLBU.uCS={value:Array.from({length:8},()=>new T.Vector2())};GLBU.uSIn={value:1.6};
+  GLBU.uFront={value:null};GLBU.uRes={value:new T.Vector2(1,1)};GLBU.uFar={value:3000}}
+ if(GLB3.grp){R.sc.remove(GLB3.grp);GLB3.grp.traverse(o=>{if(o.geometry)o.geometry.dispose();if(o.material)o.material.dispose()})}
+ const grp=new T.Group();grp.matrixAutoUpdate=false;const U=R.U;
+ const base={uCN:GLBU.uCN,uCC:GLBU.uCC,uCA:GLBU.uCA,uFW:GLBU.uFW,uSA:GLBU.uSA,uSB:GLBU.uSB,uCS:GLBU.uCS,uSIn:GLBU.uSIn,uFront:GLBU.uFront,uRes:GLBU.uRes,uFar:GLBU.uFar};
+ const wU=()=>Object.assign({uD2:U.uD2,uRip:U.uRip,uL:U.uL,uShallow:U.uShallow,uDeep:U.uDeep,uSurf:U.uSurf,uVP:U.uVP,uWave:U.uWave,uU1:U.uU1,uU2:U.uU2,uWO:U.uWO,uWv:U.uWv,uWA:U.uWA,uShrink:{value:SKIN}},base);
+ for(const pc of M.pieces){const g=new T.BufferGeometry(),og=pc.o.geometry;
+  g.setAttribute("position",new T.BufferAttribute(pc.P,3));g.setAttribute("normal",new T.BufferAttribute(pc.N,3));
+  if(pc.uv)g.setAttribute("uv",new T.BufferAttribute(pc.uv,2));g.setAttribute("cid",new T.BufferAttribute(pc.cid,1));g.setAttribute("wid",new T.BufferAttribute(pc.wid,1));
+  g.setAttribute("axp",new T.BufferAttribute(pc.axp,3));g.setAttribute("ft",new T.BufferAttribute(pc.ft,3));g.setAttribute("fe",new T.BufferAttribute(pc.fe,3));
+  g.setIndex(new T.BufferAttribute(pc.index,1));
+  // the lab's colours are taken as they are, so the texture is too (read as plain numbers, not converted)
+  const mt=pc.mat||{},map=mt.map||null;if(map){map.colorSpace=T.NoColorSpace;map.needsUpdate=true}
+  const tint=mt.color?new T.Vector3(mt.color.r,mt.color.g,mt.color.b):new T.Vector3(1,1,1);
+  const sU=back=>Object.assign({uL:U.uL,uAlpha:U.uAlpha,uBack:{value:back},uShrink:{value:0},uMap:{value:map},uHasMap:{value:map?1:0},uTint:{value:tint}},base);
+  const sMat=(o,back)=>new T.ShaderMaterial(Object.assign({vertexShader:MESH_VS,fragmentShader:MSKIN_FS,uniforms:sU(back),transparent:true},o));
+  const wMat=(fs,side)=>new T.ShaderMaterial({vertexShader:MESH_VS,fragmentShader:fs,uniforms:wU(),side,transparent:true,blending:T.NoBlending});
+  const add=(m,order)=>{const o=new T.Mesh(g,m);o.frustumCulled=false;o.renderOrder=order;o.matrixAutoUpdate=false;o.userData.pc=pc;grp.add(o)};
+  add(sMat({side:T.BackSide,depthWrite:false,stencilWrite:true,stencilRef:1,stencilFunc:T.NotEqualStencilFunc,stencilZPass:T.ReplaceStencilOp},1),10);
+  const pre=m=>{m.colorWrite=false;m.userData.wpre=true;return m};
+  add(pre(wMat(WATER_FRONT,T.FrontSide)),14);add(pre(wMat(WATER_BACK(IN_MESH),T.BackSide)),14);
+  add(wMat(WATER_FRONT,T.FrontSide),15);add(wMat(WATER_BACK(IN_MESH),T.BackSide),15);
+  add(sMat({side:T.FrontSide,colorWrite:false,depthWrite:true},0),20);
+  add(sMat({side:T.FrontSide,depthWrite:false,depthFunc:T.LessEqualDepth},0),30);
+  {const fo=new T.Mesh(g,new T.ShaderMaterial({vertexShader:MESH_VS,fragmentShader:FRONT_FS,uniforms:Object.assign({uShrink:{value:SKIN}},base),side:T.FrontSide}));
+   fo.frustumCulled=false;fo.matrixAutoUpdate=false;fo.userData.pc=pc;fo.layers.set(1);grp.add(fo)}}   // the front-wall pass (glbFront) only
+ R.sc.add(grp);GLB3.grp=grp;WALPHA=-1}   // the new passes get the water opacity's state on the next picture
+const GLB3={grp:null,rt:null};
+// the front-wall pass, before each picture of a model: the nearest front wall of the water's skin on every pixel, into a
+// picture of its own that the surface pass reads (IN_MESH)
+function glbFront(){const R=R3,T=R.T,rd=R.rd,sz=rd.getDrawingBufferSize(new T.Vector2());
+ if(!GLB3.rt||GLB3.rt.width!==sz.x||GLB3.rt.height!==sz.y){if(GLB3.rt)GLB3.rt.dispose();
+  GLB3.rt=new T.WebGLRenderTarget(sz.x,sz.y,{minFilter:T.NearestFilter,magFilter:T.NearestFilter,generateMipmaps:false,depthBuffer:true})}
+ GLBU.uFront.value=GLB3.rt.texture;GLBU.uRes.value.set(sz.x,sz.y);GLBU.uFar.value=R.cm.far;
+ const cc=rd.getClearColor(new T.Color()),ca=rd.getClearAlpha();
+ rd.setRenderTarget(GLB3.rt);rd.setClearColor(0xffffff,1);rd.clear(true,true,true);R.cm.layers.set(1);rd.render(R.sc,R.cm);
+ R.cm.layers.set(0);rd.setRenderTarget(null);rd.setClearColor(cc,ca)}
+// once a picture: each container's surface and flatness into the shared uniforms, and the model placed where he is
+function glbDraw(on){const g=GLB3.grp;if(!g)return;g.visible=!!on;if(!on||!XF)return;
+ const wv=WV.on?1:0;for(let i=0;i<8;i++){const C=CO[i];if(!C||!C.on){GLBU.uCC.value[i].set(-1e4,0,0);GLBU.uFW.value[i].set(1,1);continue}
+  // a full part has no surface to show: all of it is water (its inside shape's top is lower than the mesh round it)
+  const full=C.V>=0.995*C.full;GLBU.uCN.value[i].set(C.n[0],C.n[1],C.n[2]);GLBU.uCC.value[i].set(full?1e4:C.c,full?0:C.k,i?0:wv);GLBU.uCA.value[i].set(C.A[0],C.A[1],C.A[2]);GLBU.uFW.value[i].set(C.fw,C.fs)}
+ const o=XF([0,0,0]),x=sub(XF([1,0,0]),o),y=sub(XF([0,1,0]),o),z=sub(XF([0,0,1]),o);
+ g.matrix.set(x[0],y[0],z[0],o[0],x[1],y[1],z[1],o[1],x[2],y[2],z[2],o[2],0,0,0,1);g.updateMatrixWorld(true);
+ // each container's stretches of the inside shape, as they are now in the world, for the "inside?" check
+ {const by=[[],[],[],[],[],[],[],[]];if(TOY)for(const t of TOY.T)if(by[t.m])by[t.m].push(t);let k=0,fw=1;
+  for(let m=0;m<8;m++){const st=k;for(const t of by[m]){if(k>=GLB_SEG)break;GLBU.uSA.value[k].set(t.a[0],t.a[1],t.a[2],t.ra);GLBU.uSB.value[k].set(t.b[0],t.b[1],t.b[2],t.rb);k++}
+   GLBU.uCS.value[m].set(st,Math.min(24,k-st));if(CO[m])fw=Math.max(fw,CO[m].fw)}
+  GLBU.uSIn.value=1.35*fw}
+ for(const m of g.children)m.visible=m.userData.pc.shown&&(!m.material.userData.wpre||WALPHA<0.999)}
+// loading a .glb (as Mixmo does: three.js and its GLB reader from jsDelivr, the file checked by its first bytes)
+const GLTF_URL="https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/loaders/GLTFLoader.js/+esm";
+function glbMsg(t){$("glbMsg").textContent=t||""}
+async function glbLoad(buf,name){
+ try{const mb=buf.byteLength/1048576;glbMsg("Reading "+name+" ("+mb.toFixed(1)+" MB)...");
+  if(!R3.T){try{R3.T=await import(R3.url)}catch(e){throw{user:"Couldn't download three.js (offline or blocked), so the model can't be read. Everything else works as normal."}}}
+  if(!R3.GLTF){glbMsg("Downloading the GLB reader...");try{R3.GLTF=(await import(GLTF_URL)).GLTFLoader}catch(e){throw{user:"Couldn't download the GLB reader (offline or blocked). Everything else works as normal."}}}
+  {const h=new Uint8Array(buf,0,Math.min(4,buf.byteLength));if(String.fromCharCode(...h)!=="glTF")throw{user:"\""+name+"\" isn't a GLB file. In Blender, export with File > Export > glTF 2.0, format glTF Binary (.glb)."}}
+  glbMsg("Unpacking "+name+"...");
+  const ld=new R3.GLTF();let texBad=0;ld.register(p=>glbImages(p,R3.T,()=>texBad++));
+  const gltf=await new Promise((ok,no)=>ld.parse(buf,"",ok,no)).catch(e=>{throw{user:"This file couldn't be read as a GLB ("+String(e&&e.message||e).slice(0,120)+")."}});
+  glbMsg("Fitting the inside shape to "+name+"'s bones...");await new Promise(r=>setTimeout(r,30));
+  const M=glbBake(gltf,R3.T,name,buf.byteLength);GLBM=M;glbMeshes(M);
+  const b=document.querySelector('#shapeSeg button[data-v="glb"]');b.disabled=false;
+  if(S.shape==="glb"){buildLift();B.init=false;waveClear();flatUI()}else b.click();
+  glbMsg(name+": "+M.pieces.length+" piece"+(M.pieces.length===1?"":"s")+", "+M.tris.toLocaleString()+" triangles, "+M.bones+" bones ("+M.rig+"). Room inside: "+(ROOM/1000).toFixed(1)+" L."+
+   (R3.ok?"":" (No picture: the 3D view isn't running.)")+(texBad?" "+texBad+" of its pictures (textures) couldn't be read, so those parts are plain.":"")+" Not kept: reloading the page forgets it (nothing is uploaded).");
+  glbParts();$("glbDel").hidden=false}
+ catch(e){glbMsg(e&&e.user?e.user:"Something went wrong reading the model: "+String(e&&e.message||e).slice(0,160));if(!(e&&e.user))console.error(e)}}
+// The pictures (textures) packed in a GLB: three.js's reader fetches each one from a "blob:" address, which the
+// chat's file preview blocks (seen on the iPhone, 2026-11-13: "Couldn't load texture blob-request://..."). So each
+// picture is decoded here instead, and handed to the reader as a finished texture.
+function glbImages(parser,T,bad){const orig=parser.loadImageSource.bind(parser);
+ parser.loadImageSource=function(i,loader){const def=parser.json.images[i];if(!def||def.bufferView===undefined)return orig(i,loader);
+  if(parser.sourceCache[i]!==undefined)return parser.sourceCache[i].then(t=>t.clone());
+  // decoded straight from its bytes, with no address at all (GLB Texture Lab probe, iPhone, 2026-11-13: the chat's
+  // preview blocks "blob:" requests, and fetching a "data:" address fails there and in published artifacts too).
+  // createImageBitmap(Blob) works in every place tested; if it is missing, an <img> fed a "data:" address (which
+  // loads everywhere, unlike fetching one); the reader's own way is last
+  const pr=parser.getDependency("bufferView",def.bufferView).then(bv=>decode(new Blob([bv],{type:def.mimeType||"image/png"})))
+   .catch(()=>orig(i,loader))
+   .then(t=>{t.flipY=false;t.userData.mimeType=def.mimeType;return t}).catch(e=>{bad();throw e});
+  parser.sourceCache[i]=pr;return pr};
+ async function decode(blob){let img=null;
+  if(typeof createImageBitmap!=="undefined")try{img=await createImageBitmap(blob,{premultiplyAlpha:"none"})}catch(e){img=null}
+  if(!img)img=await new Promise((ok,no)=>{const fr=new FileReader();fr.onerror=()=>no(fr.error);
+   fr.onload=()=>{const im=new Image();im.onload=()=>ok(im);im.onerror=()=>no(new Error("image decode failed"));im.src=fr.result};fr.readAsDataURL(blob)});
+  const t=new T.Texture(img);t.needsUpdate=true;return t}
+ return{name:"pwlab_images"}}
+// Remove the model (as Mixmo's Remove): back to the toy if it was showing, and everything it used is freed
+function glbRemove(){if(!GLBM)return;const was=S.shape==="glb";
+ if(GLB3.grp){R3.sc.remove(GLB3.grp);const tex=new Set();GLB3.grp.traverse(o=>{if(o.material){const u=o.material.uniforms;if(u&&u.uMap&&u.uMap.value)tex.add(u.uMap.value);o.material.dispose()}});
+  const geos=new Set();GLB3.grp.traverse(o=>{if(o.geometry)geos.add(o.geometry)});for(const g of geos)g.dispose();for(const t of tex)t.dispose();GLB3.grp=null}
+ const name=GLBM.name;GLBM=null;delete DESC.glb;
+ const b=document.querySelector('#shapeSeg button[data-v="glb"]');if(was)document.querySelector('#shapeSeg button[data-v="toy"]').click();b.disabled=true;
+ $("glbParts").innerHTML="";$("glbDel").hidden=true;glbMsg(name+" removed.")}
+// the pieces the file is made of, each one shown or hidden (things inside a head show through a see-through skin)
+function glbParts(){const host=$("glbParts");host.innerHTML="";if(!GLBM)return;
+ for(const pc of GLBM.pieces){const d=document.createElement("div");d.className="row";
+  d.innerHTML='<span class="lbl" style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;font-weight:400">'+String(pc.name).replace(/[<&>"]/g,"")+(pc.mat&&pc.mat.name?" ("+String(pc.mat.name).replace(/[<&>"]/g,"")+")":"")+'</span><div class="seg" style="flex:0 0 170px"><button data-v="1">Shown</button><button data-v="0">Hidden</button></div>';
+  const show=()=>d.querySelectorAll("button").forEach(b=>b.classList.toggle("on",(b.dataset.v==="1")===pc.shown));
+  d.querySelectorAll("button").forEach(b=>b.onclick=()=>{pc.shown=b.dataset.v==="1";show()});show();host.appendChild(d)}}
+// ---------- the loop: fixed small steps for the motion and the springs, one picture per frame ----------
+const HSTEP=1/240;let last=performance.now(),accum=0,paused=false,RATE=1,frameN=0,TOY=null,fpsT=0,fpsN=0,FPS=0;
+let XF=null;
+function pose(){const loc=buildToy(S.shape,B.phase,B.amp),xf=makeXf();XF=xf;
+ {const o=xf([0,0,0]);FLX=norm(sub(xf([1,0,0]),o));FLZ=norm(sub(xf([0,0,1]),o));
+  const gx=S.shape==="glb"&&GLBM?GLBM.axes:null;for(let i=0;i<NC;i++){const C=CO[i],a=gx&&gx[i];C.ax=a?norm(sub(xf(a.e),o)):null;C.az=a?norm(sub(xf(a.t),o)):null}}   // his own sideways and front-to-back directions (for flattening)
+ TOY={T:loc.T.map(t=>({a:xf(t.a),b:xf(t.b),ra:t.ra,rb:t.rb,c:t.c,m:t.m})),Bl:loc.Bl.map(b=>({a:xf(b.a),r:b.r,c:b.c,m:b.m})),Po:loc.Po.map(p=>({a:p.a,b:p.b,r:p.r,p:xf(p.p)}))};ballsFrom(TOY.T,TOY.Bl)}
+function frame(t){requestAnimationFrame(frame);const real=Math.min(0.05,(t-last)/1000);last=t;let dt=0;
+ fpsN++;fpsT+=real;if(fpsT>=0.5){FPS=Math.round(fpsN/fpsT);fpsN=0;fpsT=0}
+ if(!paused){dt=real*RATE;gameStep(dt);accum+=dt;let n=0;while(accum>=HSTEP&&n<16){stepBody(HSTEP);waterStep(B,HSTEP);seqStep(HSTEP);W.rip+=HSTEP;accum-=HSTEP;n++}if(n===16)accum=0}
+ pose();levels(dt);
+ try{draw(TOY)}catch(e){if(R3.ok){R3.ok=false;console.error(e);msg3("The 3D view stopped ("+String(e&&e.message||e).slice(0,90)+"). The controls and numbers still work.")}}
+ if(frameN++%6===0)ui()}
+// the numbers in the view (and the buttons' lit state)
+let lastTxt="";
+function ui(){if(FLATSYNC){FLATSYNC=false;slSync("flat");slSync("fill");save()}
+ const n=W.n,tilt=Math.acos(clamp(n[1],-1,1))*180/Math.PI,g=v=>(v/G).toFixed(2);
+ const lvl=Math.abs(n[1])>0.1?(W.c-n[0]*W.A[0]-n[2]*W.A[2])/n[1]-Math.max(0,B.y+B.sh[1]):NaN;
+ const ro=$("readout");ro.hidden=S.readout==="off";
+ if(S.readout==="fps"){const t=FPS+" fps"+(S.shape==="glb"&&GLBM?"  ("+GLBM.tris.toLocaleString()+" tri x 5)":"");if(t!==lastTxt){lastTxt=t;ro.textContent=t}}
+ if(S.readout==="on"){const pc=i=>CO[i]?Math.round(100*CO[i].V/(CO[i].full||1))+"%":"-",lt=v=>(v/1000).toFixed(1),sg=v=>(v>=0?"+":"")+v.toFixed(1),t=FPS+" fps"+(seqLabel?"\ntest: "+seqLabel:"")+
+  "\ntilt   "+tilt.toFixed(1)+" deg"+
+  "\nlevel  "+(isFinite(lvl)?lvl.toFixed(1):"-")+
+  "\nbowl   "+sg(W.k*400)+" at the wall"+
+  (WV.on?"\nwaves  "+WV.amp.toFixed(1)+" high":"")+
+  "\naccel  "+g(Math.hypot(B.acc[0],B.acc[2]))+" side "+g(B.acc[1])+" up"+
+  "\nfelt g "+W.geff.toFixed(2)+"  "+W.hz.toFixed(2)+"/s"+
+  "\nfull:  "+desc().rows.map(row=>row.map(([nm,...ix])=>nm+" "+ix.map(pc).join(" ")).join(" ")).join("\n ")+(shared()?"":"  (own)")+
+  "\nwater  "+lt(waterNow())+" of "+lt(ROOM)+" L"+
+  "\nair    "+lt(AIR)+" L"+(SPILL>0?"  spilt "+lt(SPILL):"")+
+  (S.shape==="glb"&&GLBM?"\nmodel  "+GLBM.tris.toLocaleString()+" tri x 5 passes":"")+
+  (flatOn()?"\nflat   "+CO[desc().flat[0]].fl.toFixed(2)+"  "+CO[desc().flat[0]].fw.toFixed(2)+"x wide "+CO[desc().flat[0]].fs.toFixed(2)+"x thick"+
+   "\nroom   "+lt(curRoom())+" L now, slack "+Math.round(100*(1-curRoom()/Math.max(1,ROOM)))+"%":"");
+  if(t!==lastTxt){lastTxt=t;ro.textContent=t}}
+ const on=(el,v)=>{if(el.classList.contains("on")!==v)el.classList.toggle("on",v)};
+ document.querySelectorAll("#speedSeg button").forEach(b=>on(b,+b.dataset.s===B.speedT));
+ on($("bSpin"),B.spin);on($("bFlip"),B.up);on($("bTest"),!!seq);
+ const tb=$("bTest"),tt=seq?"Stop test":"Test run";if(tb.textContent!==tt)tb.textContent=tt}
+
+// =====================================================================
+// Controls
+// =====================================================================
+function segInit(id,key,after){const host=$(id);const show=()=>host.querySelectorAll("button").forEach(b=>b.classList.toggle("on",b.dataset.v===S[key]));
+ host.querySelectorAll("button").forEach(b=>b.onclick=()=>{S[key]=b.dataset.v;save();show();if(after)after()});show()}
+// GLB model (P3-0): iPhone / iPad grey out .glb in the file picker, so there every file can be picked and the file is checked by its first bytes
+if(/iPad|iPhone|iPod/.test(navigator.userAgent)||(navigator.platform==="MacIntel"&&navigator.maxTouchPoints>1))$("glbFile").removeAttribute("accept");
+$("glbPick").onclick=()=>{const f=$("glbFile");f.value="";f.click()};
+$("glbDel").onclick=()=>glbRemove();
+$("glbFile").onchange=async()=>{const f=$("glbFile").files[0];if(!f)return;$("glbPick").disabled=true;try{await glbLoad(await f.arrayBuffer(),f.name)}finally{$("glbPick").disabled=false}};
+segInit("shapeSeg","shape",()=>{buildLift();B.init=false;waveClear();if(typeof flatUI==="function")flatUI()});
+segInit("roSeg","readout");
+const SL={};   // the slider inputs by setting, so code can move a thumb (a limit was reached)
+function sliders(host,list){for(const [k,label,mn,mx,st,lim] of list){const d=document.createElement("div");d.className="sl";
+  d.innerHTML='<label>'+label+'</label><button class="rs" type="button" aria-label="Reset to default" title="Reset to default ('+DEF[k]+')">&#8634;</button><input type="range" min="'+mn+'" max="'+mx+'" step="'+st+'" value="'+S[k]+'"><span class="val">'+S[k]+'</span>';
+  const r=d.querySelector("input"),v=d.querySelector(".val"),mark=()=>d.classList.toggle("changed",Math.abs(+r.value-DEF[k])>1e-9);
+  // lim: how far this setting may go right now (Flat and Water hold each other back); the thumb stops there
+  r.oninput=()=>{let x=+r.value;if(lim){const m=lim(x);if(m<x){x=m;r.value=x}}S[k]=x;v.textContent=(+x.toFixed(3)).toString();mark();save()};d.querySelector(".rs").onclick=()=>{r.value=DEF[k];r.oninput()};mark();SL[k]={r,v,mark,d};$(host).appendChild(d)}}
+// a limit moved a setting from code: show it on its slider
+function slSync(k){const q=SL[k];if(!q)return;q.r.value=S[k];q.v.textContent=(+S[k].toFixed(3)).toString();q.mark()}
+sliders("slWater",[["fill","Water amount (share of his room; 0 = empty, 1 = full)",0,1,0.01,()=>fillMax()]]);
+// Flat (P2-b): how far the water lets him go is worked out from the water in each flat part now (with several parts,
+// the slider goes as far as the flattest one can; each part then stops where its own water holds it open)
+sliders("slFlat",[["flat","Flat (0 = round, 1 = flat)",0,1,0.01,()=>flatOn()?Math.max(...desc().flat.map(i=>flatMax(CO[i]))):0]]);
+function flatUI(){const on=flatOn(),q=SL.flat;q.r.disabled=!on;q.d.style.opacity=on?"":"0.45";
+ $("flatNote").textContent=on?"":shared()?"Flat needs Water in: Each limb its own (Water: tuning).":"Flat works on the Capsule and on a GLB model for now (Look > Body). The toy goes soft and flat in a later step.";
+ if(!on&&S.flat!==0){S.flat=0;slSync("flat");save()}}
+sliders("slWave",[["wave","Surface waves (x; 0 = flat sheet)",0,2,0.1]]);
+sliders("slR",[["zeta","Damping (low = sloshes for longer)",0.05,0.6,0.01],["slosh","Slosh strength (x)",0,2,0.05],["climb","Wall climb in spins (x)",0,3,0.1],["surge","Landing surge (x)",0,3,0.1],["flow","Flow through the joints (x; 0 = sealed limbs)",0,3,0.1]]);
+segInit("limbSeg","limbs",()=>{waveClear();flatUI()});flatUI();
+sliders("slLook",[["alpha","Skin opacity",0.15,0.9,0.01],["wa","Water opacity (1 = solid)",0.2,1,0.01]]);
+for(const [id,k] of [["cSkin","skin"],["cAccent","accent"],["cWater","water"]]){$(id).value=S[k];$(id).oninput=()=>{S[k]=$(id).value;save()}}
+// moves (pressing one by hand ends a test run)
+document.querySelectorAll("#speedSeg button").forEach(b=>b.onclick=()=>{seqStop();setSpeed(+b.dataset.s)});
+$("bSpin").onclick=()=>{seqStop();B.spin=!B.spin;if(B.spin)B.headT=null};
+$("bFlip").onclick=()=>{seqStop();flip()};
+$("bL").onclick=()=>{seqStop();turn(1)};$("bR").onclick=()=>{seqStop();turn(-1)};
+$("bJump").onclick=()=>{seqStop();jump(1)};$("bDrop").onclick=()=>{seqStop();drop()};
+$("bTest").onclick=()=>{if(seq){seqStop();setSpeed(0);B.spin=false;return}if(paused)$("pause").onclick();B.spin=false;setSpeed(0);if(B.up)flip();seq={t:0,i:0}};
+$("pause").onclick=()=>{paused=!paused;$("pause").textContent=paused?"Play":"Pause";$("pause").classList.toggle("on",paused)};
+document.querySelectorAll("#vTop [data-r]").forEach(b=>b.onclick=()=>{RATE=+b.dataset.r;document.querySelectorAll("#vTop [data-r]").forEach(x=>x.classList.toggle("on",x===b))});
+addEventListener("keydown",e=>{if(e.code!=="Space")return;const t=e.target;if(t&&(t.tagName==="INPUT"&&t.type!=="range"||t.tagName==="TEXTAREA"))return;e.preventDefault();if(!e.repeat)$("pause").onclick()});
+// one-finger drag: turn the camera, or grab him and shake
+let dragMode="camera";
+function hintUI(){const fine=matchMedia("(pointer:fine)").matches;
+ document.documentElement.classList.toggle("fine",fine);
+ $("hint").textContent=dragMode==="shake"?"Drag to throw him about; let go and he springs back.":S.mode==="game"&&!fine?"left half: joystick - right half: orbit (2 fingers: zoom & pan) - double-tap: reset":fine?"drag: orbit - wheel: zoom - right-drag: pan - double-click: reset":"1 finger: orbit - 2 fingers: zoom & pan - double-tap: reset";
+ $("dragBtn").textContent=dragMode==="shake"?"Drag: shake him":"Drag: camera";$("dragBtn").classList.toggle("on",dragMode==="shake")}
+$("dragBtn").onclick=()=>{dragMode=dragMode==="shake"?"camera":"shake";hintUI()};hintUI();
+const view=$("view"),ptrs=new Map();let gest=null,lastTap=0;
+const camAxes=()=>{const cp=Math.cos(cam.pitch),f=[-Math.sin(cam.yaw)*cp,-Math.sin(cam.pitch),-Math.cos(cam.yaw)*cp],r=norm(cross(f,[0,1,0])),u=cross(r,f);return{r,u}};
+const pxWorld=()=>2*cam.dist*Math.tan(cam.fov*Math.PI/360)/Math.max(1,view.clientHeight);
+view.addEventListener("pointerdown",e=>{if(e.target.closest("button"))return;if(ptrs.size>=2)return;   // a stray third finger is ignored
+ try{view.setPointerCapture(e.pointerId)}catch(_){}ptrs.set(e.pointerId,{x:e.clientX,y:e.clientY,x0:e.clientX,y0:e.clientY,t:performance.now()});
+ if(e.pointerType==="mouse"&&(e.button===1||e.button===2||e.shiftKey)){e.preventDefault();gest="pan";return}
+ if(ptrs.size===1&&!gest){gest=dragMode==="shake"?"shake":"orbit";if(gest==="shake"){seqStop();B.grab={tgt:[...B.sh]}}}
+ else if(ptrs.size===2){B.grab=null;const [a,b]=[...ptrs.values()];gest={d:Math.hypot(a.x-b.x,a.y-b.y)||1,dist:cam.dist,mx:(a.x+b.x)/2,my:(a.y+b.y)/2}}});
+view.addEventListener("pointermove",e=>{const p=ptrs.get(e.pointerId);if(!p)return;const dx=e.clientX-p.x,dy=e.clientY-p.y;p.x=e.clientX;p.y=e.clientY;
+ if(gest==="orbit"){cam.yaw-=dx*0.01;cam.pitch=clamp(cam.pitch+dy*0.008,-0.25,1.45)}
+ else if(gest==="pan"){const {r,u}=camAxes(),k=pxWorld();cam.tx-=r[0]*dx*k-u[0]*dy*k;cam.ty-=r[1]*dx*k-u[1]*dy*k;cam.tz-=r[2]*dx*k-u[2]*dy*k}
+ else if(gest==="shake"&&B.grab){const {r,u}=camAxes(),k=pxWorld(),g=B.grab.tgt;for(let i=0;i<3;i++)g[i]+=r[i]*dx*k-u[i]*dy*k;
+  const m=Math.hypot(g[0],g[1],g[2]);if(m>170)for(let i=0;i<3;i++)g[i]*=170/m}
+ else if(gest&&gest.d&&ptrs.size===2){const [a,b]=[...ptrs.values()],d=Math.hypot(a.x-b.x,a.y-b.y)||1;cam.dist=clamp(gest.dist*gest.d/d,170,1300);
+  const mx=(a.x+b.x)/2,my=(a.y+b.y)/2,{r,u}=camAxes(),k=pxWorld(),ddx=mx-gest.mx,ddy=my-gest.my;gest.mx=mx;gest.my=my;
+  cam.tx-=r[0]*ddx*k-u[0]*ddy*k;cam.ty-=r[1]*ddx*k-u[1]*ddy*k;cam.tz-=r[2]*ddx*k-u[2]*ddy*k}});
+const pUp=e=>{const p=ptrs.get(e.pointerId);if(!p)return;ptrs.delete(e.pointerId);
+ if(gest==="shake")B.grab=null;
+ if(gest==="orbit"&&e.type==="pointerup"&&e.pointerType!=="mouse"&&Math.hypot(e.clientX-p.x0,e.clientY-p.y0)<8&&performance.now()-p.t<300){const now=performance.now();if(now-lastTap<350){camReset();lastTap=0}else lastTap=now}
+ if(ptrs.size===0)gest=null;else if(gest&&gest.d)gest="done"};   // one finger of a pinch lifted: wait for the other, don't start an orbit
+view.addEventListener("pointerup",pUp);view.addEventListener("pointercancel",pUp);
+view.addEventListener("wheel",e=>{e.preventDefault();const d=e.deltaMode===1?e.deltaY*33:e.deltaY;cam.dist=clamp(cam.dist*Math.exp(d*(e.ctrlKey?0.01:0.0015)),170,1300)},{passive:false});
+view.addEventListener("contextmenu",e=>e.preventDefault());view.addEventListener("dblclick",e=>{if(!e.target.closest("button"))camReset()});
+// split-pane divider (position remembered)
+(function(){const app=$("app"),top=$("top"),sp=$("split");let drag=false,pct=68;
+ const set=p=>{top.style.height=top.style.maxHeight=p+"%"};
+ try{const s=parseFloat(localStorage.getItem("pwlabSplit"));if(s>=15&&s<=85)pct=s}catch(e){}set(pct);
+ sp.addEventListener("pointerdown",e=>{drag=true;sp.classList.add("dragging");try{sp.setPointerCapture(e.pointerId)}catch(_){}});
+ sp.addEventListener("pointermove",e=>{if(!drag)return;const r=app.getBoundingClientRect();pct=clamp((e.clientY-r.top)/r.height*100,15,85);set(pct)});
+ const end=()=>{if(!drag)return;drag=false;sp.classList.remove("dragging");try{localStorage.setItem("pwlabSplit",pct)}catch(e){}};
+ sp.addEventListener("pointerup",end);sp.addEventListener("pointercancel",end)})();
+// tap or drag anywhere on a slider track (iOS only drags the thumb by itself)
+(function(){let st=null;
+ const setFrom=(r,x)=>{const b=r.getBoundingClientRect(),pad=14,f=clamp((x-b.left-pad)/(b.width-pad*2),0,1),mn=+r.min,mx=+r.max,s=+r.step||1;
+  r.value=Math.round((mn+f*(mx-mn))/s)*s;r.dispatchEvent(new Event("input",{bubbles:true}))};
+ document.addEventListener("pointerdown",e=>{const r=e.target;if(r.tagName==="INPUT"&&r.type==="range")st={r,x:e.clientX,y:e.clientY,active:false}},true);
+ document.addEventListener("pointermove",e=>{if(!st)return;const dx=e.clientX-st.x,dy=e.clientY-st.y;if(!st.active&&Math.abs(dx)>6&&Math.abs(dx)>Math.abs(dy))st.active=true;if(st.active)setFrom(st.r,e.clientX)},true);
+ document.addEventListener("pointerup",e=>{if(!st)return;if(!st.active&&Math.hypot(e.clientX-st.x,e.clientY-st.y)<8)setFrom(st.r,e.clientX);st=null},true);
+ document.addEventListener("pointercancel",()=>{st=null},true)})();
+// start fresh (in-page confirmation, no browser dialogs)
+$("freshGo").onclick=()=>{$("freshAsk").hidden=false;$("freshGo").hidden=true};
+$("freshNo").onclick=()=>{$("freshAsk").hidden=true;$("freshGo").hidden=false};
+$("freshYes").onclick=()=>{try{for(let i=localStorage.length-1;i>=0;i--){const k=localStorage.key(i);if(/^pwlab/.test(k||""))localStorage.removeItem(k)}}catch(e){}
+ try{location.reload()}catch(e){$("freshAsk").querySelector("p").textContent="Cleared. Close and reopen the page to start fresh."}};
+
+// =====================================================================
+// Game mode (from Mixmo): steer him with the keys or a floating joystick. Directions are as seen from the camera
+// (up = away from it). WASD = run, Shift = walk, arrow keys = walk. The test buttons are hidden; Jump, Drop and Flip stay.
+// =====================================================================
+const game=()=>S.mode==="game";
+const GKEYS=new Set(),GSPRINT=new Set(["KeyW","KeyA","KeyS","KeyD"]),GWALK=new Set(["ArrowUp","ArrowDown","ArrowLeft","ArrowRight"]);
+const SPD={idle:0,walk:62,run:175};
+// turn control per situation: running turns wider and a bit faster than walking; both ease in and out (a sudden change of
+// turn rate would be a sudden shove on the water); the about-turn and the spin turn harder
+const TR_WALK={gain:2.5,acc:7,max:2.2},TR_RUN={gain:2.5,acc:7,max:3.0},TR_REV={gain:5,acc:16,max:4.5};
+const wrapA=a=>Math.atan2(Math.sin(a),Math.cos(a));
+const typingIn=t=>t&&(t.tagName==="INPUT"&&!/^(range|checkbox|radio|button)$/.test(t.type)||t.tagName==="TEXTAREA"||t.tagName==="SELECT"||t.isContentEditable);
+const unpause=()=>{if(paused)$("pause").onclick()};
+addEventListener("keydown",e=>{if(!game()||typingIn(e.target)||e.metaKey||e.altKey||e.ctrlKey)return;
+ const shift=e.code==="ShiftLeft"||e.code==="ShiftRight";if(!(GSPRINT.has(e.code)||GWALK.has(e.code)||shift))return;
+ const t=e.target;if(GWALK.has(e.code)&&t&&t.tagName==="INPUT"&&t.type==="range")return;   // a focused slider keeps its arrow keys
+ GKEYS.add(e.code);e.preventDefault();seqStop();unpause()});
+addEventListener("keyup",e=>{GKEYS.delete(e.code)});
+addEventListener("blur",()=>GKEYS.clear());
+document.addEventListener("visibilitychange",()=>{if(document.hidden)GKEYS.clear()});
+// ---- touch control area: the left half of the view (touch layout, Game only). A joystick appears where the thumb lands;
+// the "Tap and drag here to move." box fades after the first touch and comes back when the page is reloaded ----
+const STICK={x:0,y:0,on:false,id:null,ang:null,turn:0,last:0,cx:0,cy:0};
+const stickZone=$("stickZone"),stickEl=$("stick"),knobEl=$("stickKnob"),STICK_R=48;   // STICK_R: how far the knob travels from the centre (px)
+function stickRelease(){STICK.id=null;STICK.on=false;STICK.x=STICK.y=0;STICK.ang=null;STICK.turn=0;knobEl.style.transform="";stickEl.classList.remove("show")}
+{const stop=e=>e.stopPropagation();   // the view mustn't orbit, reset or shake for joystick touches
+ for(const ev of ["pointerdown","pointermove","pointerup","pointercancel","click","dblclick","wheel","contextmenu"])stickZone.addEventListener(ev,stop);
+ const set=e=>{let dx=e.clientX-STICK.cx,dy=e.clientY-STICK.cy;const L=Math.hypot(dx,dy);
+  if(L>STICK_R){dx*=STICK_R/L;dy*=STICK_R/L}knobEl.style.transform=`translate(${dx}px,${dy}px)`;STICK.x=dx/STICK_R;STICK.y=-dy/STICK_R;
+  // spinning the stick round: add up how far the knob has gone round the centre. Forgiving, because thumb circles
+  // wobble: it counts from 30% out, and a short dip towards the centre (under 0.4 s) keeps the count
+  const m=Math.hypot(STICK.x,STICK.y),now=performance.now();
+  if(m>0.3){const a=Math.atan2(STICK.y,STICK.x);if(STICK.ang!==null){let d=wrapA(a-STICK.ang);
+    if(Math.sign(d)!==Math.sign(STICK.turn)&&Math.abs(STICK.turn)>0.5)STICK.turn*=0.3;STICK.turn+=d}STICK.ang=a;STICK.last=now}
+  else{STICK.ang=null;if(now-STICK.last>400)STICK.turn=0}};
+ stickZone.addEventListener("pointerdown",e=>{if(STICK.id!==null||!game())return;STICK.id=e.pointerId;STICK.on=true;try{stickZone.setPointerCapture(e.pointerId)}catch(_){}
+  stickZone.classList.remove("fresh");const r=stickZone.getBoundingClientRect();STICK.cx=e.clientX;STICK.cy=e.clientY;
+  stickEl.style.left=(e.clientX-r.left)+"px";stickEl.style.top=(e.clientY-r.top)+"px";stickEl.classList.add("show");
+  seqStop();unpause();set(e)});
+ stickZone.addEventListener("pointermove",e=>{if(e.pointerId===STICK.id)set(e)});
+ const end=e=>{if(e.pointerId===STICK.id)stickRelease()};
+ stickZone.addEventListener("pointerup",end);stickZone.addEventListener("pointercancel",end)}
+function gameInput(){const k=c=>GKEYS.has(c);
+ if(STICK.on){const m=Math.hypot(STICK.x,STICK.y);   // the stick wins over the keys while it's held
+  if(m<0.18)return{x:0,y:0,speed:"idle"};
+  return{x:STICK.x/m,y:STICK.y/m,speed:m>=0.82?"run":"walk"}}
+ const x=(k("KeyD")||k("ArrowRight")?1:0)-(k("KeyA")||k("ArrowLeft")?1:0),y=(k("KeyW")||k("ArrowUp")?1:0)-(k("KeyS")||k("ArrowDown")?1:0);
+ const wasd=["KeyW","KeyA","KeyS","KeyD"].some(k),shift=k("ShiftLeft")||k("ShiftRight");
+ return{x,y,speed:!x&&!y?"idle":(wasd&&!shift?"run":"walk")}}
+// the secret: about one and a half turns of the stick starts a Spin; it winds down to the next 90 degrees once the circling stops
+let STICKSPIN=false,WIND=false,REV=null,GCLK=0;const GHIST=[];   // GCLK: game time in seconds (slow frames don't change what counts as "within 0.3 s")   // GHIST: recent stick / key directions [time, angle], for spotting a flick
+function stickSpinStep(){const now=performance.now();
+ if(!STICKSPIN&&now-STICK.last>400)STICK.turn=0;   // stopped circling a while ago: start counting afresh
+ if(!STICKSPIN&&Math.abs(STICK.turn)>3*Math.PI&&!REV){STICK.turn=0;STICKSPIN=true;WIND=false;B.spin=true;B.headT=null}
+ else if(STICKSPIN&&(!STICK.on||now-STICK.last>400)){STICKSPIN=false;B.spin=false;const q=Math.PI/2;
+  B.headT=Math.ceil((B.head+B.omega*B.omega/(2*TR_DEF.acc))/q-1e-9)*q;WIND=true}}
+function gameStep(dt){if(!game())return;
+ stickSpinStep();
+ if(B.spin){B.tr=TR_DEF;return}   // spinning: speed stays as it was (the stick is out while circling)
+ const g=gameInput(),want=g.speed,now=(GCLK+=dt);
+ if(WIND){if(B.headT===null)WIND=false;else{B.tr=TR_DEF;return}}   // winding down from a spin: let it finish square on (speed stays as it was)
+ // the keys as a direction on the ground, as seen from the camera (up = away from it)
+ let rem=0;if(g.x||g.y){const c=Math.cos(cam.yaw),sn=Math.sin(cam.yaw),dx=-g.y*sn+g.x*c,dz=-g.y*c-g.x*sn;rem=wrapA(Math.atan2(dx,dz)-B.head)}
+ // a sudden reversal while walking or running turns him round at once, towards the new direction, instead of steering
+ // round in a curve; on a run he skids to a stop first ("sudden" = the input pointed the other way within the last 0.3 s,
+ // not a slow sweep round, and not setting off from standing)
+ if(g.x||g.y){const ia=Math.atan2(g.x,g.y);GHIST.push([now,ia,B.speed]);while(GHIST.length&&now-GHIST[0][0]>0.3)GHIST.shift();
+  const flick=GHIST.some(([,a])=>Math.abs(wrapA(ia-a))>2.4);
+  const sp=Math.max(...GHIST.map(h=>h[2]));   // the speed he had a moment ago (the frame between letting go and pressing the other key would read low)
+  if(!REV&&flick&&Math.abs(rem)>2.0&&sp>=40){GHIST.length=0;REV={fast:sp>100,t:0,tgt:B.head+rem}}}
+ else while(GHIST.length&&now-GHIST[0][0]>0.3)GHIST.shift();
+ if(REV){REV.t+=dt;const e=REV.tgt-B.head;
+  if(Math.abs(e)<0.15||REV.t>1.5)REV=null;
+  else{B.tr=TR_REV;B.headT=REV.tgt;B.speedT=REV.fast?0:SPD[want];return}}
+ B.speedT=SPD[want];
+ B.tr=want==="run"?TR_RUN:TR_WALK;
+ B.headT=g.x||g.y?B.head+rem:null}   // no input: the turn rate eases to nothing
+function gameReset(){GKEYS.clear();if(STICK.on)stickRelease();STICKSPIN=false;WIND=false;REV=null;GHIST.length=0;B.tr=TR_DEF}
+function modeUI(){const g=game();document.documentElement.classList.toggle("game",g);
+ // Game hides the test tools; Flip moves up beside Jump and Drop
+ if(g)$("row2").insertBefore($("bFlip"),$("bTest"));else $("row1").appendChild($("bFlip"));
+ gameReset();seqStop();B.spin=false;B.headT=null;setSpeed(0);hintUI()}
+segInit("modeSeg","mode",modeUI);modeUI();
+
+buildLift();pose();levels(0);
+window.LAB={S,B,W,CO,WV,cam,amounts,DESC,flatMax,flatWS,draw:()=>draw(TOY),glbLoad,glbRemove,get GLBM(){return GLBM},
+ // test only: count every part 1:1 as the lab did before P2-a, and start again
+ unitFactors(on){UNITKF=!!on;buildLift();B.init=false;waveClear();pose();levels(0)},waterStep,levels,jump,drop,flip,turn,setSpeed,R3,get seq(){return seq},step(n){for(let i=0;i<n;i++){if(i%4===0)gameStep(4*HSTEP);stepBody(HSTEP);waterStep(B,HSTEP);seqStep(HSTEP)}pose();levels(n*HSTEP)},
+ game:{STICK,GKEYS,gameInput,gameStep,modeUI,get REV(){return REV},get STICKSPIN(){return STICKSPIN}}};
+r3load();requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
