@@ -15,3 +15,5 @@ every limb through it; `t/shots.py` and `t/dshots.py` make frame sheets (the ris
 
 `node-scripts/`: the Node + Playwright scripts from the 2026-11-10/11 session (models, playback speed buttons,
 hold-to-step, its own Over checks). See node-scripts/README.md.
+
+`pooltoy/`: the Pooltoy tests (lab and Mixmo's Pooltoy character), with their own README.md (2026-11-14).
