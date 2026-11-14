@@ -7,6 +7,8 @@
   python3 lab.py <file-or-url> --against t.json   also compare the Test run with a saved one
   --unit   (with --save / --against) count every part 1:1, as the lab did before P2-a,
            to prove that nothing but the counting changed
+  --mixmo  the file is Mixmo.html: the pooltoy block copied in by pt_sync.py is started there (as PT_make, ids
+           prefixed pt_) and given the same checks, to show it behaves exactly as in the lab
 
 It never draws: the page's own frame loop is switched off and the lab is driven through
 LAB.step, so results are the same on every run and three.js is not needed.
@@ -23,12 +25,15 @@ def opt(name):
 save, against = opt("--save"), opt("--against")
 unit = "--unit" in args
 if unit: args.remove("--unit")
+mixmo = "--mixmo" in args
+if mixmo: args.remove("--mixmo")
 target = args[0] if args else "pooltoy-water-lab.html"
 url = target if "://" in target else "file://" + os.path.abspath(target)
 
 HELPERS = r"""
 window.T = {
-  click(sel){ const e = document.querySelector(sel); if (e) e.click(); return !!e; },   // a control an older or newer lab lacks is skipped
+  q(sel){ return document.querySelector(window.PTPRE ? sel.replace(/#([\w-]+)/g, "#" + PTPRE + "$1") : sel); },
+  click(sel){ const e = T.q(sel); if (e) e.click(); return !!e; },   // a control an older or newer lab lacks is skipped
   // totals in the lab's real litres when it has them (P2-a on), else its old count
   tot(){ if (LAB.amounts){ const a = LAB.amounts(); return {w:a.water, air:a.air, room:a.room, sp:a.spilled}; }
          let w = 0; for (const C of LAB.CO) w += C.V; return {w, air:NaN, room:NaN, sp:0}; },
@@ -48,13 +53,13 @@ window.T = {
     T.click('#shapeSeg button[data-v="' + shape + '"]'); T.click('#verSeg button[data-v="' + version + '"]');
     T.click('#limbSeg button[data-v="' + limbs + '"]'); T.click('#physSeg button[data-v="' + phys + '"]');
     for (let i = 0; i < 120; i++) LAB.step(4); },   // small steps: one big step would be one 2-second picture
-  testRun(trace){ T.click('#bTest'); const r = T.run(2500, trace); const s = T.run(240); r.bad = r.bad || s.bad;
+  testRun(trace){ if (!T.click('#bTest')) LAB.testStart(); const r = T.run(2500, trace); const s = T.run(240); r.bad = r.bad || s.bad;
     r.tilt = T.tilt(); r.wave = LAB.WV.amp; r.seq = !!LAB.seq; return r; },
   shake(){ let s = 7; const rnd = () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296 - 0.5; };
     const r = T.run(360, null, f => { if (f % 8 === 0) LAB.B.grab = {tgt:[rnd() * 300, rnd() * 200, rnd() * 300]}; });
     LAB.B.grab = null; const s2 = T.run(1500); r.bad = r.bad || s2.bad; r.lo = Math.min(r.lo, s2.lo); r.hi = Math.max(r.hi, s2.hi);
     r.tilt = T.tilt(); r.wave = LAB.WV.amp; return r; },
-  slider(v){ const r = document.querySelector('#slWater input'); r.value = v; r.dispatchEvent(new Event('input', {bubbles:true})); for (let i = 0; i < 60; i++) LAB.step(4); return T.tot(); }
+  slider(v){ const r = T.q('#slWater input'); r.value = v; r.dispatchEvent(new Event('input', {bubbles:true})); for (let i = 0; i < 60; i++) LAB.step(4); return T.tot(); }
 };
 """
 
@@ -71,7 +76,11 @@ with sync_playwright() as p:
         ctx.route("**cdn.jsdelivr.net/**", lambda r: r.abort())               # no three.js: nothing is drawn
         pg = ctx.new_page(); errs = []
         pg.on("pageerror", lambda e: errs.append(str(e)))
-        pg.goto(url); pg.wait_for_function("window.LAB"); pg.evaluate(HELPERS)
+        pg.goto(url)
+        if mixmo:   # Mixmo: start the pooltoy block by hand (three.js is blocked here, so Mixmo itself never makes it)
+            pg.wait_for_function("typeof PT_make==='function'")
+            pg.evaluate("window.PTPRE='pt_';window.LAB=PT_make({prefix:'pt_',ownLoop:false,flag:()=>{}})")
+        pg.wait_for_function("window.LAB"); pg.evaluate(HELPERS)
         return ctx, pg, errs
 
     ctx, pg, errs = fresh()
@@ -87,7 +96,7 @@ with sync_playwright() as p:
     trace = None
     # the Standard fake water and the "As before" physics were removed from the lab on 2026-11-12; a lab that still
     # has them gets them tested too
-    ctx, pg, errs = fresh(); old_modes = pg.evaluate("!!document.querySelector('#verSeg')"); ctx.close()
+    ctx, pg, errs = fresh(); old_modes = pg.evaluate("!!T.q('#verSeg')"); ctx.close()
     combos = [("researched","own","new"), ("researched","shared","new")]
     if old_modes: combos += [("researched","own","old"), ("standard","own","new")]
     for version, limbs, phys in combos:
