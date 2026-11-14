@@ -54,6 +54,7 @@ input[type=range]{width:100%;height:44px;margin:0;accent-color:var(--accent);tou
 #readout{position:absolute;left:8px;top:8px;margin:0;padding:6px 8px;border-radius:8px;background:rgba(246,251,252,.82);font:10px/1.35 ui-monospace,Menlo,Consolas,monospace;pointer-events:none;white-space:pre;overflow:hidden}
 #msg3{position:absolute;left:8px;right:8px;top:40%;display:none;padding:10px 12px;border-radius:10px;background:rgba(246,251,252,.95);border:1px solid var(--ink);font-size:14px;text-align:center}
 ul.moves{margin:4px 0;padding-left:20px;font-size:14px;line-height:1.5}
+.sl label{grid-column:1/2}
 /* POOLTOY CSS end */
 html.game .anim,html.game #row1{display:none!important}   /* Game: the test tools are hidden */
 html:not(.game) .gameOnly{display:none!important}
@@ -538,6 +539,9 @@ const SEQ=[[0.3,"standing still",()=>setSpeed(0)],[1.5,"walk",()=>setSpeed(62)],
 let seq=null,seqLabel="";
 function seqStep(h){if(!seq)return;seq.t+=h;while(seq&&seq.i<SEQ.length&&seq.t>=SEQ[seq.i][0]){const [,lb,fn]=SEQ[seq.i++];if(fn){fn();seqLabel=lb}else{seq=null;seqLabel=""}}}
 function seqStop(){seq=null;seqLabel=""}
+// the Test run from the start, and stopping it (the lab's Test run button; Mixmo's animation menu, M3)
+function testStart(){B.spin=false;setSpeed(0);if(B.up)flip();seq={t:0,i:0}}
+function testStop(){seqStop();setSpeed(0);B.spin=false}
 
 // =====================================================================
 // Drawing (three.js from jsDelivr). Water: an inner copy of the body, opaque, cut at the surface per pixel.
@@ -1115,7 +1119,7 @@ $("bSpin").onclick=()=>{seqStop();B.spin=!B.spin;if(B.spin)B.headT=null};
 $("bFlip").onclick=()=>{seqStop();flip()};
 $("bL").onclick=()=>{seqStop();turn(1)};$("bR").onclick=()=>{seqStop();turn(-1)};
 $("bJump").onclick=()=>{seqStop();jump(1)};$("bDrop").onclick=()=>{seqStop();drop()};
-$("bTest").onclick=()=>{if(seq){seqStop();setSpeed(0);B.spin=false;return}if(paused)$("pause").onclick();B.spin=false;setSpeed(0);if(B.up)flip();seq={t:0,i:0}};
+$("bTest").onclick=()=>{if(seq){testStop();return}if(paused)$("pause").onclick();testStart()};
 $("pause").onclick=()=>{paused=!paused;$("pause").textContent=paused?"Play":"Pause";$("pause").classList.toggle("on",paused)};
 $("vTop").querySelectorAll("[data-r]").forEach(b=>b.onclick=()=>{RATE=+b.dataset.r;$("vTop").querySelectorAll("[data-r]").forEach(x=>x.classList.toggle("on",x===b))});
 addEventListener("keydown",e=>{if(e.code!=="Space")return;const t=e.target;if(t&&(t.tagName==="INPUT"&&t.type!=="range"||t.tagName==="TEXTAREA"))return;e.preventDefault();if(!e.repeat)$("pause").onclick()});
@@ -1262,7 +1266,8 @@ const LAB=window.LAB={S,B,W,CO,WV,cam,amounts,DESC,flatMax,flatWS,draw:()=>draw(
  // test only: count every part 1:1 as the lab did before P2-a, and start again
  unitFactors(on){UNITKF=!!on;buildLift();B.init=false;waveClear();pose();levels(0)},waterStep,levels,jump,drop,flip,turn,setSpeed,R3,get seq(){return seq},step(n){for(let i=0;i<n;i++){if(i%4===0&&GAME_STEP)GAME_STEP(4*HSTEP);stepBody(HSTEP);waterStep(B,HSTEP);seqStep(HSTEP)}pose();levels(n*HSTEP)},
  // for a host (Mixmo): one frame of motion and water, the readout every 6th frame; show or hide the pooltoy's group
- tick(real){advance(real);if(frameN++%6===0)ui()},show(on){if(R3.sc&&R3.host)R3.sc.visible=!!on}};
+ tick(real){advance(real);if(frameN++%6===0)ui()},show(on){if(R3.sc&&R3.host)R3.sc.visible=!!on},
+ testStart,testStop,seqStop,get seqLabel(){return seqLabel}};
 // LAB ONLY begin
 LAB.game={STICK,GKEYS,gameInput,gameStep,modeUI,get REV(){return REV},get STICKSPIN(){return STICKSPIN}};
 // LAB ONLY end
