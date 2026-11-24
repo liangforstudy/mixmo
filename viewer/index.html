@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#14171c">
+<title>Mixmo history</title>
+<style>
+  :root {
+    --bg: #0e1013; --bar: #1a1e24; --bar2: #22272f; --line: #2e343d;
+    --text: #e8ebef; --dim: #9aa3ae; --accent: #4ea1ff; --warn: #ffb454;
+    --col: 44px;        /* one timeline column per commit: Apple's 44 pt target */
+    --lane: 20px;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
+    font: 15px/1.35 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    -webkit-text-size-adjust: 100%; }
+  body { display: flex; flex-direction: column; height: 100dvh; overflow: hidden; }
+  button, select { font: inherit; color: inherit; }
+  button { background: var(--bar2); border: 1px solid var(--line); border-radius: 10px;
+    min-width: 44px; min-height: 44px; padding: 0 12px; cursor: pointer;
+    -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
+  button:active { background: #2b313b; }
+  button:disabled { opacity: .35; cursor: default; }
+  button.on { border-color: var(--accent); color: var(--accent); }
+
+  #top { flex: 0 0 auto; background: var(--bar); border-bottom: 1px solid var(--line);
+    padding: max(6px, env(safe-area-inset-top)) max(8px, env(safe-area-inset-right)) 6px max(8px, env(safe-area-inset-left)); }
+  .row { display: flex; align-items: center; gap: 6px; }
+  .row + .row { margin-top: 6px; }
+  #here { flex: 1 1 auto; min-width: 0; min-height: 44px; display: flex; flex-direction: column;
+    justify-content: center; text-align: left; padding: 2px 10px; }
+  #hereDate { font-size: 12px; color: var(--dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #hereTitle { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 600; }
+  .arrow { font-size: 20px; padding: 0; width: 44px; }
+  select { font-size: 16px; /* 16px: stops the iOS focus zoom */
+    min-height: 44px; background: var(--bar2); border: 1px solid var(--line); border-radius: 10px;
+    padding: 0 10px; max-width: 46vw; }
+  #files { display: flex; gap: 6px; overflow-x: auto; flex: 1 1 auto; min-width: 0; scrollbar-width: none; }
+  #files::-webkit-scrollbar { display: none; }
+  #files button { white-space: nowrap; font-size: 14px; flex: 0 0 auto; }
+  #filesRow[hidden] { display: none; }
+  #filesLabel { color: var(--dim); font-size: 13px; }
+  #top .row > button, #top .row > a, #top .row > select { flex-shrink: 0; }
+  #top .row > #here { flex-shrink: 1; }
+  .spacer { flex: 1 1 auto; }
+  #count { color: var(--dim); font-size: 12px; white-space: nowrap; }
+
+  #strip { margin-top: 6px; overflow-x: auto; overflow-y: hidden; -webkit-overflow-scrolling: touch;
+    overscroll-behavior-x: contain; background: var(--bg); border-radius: 10px; border: 1px solid var(--line); }
+  #strip.hidden { display: none; }
+  #strip svg { display: block; }
+  #strip .hit { fill: transparent; cursor: pointer; }
+  #strip .day { fill: var(--dim); font-size: 10px; }
+  #strip .gap { fill: var(--dim); font-size: 10px; font-style: italic; }
+
+  #stage { position: relative; flex: 1 1 auto; min-height: 0; background: #000; }
+  #frame { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; background: #fff; }
+  #veil { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+    background: rgba(14,16,19,.92); color: var(--dim); text-align: center; padding: 24px; }
+  #veil.hidden { display: none; }
+  #veil .box { max-width: 420px; }
+  #veil .box p { margin: 0 0 14px; }
+
+  #sheet { position: fixed; inset: 0; z-index: 10; display: none; background: rgba(0,0,0,.5); }
+  #sheet.open { display: block; }
+  #sheetBody { position: absolute; left: 0; right: 0; bottom: 0; max-height: 78dvh; display: flex; flex-direction: column;
+    background: var(--bar); border-top: 1px solid var(--line); border-radius: 16px 16px 0 0;
+    padding: 10px max(14px, env(safe-area-inset-right)) max(14px, env(safe-area-inset-bottom)) max(14px, env(safe-area-inset-left)); }
+  #sheetHead { display: flex; align-items: center; gap: 8px; }
+  #sheetHead h2 { flex: 1 1 auto; font-size: 17px; margin: 0; }
+  #sheetScroll { overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; margin-top: 8px; }
+  .meta { color: var(--dim); font-size: 13px; margin: 0 0 4px; }
+  .meta a, .meta button.link { color: var(--accent); }
+  button.link { background: none; border: 0; min-height: 0; min-width: 0; padding: 0; text-decoration: underline; font-size: 13px; }
+  pre.msg { white-space: pre-wrap; word-wrap: break-word; font: 15px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg); border: 1px solid var(--line); border-radius: 10px; padding: 10px; margin: 10px 0; }
+  .note { color: var(--dim); font-size: 12px; }
+  a.btn { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 0 12px;
+    border-radius: 10px; border: 1px solid var(--line); background: var(--bar2); color: var(--text); text-decoration: none; min-width: 44px; }
+</style>
+</head>
+<body>
+<div id="top">
+  <div class="row">
+    <button id="prev" class="arrow" aria-label="Previous version" disabled>&#9664;</button>
+    <button id="here" aria-label="About this version">
+      <span id="hereDate">Loading the version list…</span>
+      <span id="hereTitle">Mixmo history</span>
+    </button>
+    <button id="next" class="arrow" aria-label="Next version" disabled>&#9654;</button>
+  </div>
+  <div class="row">
+    <select id="branch" aria-label="Branch"></select>
+    <span class="spacer"></span>
+    <span id="count"></span>
+    <button id="stripBtn" aria-label="Show or hide the timeline">Timeline</button>
+    <a id="own" class="btn" target="_blank" rel="noopener" aria-label="Open this version on its own">&#8599;</a>
+  </div>
+  <div class="row" id="filesRow" hidden><span id="filesLabel">Page:</span><div id="files"></div></div>
+  <div id="strip"></div>
+</div>
+
+<div id="stage">
+  <iframe id="frame" title="Mixmo at the chosen version"
+    allow="fullscreen; xr-spatial-tracking; gamepad; accelerometer; gyroscope"></iframe>
+  <div id="veil"><div class="box"><p id="veilText">Loading the version list…</p><div id="veilBtns"></div></div></div>
+</div>
+
+<div id="sheet" aria-hidden="true">
+  <div id="sheetBody" role="dialog" aria-label="About this version">
+    <div id="sheetHead"><h2 id="sheetTitle"></h2><button id="sheetClose" aria-label="Close">&#10005;</button></div>
+    <div id="sheetScroll"></div>
+  </div>
+</div>
+
+<script>
+"use strict";
+const REPO = "liangforstudy/mixmo";
+const RAW = "https://rawcdn.githack.com/" + REPO + "/";      // serves each commit's files as real web pages
+const GH = "https://github.com/" + REPO + "/commit/";
+const FILE_PREF = ["Mixmo.html", "tripod-walk-editor.html"];
+const LANE_COLORS = ["#4ea1ff", "#8fd0ff", "#f2b84b", "#ff7eb6", "#7ee08a", "#c49bff"];
+const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+
+const $ = id => document.getElementById(id);
+const store = {
+  get(k) { try { return localStorage.getItem("mixmoHistory." + k); } catch (e) { return null; } },
+  set(k, v) { try { localStorage.setItem("mixmoHistory." + k, v); } catch (e) {} },
+};
+
+let data = null, bySha = {}, pos = {};
+const state = { branch: "main", sha: null, file: null };
+
+// ---------- dates: shown in the time the commit recorded, not converted ----------
+function parts(iso) {                       // "2026-10-01T20:00:00+08:00"
+  return { y: +iso.slice(0, 4), m: +iso.slice(5, 7), d: +iso.slice(8, 10), hm: iso.slice(11, 16) };
+}
+function niceDate(iso) { const p = parts(iso); return p.d + " " + MONTHS[p.m - 1] + " " + p.y + ", " + p.hm; }
+function dayKey(iso) { return iso.slice(0, 10); }
+function daysBetween(a, b) { return Math.round((Date.parse(b.slice(0, 10)) - Date.parse(a.slice(0, 10))) / 864e5); }
+
+// ---------- loading ----------
+function veil(text, buttons) {
+  $("veilText").textContent = text;
+  const b = $("veilBtns"); b.textContent = "";
+  (buttons || []).forEach(([label, fn]) => { const x = document.createElement("button"); x.textContent = label; x.onclick = fn; b.appendChild(x); });
+  $("veil").classList.remove("hidden");
+}
+function unveil() { $("veil").classList.add("hidden"); }
+
+async function load() {
+  veil("Loading the version list…");
+  try {
+    const r = await fetch("index.json", { cache: "no-cache" });
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    data = await r.json();
+  } catch (e) {
+    const offline = navigator.onLine === false;
+    veil((offline ? "You seem to be offline, so " : "") +
+      "the list of versions couldn't be loaded (" + e.message + "). Check your connection and try again.",
+      [["Try again", load]]);
+    $("hereDate").textContent = "Couldn't load the version list";
+    return;
+  }
+  data.commits.forEach((c, i) => { bySha[c.sha] = c; pos[c.sha] = i; });
+  fillBranches();
+  readUrl();
+  drawStrip();
+  show(true);
+}
+
+function fillBranches() {
+  const sel = $("branch"); sel.textContent = "";
+  data.branches.forEach(b => { const o = document.createElement("option"); o.value = b.name; o.textContent = b.name; sel.appendChild(o); });
+}
+
+function findSha(prefix) {
+  if (!prefix) return null;
+  prefix = prefix.toLowerCase();
+  const hits = data.commits.filter(c => c.sha.startsWith(prefix));
+  return hits.length === 1 ? hits[0].sha : null;
+}
+function tipOf(name) { const b = data.branches.find(b => b.name === name); return b ? b.tip : null; }
+
+function readUrl() {
+  const q = new URLSearchParams(location.search);
+  const b = q.get("b");
+  state.branch = data.branches.some(x => x.name === b) ? b : (data.branches[0] || {}).name;
+  const sha = findSha(q.get("v"));
+  state.sha = sha || tipOf(state.branch);
+  const c = bySha[state.sha];
+  if (!c.branches.includes(state.branch)) state.branch = laneBranch(c);
+  state.file = q.get("f") || store.get("file");
+}
+
+function laneBranch(c) { return data.lanes[c.lane].branch; }
+function onBranch() { return data.commits.filter(c => c.branches.includes(state.branch)); }
+
+// ---------- showing a version ----------
+function pickFile(c) {
+  if (state.file && c.files.includes(state.file)) return state.file;
+  for (const f of FILE_PREF) if (c.files.includes(f)) return f;
+  return c.files[0] || null;
+}
+
+function show(scrollStrip) {
+  const c = bySha[state.sha];
+  const list = onBranch();
+  const i = list.findIndex(x => x.sha === c.sha);
+  $("prev").disabled = i <= 0;
+  $("next").disabled = i < 0 || i >= list.length - 1;
+  $("count").textContent = (i + 1) + " / " + list.length;
+  $("branch").value = state.branch;
+  $("hereDate").textContent = niceDate(c.date) + " · " + c.sha.slice(0, 7);
+  $("hereTitle").textContent = c.title;
+  document.title = c.title + " · Mixmo history";
+
+  const file = pickFile(c);
+  const box = $("files"); box.textContent = "";
+  $("filesRow").hidden = c.files.length < 2;
+  if (c.files.length > 1) c.files.forEach(f => {
+    const b = document.createElement("button");
+    b.textContent = f.replace(/\.html$/i, ""); b.title = f;
+    if (f === file) b.classList.add("on");
+    b.onclick = () => { state.file = f; store.set("file", f); show(false); };
+    box.appendChild(b);
+  });
+
+  const q = new URLSearchParams();
+  q.set("v", c.sha.slice(0, 7));
+  if (state.branch !== "main") q.set("b", state.branch);
+  if (file && c.files.length > 1) q.set("f", file);
+  history.replaceState(null, "", "?" + q.toString());
+
+  markStrip(scrollStrip);
+  if (!file) {
+    $("frame").removeAttribute("src");
+    $("own").removeAttribute("href");
+    veil("This version has no web page to show.");
+    return;
+  }
+  const url = RAW + c.sha + "/" + encodeURIComponent(file);
+  $("own").href = url;
+  const frame = $("frame");
+  if (frame.dataset.url !== url) {
+    frame.dataset.url = url;
+    if (navigator.onLine === false) { veil("You seem to be offline, so this version can't be downloaded. It will load when you're back online.", [["Try again", () => { frame.dataset.url = ""; show(false); }]]); return; }
+    veil("Loading " + file + " from " + niceDate(c.date) + "…");
+    clearTimeout(show.slow);
+    show.slow = setTimeout(() => {
+      if (frame.dataset.url === url && !$("veil").classList.contains("hidden"))
+        veil("Still loading… raw.githack can be slow the first time a version is opened. If nothing appears, it may be unreachable right now.",
+          [["Try again", () => { frame.dataset.url = ""; show(false); }], ["Open on its own", () => window.open(url, "_blank", "noopener")]]);
+    }, 15000);
+    frame.onload = () => { if (frame.dataset.url === url) { clearTimeout(show.slow); unveil(); } };
+    frame.src = url;
+  }
+}
+
+function go(sha) {
+  const c = bySha[sha]; if (!c) return;
+  state.sha = sha;
+  if (!c.branches.includes(state.branch)) state.branch = laneBranch(c);
+  show(true);
+}
+function step(d) {
+  const list = onBranch(); const i = list.findIndex(x => x.sha === state.sha);
+  const j = i + d; if (j >= 0 && j < list.length) go(list[j].sha);
+}
+
+// ---------- timeline ----------
+const NS = "http://www.w3.org/2000/svg";
+let colX = {};
+function el(tag, attrs, parent) { const e = document.createElementNS(NS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); if (parent) parent.appendChild(e); return e; }
+
+function drawStrip() {
+  const col = 44, lane = 20, top = 18, gapW = 34;
+  const lanes = data.lanes.length;
+  colX = {};
+  let x = col / 2, prev = null;
+  const labels = [], gaps = [];
+  data.commits.forEach(c => {
+    if (prev) {
+      const gd = daysBetween(prev.date, c.date);
+      if (gd > 2) { gaps.push({ x: x - col / 2 + gapW / 2, text: gd + " d" }); x += gapW; }
+    }
+    if (!prev || dayKey(prev.date) !== dayKey(c.date)) { const p = parts(c.date); labels.push({ x, text: p.d + " " + MONTHS[p.m - 1] }); }
+    colX[c.sha] = x; x += col; prev = c;
+  });
+  const W = x - col / 2 + 40, H = top + lanes * lane + 6;
+  const svg = el("svg", { width: W, height: H, viewBox: "0 0 " + W + " " + H });
+  const yOf = c => top + c.lane * lane + lane / 2;
+  // day labels and gaps
+  labels.forEach(l => { const t = el("text", { x: l.x - 4, y: 12, class: "day" }, svg); t.textContent = l.text; });
+  gaps.forEach(g => { const t = el("text", { x: g.x, y: top + lanes * lane / 2 + 4, class: "gap", "text-anchor": "middle" }, svg); t.textContent = g.text; });
+  // lines from each parent to its child
+  const lines = el("g", { fill: "none", "stroke-width": 2 }, svg);
+  data.commits.forEach(c => c.parents.forEach(p => {
+    const pc = bySha[p]; if (!pc) return;
+    const x1 = colX[p], y1 = yOf(pc), x2 = colX[c.sha], y2 = yOf(c);
+    const color = LANE_COLORS[(y1 === y2 ? c.lane : Math.max(c.lane, pc.lane)) % LANE_COLORS.length];
+    const d = y1 === y2 ? `M${x1} ${y1}H${x2}` : `M${x1} ${y1}C${x1 + 24} ${y1} ${x2 - 24} ${y2} ${x2} ${y2}`;
+    el("path", { d, stroke: color, "data-a": p, "data-b": c.sha }, lines);
+  }));
+  // dots, plus a full-height tap column per commit (44 px wide)
+  const dots = el("g", {}, svg);
+  data.commits.forEach(c => {
+    const g = el("g", { "data-sha": c.sha }, dots);
+    el("circle", { cx: colX[c.sha], cy: yOf(c), r: 6, fill: LANE_COLORS[c.lane % LANE_COLORS.length], class: "dot" }, g);
+    el("circle", { cx: colX[c.sha], cy: yOf(c), r: 9.5, fill: "none", stroke: "#fff", "stroke-width": 2, class: "ring", visibility: "hidden" }, g);
+    const hit = el("rect", { x: colX[c.sha] - col / 2, y: 0, width: col, height: H, class: "hit" }, g);
+    const tt = el("title", {}, hit); tt.textContent = niceDate(c.date) + " — " + c.title;
+    hit.addEventListener("click", () => go(c.sha));
+  });
+  const strip = $("strip"); strip.textContent = ""; strip.appendChild(svg);
+  if (store.get("strip") === "hidden") { strip.classList.add("hidden"); } else { $("stripBtn").classList.add("on"); }
+}
+
+function markStrip(scroll) {
+  const strip = $("strip");
+  strip.querySelectorAll("g[data-sha]").forEach(g => {
+    const c = bySha[g.dataset.sha];
+    const here = c.branches.includes(state.branch);
+    g.querySelector(".dot").setAttribute("opacity", here ? 1 : .25);
+    g.querySelector(".ring").setAttribute("visibility", c.sha === state.sha ? "visible" : "hidden");
+  });
+  strip.querySelectorAll("path").forEach(p => {
+    const a = bySha[p.dataset.a], b = bySha[p.dataset.b];
+    p.setAttribute("opacity", a.branches.includes(state.branch) && b.branches.includes(state.branch) ? 1 : .2);
+  });
+  if (scroll && !strip.classList.contains("hidden")) {
+    const x = colX[state.sha] - strip.clientWidth / 2;
+    strip.scrollTo({ left: Math.max(0, x), behavior: scroll === "instant" ? "auto" : "smooth" });
+  }
+}
+
+// ---------- details sheet ----------
+function openSheet() {
+  if (!data) return;
+  const c = bySha[state.sha];
+  $("sheetTitle").textContent = c.title;
+  const s = $("sheetScroll"); s.textContent = "";
+  const line = (html) => { const p = document.createElement("p"); p.className = "meta"; p.append(...html); s.appendChild(p); };
+  line([niceDate(c.date) + " (the time it was recorded)"]);
+  const a = document.createElement("a"); a.href = GH + c.sha; a.target = "_blank"; a.rel = "noopener"; a.textContent = c.sha.slice(0, 7) + " on GitHub";
+  line(["Commit ", a]);
+  line(["On: " + c.branches.join(", ")]);
+  line(["Pages in it: " + (c.files.join(", ") || "none")]);
+  if (c.parents.length) {
+    const bits = ["Comes after: "];
+    c.parents.forEach((p, i) => {
+      const pc = bySha[p]; if (i) bits.push(" and ");
+      if (!pc) { bits.push(p.slice(0, 7)); return; }
+      const b = document.createElement("button"); b.className = "link"; b.textContent = pc.title;
+      b.onclick = () => { closeSheet(); go(p); }; bits.push(b);
+    });
+    line(bits);
+  }
+  const kids = data.commits.filter(k => k.parents.includes(c.sha));
+  if (kids.length) {
+    const bits = ["Followed by: "];
+    kids.forEach((k, i) => { if (i) bits.push(" and "); const b = document.createElement("button"); b.className = "link"; b.textContent = k.title; b.onclick = () => { closeSheet(); go(k.sha); }; bits.push(b); });
+    line(bits);
+  }
+  const pre = document.createElement("pre"); pre.className = "msg";
+  pre.textContent = reflow(c.message.split("\n").slice(1).join("\n").trim()) || "(no description)";
+  s.appendChild(pre);
+  const n = document.createElement("p"); n.className = "note";
+  n.textContent = "Every version opens from rawcdn.githack.com, so they share saved settings (sliders, presets, panel sizes); an old version may pick up settings saved by a newer one. Inside this viewer Safari may also not keep settings at all. Use ↗ to open a version on its own for proper testing. Version list built " + data.generated.replace("T", " ").replace("+00:00", " UTC") + ".";
+  s.appendChild(n);
+  $("sheet").classList.add("open"); $("sheet").setAttribute("aria-hidden", "false");
+  s.scrollTop = 0;
+}
+// Commit messages are wrapped at ~72 characters; join those lines back up so
+// they wrap to the phone's width. Bullets, blank lines and "Key: value" trailer
+// lines still start a new line.
+function reflow(text) {
+  const out = [];
+  text.split("\n").forEach(raw => {
+    const line = raw.trim();
+    const starts = !line || /^([-*\u2022]|\d+[.)])\s/.test(line) || /^[A-Z][\w-]+: \S/.test(line) && !/^\s/.test(raw);
+    const prev = out.length ? out[out.length - 1] : "";
+    if (starts || !prev) out.push(line);
+    else out[out.length - 1] = prev + " " + line;
+  });
+  return out.join("\n").replace(/\n{3,}/g, "\n\n");
+}
+function closeSheet() { $("sheet").classList.remove("open"); $("sheet").setAttribute("aria-hidden", "true"); }
+
+// ---------- controls ----------
+$("prev").onclick = () => step(-1);
+$("next").onclick = () => step(1);
+$("here").onclick = openSheet;
+$("sheetClose").onclick = closeSheet;
+$("sheet").addEventListener("click", e => { if (e.target === $("sheet")) closeSheet(); });
+$("branch").onchange = e => { state.branch = e.target.value; state.sha = tipOf(state.branch); show(true); };
+$("stripBtn").onclick = () => {
+  const s = $("strip"); const hide = !s.classList.contains("hidden");
+  s.classList.toggle("hidden", hide); $("stripBtn").classList.toggle("on", !hide);
+  store.set("strip", hide ? "hidden" : "shown");
+  if (!hide) markStrip("instant");
+};
+document.addEventListener("keydown", e => {
+  if (e.target.tagName === "SELECT") return;
+  if (e.key === "ArrowLeft") step(-1);
+  else if (e.key === "ArrowRight") step(1);
+  else if (e.key === "Escape") closeSheet();
+});
+window.addEventListener("online", () => { if (!data) load(); });
+load();
+</script>
+</body>
+</html>
