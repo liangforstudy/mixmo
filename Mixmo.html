@@ -4070,6 +4070,7 @@ textarea{background:var(--tx)}
 .ptk{--zone:rgba(251,246,234,.45)}.ptk.ptl{--zone:rgba(246,251,252,.5)}
 #stickZone.fresh{background:var(--zone)}
 #ptxTune .sl{margin:0}
+#ptxTune[hidden],#ptxTune [hidden]{display:none}
 #ptxNote{color:var(--accent)}
 #ptfx{position:fixed;inset:0;pointer-events:none;z-index:60;overflow:hidden}
 #ptfx>*{position:absolute;pointer-events:none}
@@ -4092,10 +4093,15 @@ const reduced=()=>matchMedia("(prefers-reduced-motion: reduce)").matches;
 const CAN=!!(window.CSS&&CSS.registerProperty)&&typeof Element.prototype.animate==="function";   // without these the colours can't animate: switch instantly
 
 // ---- inflate tuning (saved) ----
-const TUNE0={puff:3,time:460,settle:0.7,glow:3,sag:2.8,step:55};
+const TUNE0={puff:2,time:460,settle:0.7,glow:3,sag:2.8,step:55};
 let TUNE={...TUNE0};try{Object.assign(TUNE,JSON.parse(localStorage.getItem("mixmoPtPuff")||"{}"))}catch(e){}
-const TUNE_UI=[["puff","Puff size",0,10,0.5,"%"],["time","Puff time",150,1200,10," ms"],["settle","Settle bounce",0,4,0.1,"%"],
- ["glow","Shine",0,12,0.5,"%"],["sag","Squeeze / sag",0,10,0.2,"%"],["step","Delay between blocks (Inflate only)",0,150,5," ms"]];
+// key, label, min, max, step, unit, what it does, which styles use it, which motion previews it
+const TUNE_UI=[["puff","Puff size",0,10,0.5,"%","How much bigger a block swells when the water reaches it.","in","puff"],
+ ["time","Puff time",150,1200,10," ms","How long one swell (or squeeze) takes, start to settled.","both","puff"],
+ ["settle","Settle bounce",0,4,0.1,"%","After swelling, how far it shrinks back past normal before it settles. 0 = no wobble.","both","puff"],
+ ["glow","Shine",0,12,0.5,"%","How much brighter a block flashes at the top of its swell.","in","puff"],
+ ["sag","Squeeze / sag",0,10,0.2,"%","Going back to Sergal or Robot only: how much a block flattens as the water drains.","out","sag"],
+ ["step","Delay between blocks",0,150,5," ms","Plain Inflate only: the gap before the next block starts.","inflate","puff"]];
 function puffKeys(){const p=TUNE.puff/100,u=TUNE.settle/100,g=TUNE.glow/100;
  return[{transform:"scale(1)",filter:"brightness(1)"},{transform:`scale(${1+p})`,filter:`brightness(${1+g})`,offset:.45},{transform:`scale(${1-u})`,offset:.75},{transform:"scale(1)",filter:"brightness(1)"}]}
 function sagKeys(){const q=TUNE.sag/100,u=TUNE.settle/100;
@@ -4110,14 +4116,25 @@ sel.onchange=()=>{STYLE=sel.value;try{localStorage.setItem("mixmoPtLook",STYLE)}
 $("ptxTry").onclick=e=>go(!ON,e.currentTarget);
 if(!CAN){const n=$("ptxNote");n.hidden=false;n.textContent="This browser can't animate the colours, so the look switches instantly (like Off)."}
 const tuneBox=$("ptxTune");
-TUNE_UI.forEach(([k,l,mn,mx,st,u])=>{const d=document.createElement("div");d.className="sl";
+// preview one swell or squeeze on the tuning panel itself; the look stays as it is
+function preview(kind){const b=$("ptxBox");b.getAnimations().forEach(a=>{if(a.id==="ptxp")a.cancel()});
+ const a=b.animate(kind==="sag"?sagKeys():puffKeys(),{duration:(kind==="sag"?TUNE.time*0.87:TUNE.time)*K,easing:"ease-out"});a.id="ptxp"}
+TUNE_UI.forEach(([k,l,mn,mx,st,u,help,use,kind])=>{const d=document.createElement("div");d.className="sl";
  d.innerHTML=`<label>${l}</label><input type="range" min="${mn}" max="${mx}" step="${st}" value="${TUNE[k]}" aria-label="${l}"><span class="val"></span>`;
  const r=d.querySelector("input"),v=d.querySelector(".val");const show=()=>v.textContent=(+r.value)+u;show();
  r.oninput=()=>{TUNE[k]=+r.value;show();try{localStorage.setItem("mixmoPtPuff",JSON.stringify(TUNE))}catch(e){}};
- r.onchange=()=>{if(STYLE==="tidepuff"||STYLE==="combo"||STYLE==="inflate")go(!ON,$("ptxTry"))};   // let go of a slider: see it
- d.dataset.k=k;tuneBox.appendChild(d)});
+ r.onchange=()=>preview(kind);   // let go of a slider: this panel shows the motion once
+ const h=document.createElement("p");h.className="sub";h.style.margin="0 0 8px";h.textContent=help;
+ d.dataset.k=k;d.dataset.use=use;h.dataset.use=use;tuneBox.appendChild(d);tuneBox.appendChild(h)});
+const pv=document.createElement("div");pv.className="row";pv.style.cssText="margin:4px 0 0;gap:6px";
+pv.innerHTML='<button id="ptxPuff" style="flex:1">Preview swell</button><button id="ptxSag" style="flex:1">Preview squeeze</button>';tuneBox.appendChild(pv);
+$("ptxPuff").onclick=()=>preview("puff");$("ptxSag").onclick=()=>preview("sag");
+// show only the settings the chosen transition uses
+function tuneShow(){const puffy=STYLE==="tidepuff"||STYLE==="combo"||STYLE==="inflate";tuneBox.hidden=!puffy;
+ tuneBox.querySelectorAll("[data-use]").forEach(e=>{e.hidden=e.dataset.use==="inflate"&&STYLE!=="inflate"})}
+tuneShow();sel.addEventListener("change",tuneShow);
 $("ptxReset").onclick=()=>{TUNE={...TUNE0};try{localStorage.removeItem("mixmoPtPuff")}catch(e){}
- tuneBox.querySelectorAll(".sl").forEach(d=>{const r=d.querySelector("input");r.value=TUNE[d.dataset.k];r.oninput()})};
+ tuneBox.querySelectorAll(".sl").forEach(d=>{const r=d.querySelector("input");r.value=TUNE[d.dataset.k];r.oninput()});preview("puff")};
 
 const layer=document.createElement("div");layer.id="ptfx";document.body.appendChild(layer);
 
