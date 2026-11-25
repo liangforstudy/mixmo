@@ -4041,5 +4041,159 @@ return LAB;
 }
 // POOLTOY SCRIPT end 
 </script>
+<!-- POOLTOY LOOK TEST begin: the Water Lab colours when the character is Pooltoy, with a choice of transitions (branch pooltoy-transitions) -->
+<style>
+@property --ink{syntax:"<color>";inherits:true;initial-value:#3a2a1c}
+@property --paper{syntax:"<color>";inherits:true;initial-value:#f4e8cf}
+@property --paper2{syntax:"<color>";inherits:true;initial-value:#ead9b6}
+@property --accent{syntax:"<color>";inherits:true;initial-value:#8a3b2a}
+@property --gold{syntax:"<color>";inherits:true;initial-value:#b8862f}
+@property --panel{syntax:"<color>";inherits:true;initial-value:#f8eed8}
+@property --split{syntax:"<color>";inherits:true;initial-value:#d8c39a}
+@property --pill{syntax:"<color>";inherits:true;initial-value:#7d6a52}
+@property --v1{syntax:"<color>";inherits:true;initial-value:#fbf3df}
+@property --v2{syntax:"<color>";inherits:true;initial-value:#e8d3a8}
+@property --tx{syntax:"<color>";inherits:true;initial-value:#fffaf0}
+/* each "tile" (a block of the page) carries its own look, so a transition can sweep across the page block by block */
+.ptk{--ink:#3a2a1c;--paper:#f4e8cf;--paper2:#ead9b6;--accent:#8a3b2a;--gold:#b8862f;--panel:#f8eed8;--split:#d8c39a;--pill:#7d6a52;--v1:#fbf3df;--v2:#e8d3a8;--tx:#fffaf0;
+ transition-property:--ink,--paper,--paper2,--accent,--gold,--panel,--split,--pill,--v1,--v2,--tx;transition-duration:var(--ptd,.35s);transition-timing-function:ease}
+.ptk.ptl{--ink:#12303b;--paper:#e9f5f8;--paper2:#d5ebf1;--accent:#0a7ea4;--gold:#3a9fbf;--panel:#f6fbfc;--split:#bfe0e9;--pill:#5b8796;--v1:#f6fcfd;--v2:#cde8f0;--tx:#fbfeff}
+/* the fixed colours of the page, made switchable */
+fieldset{background:var(--panel)}
+.gaitMini{background:var(--panel)}
+#split{background:var(--split)}
+#split::before{background:var(--pill)}
+#split.dragging::before{background:#2f7de1}
+#view{background:radial-gradient(ellipse at 50% 35%,var(--v1),var(--v2))}
+textarea{background:var(--tx)}
+#ptfx{position:fixed;inset:0;pointer-events:none;z-index:60;overflow:hidden}
+#ptfx>*{position:absolute;pointer-events:none}
+#ptxBox .sub{margin:4px 0 0}
+#ptxSel{font-size:16px}
+</style>
+<script>
+(function(){
+"use strict";
+const $=id=>document.getElementById(id);
+const LOOK={
+ ptl:{accent:"#0a7ea4",paper:"#e9f5f8",ink:"#12303b"},
+ pm:{accent:"#8a3b2a",paper:"#f4e8cf",ink:"#3a2a1c"}};
+const STYLES=[["combo","Splash + inflate"],["splash","Splash ripple"],["tide","Tide"],["inflate","Inflate"],["wet","Wet paper"],["fade","Plain fade"],["off","Off (instant)"]];
+let STYLE="combo";try{const s=localStorage.getItem("mixmoPtLook");if(STYLES.some(x=>x[0]===s))STYLE=s}catch(e){}
+const q=new URLSearchParams(location.search).get("tx");if(STYLES.some(x=>x[0]===q))STYLE=q;
+let ON=false,timers=[];
+const K=Math.max(1,Math.min(20,+new URLSearchParams(location.search).get("txslow")||1));   // ?txslow=8: slow motion, to study a transition
+const reduced=()=>matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+// ---- the picker (top of the controls) ----
+const box=document.createElement("fieldset");box.id="ptxBox";
+box.innerHTML='<legend>Pooltoy look (test)</legend><div class="row" style="margin:6px 0;gap:6px;flex-wrap:nowrap"><span class="lbl">Transition:</span><select id="ptxSel" class="pick" aria-label="Transition"></select><button id="ptxTry">Try it</button></div><p class="sub">Plays when the character changes to Pooltoy and back. Try it previews the look without changing character.</p>';
+const bot=$("bot");bot.insertBefore(box,bot.firstChild);
+const sel=$("ptxSel");sel.innerHTML=STYLES.map(([k,n])=>`<option value="${k}">${n}</option>`).join("");sel.value=STYLE;
+sel.onchange=()=>{STYLE=sel.value;try{localStorage.setItem("mixmoPtLook",STYLE)}catch(e){}};
+$("ptxTry").onclick=e=>go(!ON,e.currentTarget);
+
+const layer=document.createElement("div");layer.id="ptfx";document.body.appendChild(layer);
+
+// ---- tiles: the blocks of the page, each switched on its own ----
+function tiles(){
+ const t=[document.body];
+ for(const c of $("top").children)t.push(c);
+ if($("split"))t.push($("split"));
+ for(const c of bot.children)t.push(c);
+ const seen=new Set();return t.filter(e=>e&&e.nodeType===1&&e.tagName!=="SCRIPT"&&e.tagName!=="STYLE"&&!seen.has(e)&&seen.add(e));
+}
+function mark(){tiles().forEach(e=>{e.classList.add("ptk");e.classList.toggle("ptl",ON)})}
+mark();new MutationObserver(()=>{for(const e of tiles())if(!e.classList.contains("ptk")){e.classList.add("ptk");e.classList.toggle("ptl",ON);e.style.setProperty("--ptd","0s")}}).observe(bot,{childList:true});
+
+function setTile(e,on,dur){e.style.setProperty("--ptd",dur*K+"ms");e.classList.toggle("ptl",on)}
+function clearFx(){timers.forEach(clearTimeout);timers=[];layer.textContent="";
+ tiles().forEach(e=>e.getAnimations&&e.getAnimations().forEach(a=>{if(a.id==="ptx")a.cancel()}))}
+function later(ms,fn){timers.push(setTimeout(fn,ms*K))}
+function el(css){const d=document.createElement("div");Object.assign(d.style,css);layer.appendChild(d);return d}
+function anim(e,k,o){o={...o,duration:o.duration*K,delay:(o.delay||0)*K};const a=e.animate(k,o);a.id="ptx";return a}
+
+// geometry: visible part of a tile, its distance from the tap point
+const VW=()=>innerWidth,VH=()=>innerHeight;
+function rectOf(e){const r=e===document.body?{left:0,top:0,right:VW(),bottom:VH()}:e.getBoundingClientRect();
+ return{l:Math.max(0,r.left),t:Math.max(0,r.top),r:Math.min(VW(),r.right),b:Math.min(VH(),r.bottom),off:r.bottom<0||r.top>VH()||r.width===0}}
+function distTo(r,x,y){const dx=Math.max(r.l-x,0,x-r.r),dy=Math.max(r.t-y,0,y-r.b);return Math.hypot(dx,dy)}
+function farCorner(x,y){return Math.max(Math.hypot(x,y),Math.hypot(VW()-x,y),Math.hypot(x,VH()-y),Math.hypot(VW()-x,VH()-y))}
+function noise(e){let h=0;const s=(e.id||e.className||e.tagName)+(e.textContent||"").length;for(const c of s)h=(h*31+c.charCodeAt(0))|0;return((h>>>0)%1000)/1000}
+
+// ---- the transitions ----
+const PUFF=[{transform:"scale(1)",filter:"brightness(1)"},{transform:"scale(1.03)",filter:"brightness(1.03)",offset:.45},{transform:"scale(.993)",offset:.75},{transform:"scale(1)",filter:"brightness(1)"}];
+const SAG=[{transform:"scale(1)"},{transform:"scale(1.008,.972)",offset:.45},{transform:"scale(.998,1.004)",offset:.8},{transform:"scale(1)"}];
+function go(on,from){
+ if(on===ON&&!timers.length)return;
+ ON=on;clearFx();
+ const ts=tiles(),r0=from&&from.getBoundingClientRect?from.getBoundingClientRect():{left:VW()/2,top:60,width:0,height:0};
+ const ox=r0.left+r0.width/2,oy=r0.top+r0.height/2,R=farCorner(ox,oy);
+ const st=reduced()&&STYLE!=="off"?"fade":STYLE;
+ const look=on?LOOK.ptl:LOOK.pm,old=on?LOOK.pm:LOOK.ptl;
+ if(st==="off"){ts.forEach(e=>setTile(e,on,0));return}
+ if(st==="fade"){ts.forEach(e=>setTile(e,on,350));return}
+ if(st==="splash"||st==="combo"){
+  const T=620,puff=st==="combo";
+  ts.forEach(e=>{const r=rectOf(e),d=r.off?R:distTo(r,ox,oy);later((on?d/R:1-d/R)*T,()=>{setTile(e,on,260);
+   if(puff&&!r.off&&e!==document.body)anim(e,on?PUFF:SAG,{duration:on?460:400,easing:"ease-out"})})});
+  if(puff&&on&&typeof haptic==="function")try{haptic()}catch(e){}
+  for(let i=0;i<3;i++){const ring=el({left:ox-R+"px",top:oy-R+"px",width:2*R+"px",height:2*R+"px",borderRadius:"50%",
+    border:(i?1.5:2.5)+"px solid "+(on?look.accent:old.accent),boxSizing:"border-box",opacity:0});
+   anim(ring,on?[{transform:"scale(.02)",opacity:.9},{transform:"scale(1)",opacity:0}]:[{transform:"scale(1)",opacity:0},{transform:"scale(.02)",opacity:.8}],
+    {duration:T+120,delay:i*110,easing:on?"cubic-bezier(.2,.6,.35,1)":"cubic-bezier(.6,0,.8,.4)",fill:"forwards"})}
+  if(on){const drop=el({left:ox-5+"px",top:oy-5+"px",width:"10px",height:"10px",borderRadius:"50%",background:look.accent});
+   anim(drop,[{transform:"translateY(-26px) scale(.6)",opacity:0},{transform:"translateY(0) scale(1)",opacity:1,offset:.5},{transform:"scale(2.2)",opacity:0}],{duration:420,easing:"ease-in",fill:"forwards"})}
+ }
+ if(st==="tide"){
+  const T=950,H=VH();
+  ts.forEach(e=>{const r=rectOf(e),mid=r.off?(r.t<=0?0:H):(r.t+r.b)/2;const f=on?(H-mid)/H:mid/H;later(Math.max(0,Math.min(1,f))*T,()=>setTile(e,on,300))});
+  const c=on?look.accent:old.accent;
+  const w=el({left:"-50%",width:"200%",height:"24px",top:"0"});
+  w.innerHTML=`<svg width="100%" height="24" preserveAspectRatio="none" viewBox="0 0 400 24"><path d="M0 12 Q25 2 50 12 T100 12 T150 12 T200 12 T250 12 T300 12 T350 12 T400 12" fill="none" stroke="${c}" stroke-width="2" vector-effect="non-scaling-stroke"/></svg>`;
+  const band=el({left:0,right:0,height:H+"px",top:"0",background:c,opacity:0});
+  const ys=on?[H,-30]:[-30,H];
+  anim(w,[{transform:`translate(0,${ys[0]}px)`,opacity:.9},{transform:`translate(-12%,${(ys[0]+ys[1])/2}px)`,opacity:.9,offset:.6},{transform:`translate(-25%,${ys[1]}px)`,opacity:0}],{duration:T+150,easing:"cubic-bezier(.35,0,.4,1)",fill:"forwards"});
+  anim(band,on?[{transform:`translateY(${H}px)`,opacity:.10},{transform:"translateY(0)",opacity:0}]:[{transform:`translateY(${-H}px)`,opacity:.10},{transform:"translateY(0)",opacity:0}],{duration:T+150,easing:"cubic-bezier(.35,0,.4,1)",fill:"forwards"});
+  if(on)for(let i=0;i<6;i++){const s=5+noise({id:"b"+i})*7,x=(0.1+0.8*((i*0.37)%1))*VW();
+   const b=el({left:x+"px",top:H+"px",width:s+"px",height:s+"px",borderRadius:"50%",border:"1.5px solid "+c,boxSizing:"border-box"});
+   anim(b,[{transform:"translateY(0)",opacity:0},{transform:`translateY(${-H*0.45}px)`,opacity:.8,offset:.4},{transform:`translateY(${-H*0.9}px) translateX(${i%2?8:-8}px)`,opacity:0}],{duration:T+300,delay:120+i*70,easing:"ease-out",fill:"forwards"})}
+ }
+ if(st==="inflate"){
+  const vis=ts.filter(e=>!rectOf(e).off&&e!==document.body).sort((a,b)=>rectOf(a).t-rectOf(b).t);
+  const step=Math.min(55,420/Math.max(1,vis.length));
+  setTile(document.body,on,500);
+  ts.filter(e=>e!==document.body&&rectOf(e).off).forEach(e=>later(vis.length*step,()=>setTile(e,on,0)));
+  vis.forEach((e,i)=>later(i*step,()=>{
+   const k=on?PUFF:SAG;
+   anim(e,k,{duration:on?460:400,easing:"ease-out"});later(on?180:120,()=>setTile(e,on,220))}));
+  if(on&&typeof haptic==="function")try{haptic()}catch(e){}
+ }
+ if(st==="wet"){
+  const T=900;
+  ts.forEach(e=>{const r=rectOf(e),d=r.off?R:distTo(r,ox,oy);const f=Math.min(1,(d+noise(e)*0.3*R)/(R*1.15));later((on?f:1-f)*T,()=>setTile(e,on,560))});
+  const c=on?look.accent:old.accent;
+  const blob=el({left:ox-R+"px",top:oy-R+"px",width:2*R+"px",height:2*R+"px",borderRadius:"46% 54% 58% 42% / 52% 44% 56% 48%",
+   background:`radial-gradient(circle, ${c}33 0%, ${c}1c 45%, transparent 68%)`});
+  anim(blob,on?[{transform:"scale(.03) rotate(0deg)",opacity:1},{transform:"scale(1) rotate(25deg)",opacity:1,offset:.75},{transform:"scale(1.05) rotate(30deg)",opacity:0}]
+            :[{transform:"scale(1.05) rotate(30deg)",opacity:0},{transform:"scale(1) rotate(25deg)",opacity:1,offset:.2},{transform:"scale(.04) rotate(0deg)",opacity:.9}],
+   {duration:T+250,easing:on?"cubic-bezier(.25,.6,.35,1)":"cubic-bezier(.6,0,.75,.5)",fill:"forwards"});
+  if(!on)later(T+150,()=>{const m=el({left:ox-24+"px",top:oy-24+"px",width:"48px",height:"48px",borderRadius:"48% 52% 50% 50%",border:"1.5px solid "+old.accent,boxSizing:"border-box",opacity:0});
+   anim(m,[{opacity:0},{opacity:.45,offset:.2},{opacity:0}],{duration:900,easing:"ease-out",fill:"forwards"})});
+ }
+ const last=st==="splash"||st==="combo"?1100:st==="tide"?1500:st==="inflate"?1000:1600;
+ later(last,()=>{timers=[];layer.textContent=""});
+}
+
+// ---- follow the character ----
+const cs=$("charSel"),isPT=()=>typeof CHAR!=="undefined"&&CHAR==="pooltoy";
+let lastPT=isPT();
+cs.addEventListener("change",()=>{lastPT=isPT();go(lastPT,cs)});
+setInterval(()=>{const pt=isPT();if(pt!==lastPT){lastPT=pt;go(pt,cs)}},700);   // in case the character changes some other way
+if(lastPT){ON=true;mark()}
+})();
+</script>
+<!-- POOLTOY LOOK TEST end -->
+
 </body>
 </html>
