@@ -661,6 +661,8 @@ function applyCollapsed(){document.querySelectorAll("fieldset").forEach(fs=>{con
 const view=$("view"),ptrs=new Map();let gesture=null;
 view.addEventListener("pointerdown",e=>{
  if(ptrs.size>=2)return; // ignore stray extra fingers
+ if(ptrs.size===0&&STICK.id!==null&&STICK.id!==e.pointerId&&performance.now()-(STICK.t0||0)<300&&(STICK.moved||0)<12){
+  const id=STICK.id,x=STICK.lx,y=STICK.ly;STICK.drop();try{view.setPointerCapture(id)}catch(_){}ptrs.set(id,{x,y})}   // joystick finger + this one = a pinch
  view.setPointerCapture(e.pointerId);ptrs.set(e.pointerId,{x:e.clientX,y:e.clientY});
  if(e.pointerType==="mouse"&&(e.button===1||e.button===2||e.shiftKey)){e.preventDefault();gesture="pan";return} // desktop: right / middle / shift-drag pans
  if(ptrs.size===1&&!gesture){gesture="orbit";pullArm(e)}
@@ -2342,9 +2344,12 @@ document.addEventListener("visibilitychange",()=>{if(document.hidden)GKEYS.clear
 // lands; the "Tap and drag here to move." box fades after the first touch and comes back when the page is reloaded ----
 const STICK={x:0,y:0,on:false,id:null,ang:null,turn:0,last:0,cx:0,cy:0};
 {const zn=$("stickZone"),st=$("stick"),kn=$("stickKnob"),R=48;   // R: how far the knob travels from the centre (px)
- const stop=e=>e.stopPropagation();   // the view mustn't orbit, reset or flash for joystick touches
- for(const ev of ["pointerdown","pointermove","pointerup","pointercancel","click","dblclick","wheel","contextmenu"])zn.addEventListener(ev,stop);
+ // the view mustn't orbit, reset or flash for joystick touches; except a finger that lands here while another
+ // finger is already on the view: it joins that pinch (the event goes on to the view), the joystick stays put
+ const joins=e=>e.type==="pointerdown"&&STICK.id===null&&ptrs.size>0;
+ for(const ev of ["pointerdown","pointermove","pointerup","pointercancel","click","dblclick","wheel","contextmenu"])zn.addEventListener(ev,e=>{if(joins(e))e.ptJoin=true;else e.stopPropagation()});
  const set=e=>{let dx=e.clientX-STICK.cx,dy=e.clientY-STICK.cy;const L=Math.hypot(dx,dy);
+  STICK.lx=e.clientX;STICK.ly=e.clientY;STICK.moved=Math.max(STICK.moved||0,L);
   if(L>R){dx*=R/L;dy*=R/L}kn.style.transform=`translate(${dx}px,${dy}px)`;STICK.x=dx/R;STICK.y=-dy/R;
   // spinning the stick round: add up how far the knob has gone round the centre. Forgiving, because thumb circles
   // wobble: it counts from 30% out, and a short dip towards the centre (under 0.4 s) keeps the count
@@ -2352,12 +2357,15 @@ const STICK={x:0,y:0,on:false,id:null,ang:null,turn:0,last:0,cx:0,cy:0};
   if(m>0.3){const a=Math.atan2(STICK.y,STICK.x);if(STICK.ang!==null){let d=a-STICK.ang;d=Math.atan2(Math.sin(d),Math.cos(d));
     if(Math.sign(d)!==Math.sign(STICK.turn)&&Math.abs(STICK.turn)>0.5)STICK.turn*=0.3;STICK.turn+=d}STICK.ang=a;STICK.last=now}
   else{STICK.ang=null;if(now-STICK.last>400)STICK.turn=0}};
- zn.addEventListener("pointerdown",e=>{if(STICK.id!==null||scrubDrag)return;STICK.id=e.pointerId;STICK.on=true;try{zn.setPointerCapture(e.pointerId)}catch(_){}
+ zn.addEventListener("pointerdown",e=>{if(e.ptJoin||STICK.id!==null||scrubDrag)return;STICK.id=e.pointerId;STICK.on=true;try{zn.setPointerCapture(e.pointerId)}catch(_){}
   zn.classList.remove("fresh");const r=zn.getBoundingClientRect();STICK.cx=e.clientX;STICK.cy=e.clientY;
+  STICK.t0=performance.now();STICK.moved=0;STICK.lx=e.clientX;STICK.ly=e.clientY;
   st.style.left=(e.clientX-r.left)+"px";st.style.top=(e.clientY-r.top)+"px";st.classList.add("show");
   if(HPOS>=0)hBranch();if(!playing)$("play").onclick();set(e)});
  zn.addEventListener("pointermove",e=>{if(e.pointerId===STICK.id)set(e)});
- const end=e=>{if(e.pointerId!==STICK.id)return;STICK.id=null;STICK.on=false;STICK.x=STICK.y=0;STICK.ang=null;STICK.turn=0;kn.style.transform="";st.classList.remove("show")};
+ const drop=()=>{STICK.id=null;STICK.on=false;STICK.x=STICK.y=0;STICK.ang=null;STICK.turn=0;kn.style.transform="";st.classList.remove("show")};
+ const end=e=>{if(e.pointerId!==STICK.id)return;drop()};
+ STICK.drop=drop;   // the view takes the finger over when a pinch starts right after it (see the view's pointerdown)
  zn.addEventListener("pointerup",end);zn.addEventListener("pointercancel",end)}
 // the secret: about one and a half turns of the stick starts a Spin; it winds down once the circling stops
 let STICKSPIN=false;
