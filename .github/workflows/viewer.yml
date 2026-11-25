@@ -1,10 +1,13 @@
-# Builds the Mixmo history viewer and publishes it to GitHub Pages
-# (https://liangforstudy.github.io/mixmo/).
+# Publishes Mixmo to GitHub Pages (https://liangforstudy.github.io/mixmo/):
+#   /              newest Mixmo on main
+#   /viewer/viewer.html  the history viewer (every commit on every branch)
+#   /<branch>/     newest Mixmo on another branch, e.g. /pooltoy/, with that
+#                  branch's other pages by name (/pooltoy/pooltoy-water-lab.html)
 #
 # Runs on every push to main, every 6 hours (to pick up pushes to the other
 # branches, such as pooltoy), and by hand from the Actions tab
 # ("Run workflow"). It commits nothing: the version list is built fresh and
-# published together with viewer/index.html.
+# published together with the pages.
 name: History viewer
 
 on:
@@ -30,13 +33,10 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0          # every commit on every branch
-      - name: Build the version list
+      - name: Build the site (Mixmo, branch folders, viewer, version list)
         run: |
-          mkdir -p _site
-          python3 viewer/build_index.py > _site/index.json
-          cp viewer/index.html _site/index.html
-          touch _site/.nojekyll
-          python3 -c "import json; d=json.load(open('_site/index.json')); print(len(d['commits']), 'commits on', [b['name'] for b in d['branches']])"
+          python3 viewer/build_site.py _site
+          python3 -c "import json; d=json.load(open('_site/viewer/index.json')); print(len(d['commits']), 'commits on', [b['name'] for b in d['branches']])"
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:

@@ -3,11 +3,14 @@ The curious gait of a 3 legged sergal
 
 Mixmo (first called the Gait Workshop) is a single-file web app for procedural walk cycles: the three-legged sergal OC, a regular sergal, a six-limbed robot with creature skins, and imported GLB models that copy his moves. It runs in the browser with a 2D view and a three.js 3D view, on iPhone and on desktop.
 
-## History viewer
+## Live pages
 
-**[liangforstudy.github.io/mixmo](https://liangforstudy.github.io/mixmo/)** shows Mixmo as it was at any commit, on any branch: step through versions with ◀ ▶, tap a dot on the timeline, switch between `main`, `pooltoy` and `body-move-sketcher`, and read each commit's description. Links like `…/mixmo/?v=98bf05e` open one version directly.
+- **[liangforstudy.github.io/mixmo](https://liangforstudy.github.io/mixmo/)**: the newest Mixmo on `main`.
+- **[…/mixmo/pooltoy/](https://liangforstudy.github.io/mixmo/pooltoy/)**: the newest Mixmo on `pooltoy`; the Water Lab is at [`…/pooltoy/pooltoy-water-lab.html`](https://liangforstudy.github.io/mixmo/pooltoy/pooltoy-water-lab.html).
+- **[…/mixmo/body-move-sketcher/body-move-sketcher.html](https://liangforstudy.github.io/mixmo/body-move-sketcher/body-move-sketcher.html)**: the body move sketcher.
+- **[…/mixmo/viewer/viewer.html](https://liangforstudy.github.io/mixmo/viewer/viewer.html)**: the history viewer. It shows Mixmo as it was at any commit, on any branch: step through versions with ◀ ▶, tap a dot on the timeline, switch branches, and read each commit's description. Links like `…/viewer/viewer.html?v=98bf05e` open one version directly.
 
-It is `viewer/` plus `.github/workflows/viewer.yml`, which rebuilds the version list on every push to main, every 6 hours (for the other branches) and when run by hand from the Actions tab.
+Every branch gets a folder like `pooltoy/` with its newest pages. `.github/workflows/viewer.yml` rebuilds the site on every push to main, every 6 hours (that's when pushes to the other branches show up) and when run by hand from the Actions tab.
 
 ## Files
 
@@ -15,7 +18,7 @@ It is `viewer/` plus `.github/workflows/viewer.yml`, which rebuilds the version 
 - `tests/`: anti-regression tests (Python 3 + Playwright + Chromium). See `tests/README.md`.
 - `roadmap.md`: the plan, the robot rules and hand-off notes.
 - `skills/golden-frame-check/`: how to run and re-record the golden-frame tests.
-- `viewer/`: the history viewer (`index.html`) and the script that builds its version list (`build_index.py`).
+- `viewer/`: the history viewer (`viewer.html`), the script that builds its version list (`build_index.py`) and the one that lays out the site (`build_site.py`).
 
 ## Branches
 
