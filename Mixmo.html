@@ -4056,7 +4056,7 @@ return LAB;
 @property --tx{syntax:"<color>";inherits:true;initial-value:#fffaf0}
 /* each "tile" (a block of the page) carries its own look, so a transition can sweep across the page block by block */
 .ptk{--ink:#3a2a1c;--paper:#f4e8cf;--paper2:#ead9b6;--accent:#8a3b2a;--gold:#b8862f;--panel:#f8eed8;--split:#d8c39a;--pill:#7d6a52;--v1:#fbf3df;--v2:#e8d3a8;--tx:#fffaf0;
- transition-property:--ink,--paper,--paper2,--accent,--gold,--panel,--split,--pill,--v1,--v2,--tx;transition-duration:var(--ptd,.35s);transition-timing-function:ease}
+ transition-property:--ink,--paper,--paper2,--accent,--gold,--panel,--split,--pill,--v1,--v2,--tx,--zone;transition-duration:var(--ptd,.35s);transition-timing-function:ease}
 .ptk.ptl{--ink:#12303b;--paper:#e9f5f8;--paper2:#d5ebf1;--accent:#0a7ea4;--gold:#3a9fbf;--panel:#f6fbfc;--split:#bfe0e9;--pill:#5b8796;--v1:#f6fcfd;--v2:#cde8f0;--tx:#fbfeff}
 /* the fixed colours of the page, made switchable */
 fieldset{background:var(--panel)}
@@ -4066,6 +4066,11 @@ fieldset{background:var(--panel)}
 #split.dragging::before{background:#2f7de1}
 #view{background:radial-gradient(ellipse at 50% 35%,var(--v1),var(--v2))}
 textarea{background:var(--tx)}
+@property --zone{syntax:"<color>";inherits:true;initial-value:rgba(251,246,234,.45)}
+.ptk{--zone:rgba(251,246,234,.45)}.ptk.ptl{--zone:rgba(246,251,252,.5)}
+#stickZone.fresh{background:var(--zone)}
+#ptxTune .sl{margin:0}
+#ptxNote{color:var(--accent)}
 #ptfx{position:fixed;inset:0;pointer-events:none;z-index:60;overflow:hidden}
 #ptfx>*{position:absolute;pointer-events:none}
 #ptxBox .sub{margin:4px 0 0}
@@ -4078,20 +4083,41 @@ const $=id=>document.getElementById(id);
 const LOOK={
  ptl:{accent:"#0a7ea4",paper:"#e9f5f8",ink:"#12303b"},
  pm:{accent:"#8a3b2a",paper:"#f4e8cf",ink:"#3a2a1c"}};
-const STYLES=[["combo","Splash + inflate"],["splash","Splash ripple"],["tide","Tide"],["inflate","Inflate"],["wet","Wet paper"],["fade","Plain fade"],["off","Off (instant)"]];
-let STYLE="combo";try{const s=localStorage.getItem("mixmoPtLook");if(STYLES.some(x=>x[0]===s))STYLE=s}catch(e){}
+const STYLES=[["tidepuff","Tide + inflate"],["tide","Tide"],["combo","Splash + inflate"],["splash","Splash ripple"],["inflate","Inflate"],["wet","Wet paper"],["fade","Plain fade"],["off","Off (instant)"]];
+let STYLE="tidepuff";try{const s=localStorage.getItem("mixmoPtLook");if(STYLES.some(x=>x[0]===s))STYLE=s}catch(e){}
 const q=new URLSearchParams(location.search).get("tx");if(STYLES.some(x=>x[0]===q))STYLE=q;
 let ON=false,timers=[];
 const K=Math.max(1,Math.min(20,+new URLSearchParams(location.search).get("txslow")||1));   // ?txslow=8: slow motion, to study a transition
 const reduced=()=>matchMedia("(prefers-reduced-motion: reduce)").matches;
+const CAN=!!(window.CSS&&CSS.registerProperty)&&typeof Element.prototype.animate==="function";   // without these the colours can't animate: switch instantly
+
+// ---- inflate tuning (saved) ----
+const TUNE0={puff:3,time:460,settle:0.7,glow:3,sag:2.8,step:55};
+let TUNE={...TUNE0};try{Object.assign(TUNE,JSON.parse(localStorage.getItem("mixmoPtPuff")||"{}"))}catch(e){}
+const TUNE_UI=[["puff","Puff size",0,10,0.5,"%"],["time","Puff time",150,1200,10," ms"],["settle","Settle bounce",0,4,0.1,"%"],
+ ["glow","Shine",0,12,0.5,"%"],["sag","Squeeze / sag",0,10,0.2,"%"],["step","Delay between blocks (Inflate only)",0,150,5," ms"]];
+function puffKeys(){const p=TUNE.puff/100,u=TUNE.settle/100,g=TUNE.glow/100;
+ return[{transform:"scale(1)",filter:"brightness(1)"},{transform:`scale(${1+p})`,filter:`brightness(${1+g})`,offset:.45},{transform:`scale(${1-u})`,offset:.75},{transform:"scale(1)",filter:"brightness(1)"}]}
+function sagKeys(){const q=TUNE.sag/100,u=TUNE.settle/100;
+ return[{transform:"scale(1)"},{transform:`scale(${1+q*0.3},${1-q})`,offset:.45},{transform:`scale(${1-u*0.3},${1+u*0.6})`,offset:.8},{transform:"scale(1)"}]}
 
 // ---- the picker (top of the controls) ----
 const box=document.createElement("fieldset");box.id="ptxBox";
-box.innerHTML='<legend>Pooltoy look (test)</legend><div class="row" style="margin:6px 0;gap:6px;flex-wrap:nowrap"><span class="lbl">Transition:</span><select id="ptxSel" class="pick" aria-label="Transition"></select><button id="ptxTry">Try it</button></div><p class="sub">Plays when the character changes to Pooltoy and back. Try it previews the look without changing character.</p>';
+box.innerHTML='<legend>Pooltoy look (test)</legend><div class="row" style="margin:6px 0;gap:6px;flex-wrap:nowrap"><span class="lbl">Transition:</span><select id="ptxSel" class="pick" aria-label="Transition"></select><button id="ptxTry">Try it</button></div><p class="sub">Plays when the character changes to Pooltoy and back. Try it previews the look without changing character.</p><p class="sub" id="ptxNote" hidden></p><div id="ptxTune"><div class="row" style="margin:8px 0 0;gap:6px"><span class="lbl" style="flex:1">Inflate tuning</span><button id="ptxReset">Reset</button></div></div>';
 const bot=$("bot");bot.insertBefore(box,bot.firstChild);
 const sel=$("ptxSel");sel.innerHTML=STYLES.map(([k,n])=>`<option value="${k}">${n}</option>`).join("");sel.value=STYLE;
 sel.onchange=()=>{STYLE=sel.value;try{localStorage.setItem("mixmoPtLook",STYLE)}catch(e){}};
 $("ptxTry").onclick=e=>go(!ON,e.currentTarget);
+if(!CAN){const n=$("ptxNote");n.hidden=false;n.textContent="This browser can't animate the colours, so the look switches instantly (like Off)."}
+const tuneBox=$("ptxTune");
+TUNE_UI.forEach(([k,l,mn,mx,st,u])=>{const d=document.createElement("div");d.className="sl";
+ d.innerHTML=`<label>${l}</label><input type="range" min="${mn}" max="${mx}" step="${st}" value="${TUNE[k]}" aria-label="${l}"><span class="val"></span>`;
+ const r=d.querySelector("input"),v=d.querySelector(".val");const show=()=>v.textContent=(+r.value)+u;show();
+ r.oninput=()=>{TUNE[k]=+r.value;show();try{localStorage.setItem("mixmoPtPuff",JSON.stringify(TUNE))}catch(e){}};
+ r.onchange=()=>{if(STYLE==="tidepuff"||STYLE==="combo"||STYLE==="inflate")go(!ON,$("ptxTry"))};   // let go of a slider: see it
+ d.dataset.k=k;tuneBox.appendChild(d)});
+$("ptxReset").onclick=()=>{TUNE={...TUNE0};try{localStorage.removeItem("mixmoPtPuff")}catch(e){}
+ tuneBox.querySelectorAll(".sl").forEach(d=>{const r=d.querySelector("input");r.value=TUNE[d.dataset.k];r.oninput()})};
 
 const layer=document.createElement("div");layer.id="ptfx";document.body.appendChild(layer);
 
@@ -4106,7 +4132,19 @@ function tiles(){
 function mark(){tiles().forEach(e=>{e.classList.add("ptk");e.classList.toggle("ptl",ON)})}
 mark();new MutationObserver(()=>{for(const e of tiles())if(!e.classList.contains("ptk")){e.classList.add("ptk");e.classList.toggle("ptl",ON);e.style.setProperty("--ptd","0s")}}).observe(bot,{childList:true});
 
-function setTile(e,on,dur){e.style.setProperty("--ptd",dur*K+"ms");e.classList.toggle("ptl",on)}
+// Mixmo's own 3D ground (every character stands on it): parchment, or the Water Lab's floor colours
+const F3={pm:{ground:0xe9d7b3,grid:0x3a2a1c,gridO:.18,shade:0x3a2a1c,fog:0xf4e8cf},ptl:{ground:0xcfe6ec,grid:0x12303b,gridO:.16,shade:0x12303b,fog:0xe9f5f8}};
+let f3t=null,f3v=0;   // 0 = parchment, 1 = pool
+function floor3(on,ms){if(typeof R3==="undefined")return;cancelAnimationFrame(f3t);const a=f3v,b=on?1:0,t0=performance.now();
+ const step=now=>{const u=ms>0?Math.min(1,(now-t0)/ms):1;f3v=a+(b-a)*(u<.5?2*u*u:1-Math.pow(-2*u+2,2)/2);paint3();if(u<1)f3t=requestAnimationFrame(step);else f3t=null};f3t=requestAnimationFrame(step)}
+function paint3(){const R=R3;if(!R||!R.T||!R.MAT)return;const T=R.T,mix=(x,y)=>new T.Color(x).lerp(new T.Color(y),f3v);
+ for(const k in R.MAT)if(R.MAT[k].ground)R.MAT[k].ground.color.copy(mix(F3.pm.ground,F3.ptl.ground));
+ if(R.grid){R.grid.material.color.copy(mix(F3.pm.grid,F3.ptl.grid));R.grid.material.opacity=F3.pm.gridO+(F3.ptl.gridO-F3.pm.gridO)*f3v}
+ if(R.shadows)R.shadows.material.color.copy(mix(F3.pm.shade,F3.ptl.shade));
+ if(R.sc&&R.sc.fog)R.sc.fog.color.copy(mix(F3.pm.fog,F3.ptl.fog));
+ if(typeof PDIRTY!=="undefined")PDIRTY++}
+setInterval(()=>{const v=$("view"),t=v&&v.closest(".ptk:not(body)"),want=t&&t.classList.contains("ptl")?1:0;if(f3v!==want&&!f3t)floor3(!!want,0)},1000);   // the 3D scene may be built after the look was set: catch up with the view's block
+function setTile(e,on,dur){if(e!==document.body&&(e.id==="view"||e.querySelector&&e.querySelector("#view")))floor3(on,dur*K);e.style.setProperty("--ptd",dur*K+"ms");e.classList.toggle("ptl",on)}
 function clearFx(){timers.forEach(clearTimeout);timers=[];layer.textContent="";
  tiles().forEach(e=>e.getAnimations&&e.getAnimations().forEach(a=>{if(a.id==="ptx")a.cancel()}))}
 function later(ms,fn){timers.push(setTimeout(fn,ms*K))}
@@ -4122,21 +4160,20 @@ function farCorner(x,y){return Math.max(Math.hypot(x,y),Math.hypot(VW()-x,y),Mat
 function noise(e){let h=0;const s=(e.id||e.className||e.tagName)+(e.textContent||"").length;for(const c of s)h=(h*31+c.charCodeAt(0))|0;return((h>>>0)%1000)/1000}
 
 // ---- the transitions ----
-const PUFF=[{transform:"scale(1)",filter:"brightness(1)"},{transform:"scale(1.03)",filter:"brightness(1.03)",offset:.45},{transform:"scale(.993)",offset:.75},{transform:"scale(1)",filter:"brightness(1)"}];
-const SAG=[{transform:"scale(1)"},{transform:"scale(1.008,.972)",offset:.45},{transform:"scale(.998,1.004)",offset:.8},{transform:"scale(1)"}];
+
 function go(on,from){
  if(on===ON&&!timers.length)return;
  ON=on;clearFx();
  const ts=tiles(),r0=from&&from.getBoundingClientRect?from.getBoundingClientRect():{left:VW()/2,top:60,width:0,height:0};
  const ox=r0.left+r0.width/2,oy=r0.top+r0.height/2,R=farCorner(ox,oy);
- const st=reduced()&&STYLE!=="off"?"fade":STYLE;
+ const st=!CAN?"off":reduced()&&STYLE!=="off"?"fade":STYLE;
  const look=on?LOOK.ptl:LOOK.pm,old=on?LOOK.pm:LOOK.ptl;
  if(st==="off"){ts.forEach(e=>setTile(e,on,0));return}
  if(st==="fade"){ts.forEach(e=>setTile(e,on,350));return}
  if(st==="splash"||st==="combo"){
   const T=620,puff=st==="combo";
   ts.forEach(e=>{const r=rectOf(e),d=r.off?R:distTo(r,ox,oy);later((on?d/R:1-d/R)*T,()=>{setTile(e,on,260);
-   if(puff&&!r.off&&e!==document.body)anim(e,on?PUFF:SAG,{duration:on?460:400,easing:"ease-out"})})});
+   if(puff&&!r.off&&e!==document.body)anim(e,on?puffKeys():sagKeys(),{duration:on?TUNE.time:TUNE.time*0.87,easing:"ease-out"})})});
   if(puff&&on&&typeof haptic==="function")try{haptic()}catch(e){}
   for(let i=0;i<3;i++){const ring=el({left:ox-R+"px",top:oy-R+"px",width:2*R+"px",height:2*R+"px",borderRadius:"50%",
     border:(i?1.5:2.5)+"px solid "+(on?look.accent:old.accent),boxSizing:"border-box",opacity:0});
@@ -4145,9 +4182,10 @@ function go(on,from){
   if(on){const drop=el({left:ox-5+"px",top:oy-5+"px",width:"10px",height:"10px",borderRadius:"50%",background:look.accent});
    anim(drop,[{transform:"translateY(-26px) scale(.6)",opacity:0},{transform:"translateY(0) scale(1)",opacity:1,offset:.5},{transform:"scale(2.2)",opacity:0}],{duration:420,easing:"ease-in",fill:"forwards"})}
  }
- if(st==="tide"){
-  const T=950,H=VH();
-  ts.forEach(e=>{const r=rectOf(e),mid=r.off?(r.t<=0?0:H):(r.t+r.b)/2;const f=on?(H-mid)/H:mid/H;later(Math.max(0,Math.min(1,f))*T,()=>setTile(e,on,300))});
+ if(st==="tide"||st==="tidepuff"){
+  const T=950,H=VH(),puff=st==="tidepuff";
+  ts.forEach(e=>{const r=rectOf(e),mid=r.off?(r.t<=0?0:H):(r.t+r.b)/2;const f=on?(H-mid)/H:mid/H;later(Math.max(0,Math.min(1,f))*T,()=>{setTile(e,on,300);
+   if(puff&&!r.off&&e!==document.body)anim(e,on?puffKeys():sagKeys(),{duration:on?TUNE.time:TUNE.time*0.87,easing:"ease-out"})})});
   const c=on?look.accent:old.accent;
   const w=el({left:"-50%",width:"200%",height:"24px",top:"0"});
   w.innerHTML=`<svg width="100%" height="24" preserveAspectRatio="none" viewBox="0 0 400 24"><path d="M0 12 Q25 2 50 12 T100 12 T150 12 T200 12 T250 12 T300 12 T350 12 T400 12" fill="none" stroke="${c}" stroke-width="2" vector-effect="non-scaling-stroke"/></svg>`;
@@ -4161,12 +4199,11 @@ function go(on,from){
  }
  if(st==="inflate"){
   const vis=ts.filter(e=>!rectOf(e).off&&e!==document.body).sort((a,b)=>rectOf(a).t-rectOf(b).t);
-  const step=Math.min(55,420/Math.max(1,vis.length));
+  const step=Math.min(TUNE.step,420/Math.max(1,vis.length));
   setTile(document.body,on,500);
   ts.filter(e=>e!==document.body&&rectOf(e).off).forEach(e=>later(vis.length*step,()=>setTile(e,on,0)));
   vis.forEach((e,i)=>later(i*step,()=>{
-   const k=on?PUFF:SAG;
-   anim(e,k,{duration:on?460:400,easing:"ease-out"});later(on?180:120,()=>setTile(e,on,220))}));
+   anim(e,on?puffKeys():sagKeys(),{duration:on?TUNE.time:TUNE.time*0.87,easing:"ease-out"});later(on?180:120,()=>setTile(e,on,220))}));
   if(on&&typeof haptic==="function")try{haptic()}catch(e){}
  }
  if(st==="wet"){
@@ -4181,7 +4218,7 @@ function go(on,from){
   if(!on)later(T+150,()=>{const m=el({left:ox-24+"px",top:oy-24+"px",width:"48px",height:"48px",borderRadius:"48% 52% 50% 50%",border:"1.5px solid "+old.accent,boxSizing:"border-box",opacity:0});
    anim(m,[{opacity:0},{opacity:.45,offset:.2},{opacity:0}],{duration:900,easing:"ease-out",fill:"forwards"})});
  }
- const last=st==="splash"||st==="combo"?1100:st==="tide"?1500:st==="inflate"?1000:1600;
+ const last=st==="splash"||st==="combo"?1100:st==="tide"||st==="tidepuff"?1700:st==="inflate"?1000:1600;
  later(last,()=>{timers=[];layer.textContent=""});
 }
 
